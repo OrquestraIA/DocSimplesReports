@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://SEU_USUARIO.github.io/docSimplesReports",
+  "homepage": "https://OrquestraIA.github.io/DocSimplesReports",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -12,7 +12,10 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "docx": "^9.5.1",
+    "file-saver": "^2.0.5",
     "firebase": "^12.7.0",
+    "jspdf": "^3.0.4",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2 } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
 import GherkinGeneratorPage from './pages/GherkinGeneratorPage'
 import PartitionTablePage from './pages/PartitionTablePage'
+import LoginPage from './pages/LoginPage'
 import {
   addTestDocument as addTestDocumentDB,
   updateTestDocument as updateTestDocumentDB,
@@ -14,10 +15,12 @@ import {
   addRequirement as addRequirementDB,
   updateRequirement as updateRequirementDB,
   deleteRequirement as deleteRequirementDB,
-  subscribeToRequirements
+  subscribeToRequirements,
+  onAuthChange,
+  logout
 } from './firebase'
 
-function Navigation() {
+function Navigation({ user, onLogout }) {
   const [isOpen, setIsOpen] = useState(false)
   const location = useLocation()
 
@@ -35,10 +38,8 @@ function Navigation() {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                <FileText className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-bold text-xl text-gray-900">DocSimples</span>
+              <img src="/DocSimplesReports/logo.jpg" alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
+              <span className="font-bold text-xl text-gray-900">DocSimples Reports</span>
             </Link>
           </div>
 
@@ -62,6 +63,18 @@ function Navigation() {
                 </Link>
               )
             })}
+          </div>
+
+          {/* User info and logout */}
+          <div className="hidden md:flex items-center space-x-3">
+            <span className="text-sm text-gray-600">{user?.email}</span>
+            <button
+              onClick={onLogout}
+              className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sair</span>
+            </button>
           </div>
 
           {/* Mobile menu button */}
@@ -97,6 +110,16 @@ function Navigation() {
                 </Link>
               )
             })}
+            <div className="border-t border-gray-200 mt-2 pt-2">
+              <p className="px-3 py-1 text-xs text-gray-500">{user?.email}</p>
+              <button
+                onClick={onLogout}
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 w-full"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sair</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -105,12 +128,27 @@ function Navigation() {
 }
 
 function App() {
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const [testDocuments, setTestDocuments] = useState([])
   const [requirements, setRequirements] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    const unsubscribeAuth = onAuthChange((currentUser) => {
+      setUser(currentUser)
+      setAuthLoading(false)
+    })
+    return () => unsubscribeAuth()
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
     let unsubscribeDocs, unsubscribeReqs
     
     try {
@@ -132,7 +170,15 @@ function App() {
       if (unsubscribeDocs) unsubscribeDocs()
       if (unsubscribeReqs) unsubscribeReqs()
     }
-  }, [])
+  }, [user])
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err)
+    }
+  }
 
   const addTestDocument = async (doc) => {
     try {
@@ -183,6 +229,21 @@ function App() {
     }
   }
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-2" />
+          <p className="text-gray-600">Verificando autenticação...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <LoginPage onLogin={() => {}} />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -208,7 +269,7 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
-        <Navigation />
+        <Navigation user={user} onLogout={handleLogout} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Routes>
             <Route path="/" element={<HomePage testDocuments={testDocuments} requirements={requirements} />} />

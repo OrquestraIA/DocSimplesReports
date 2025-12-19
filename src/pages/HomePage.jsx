@@ -1,10 +1,56 @@
 import { Link } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, ArrowRight, CheckCircle2, Clock } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, ArrowRight, CheckCircle2, Clock, XCircle, AlertTriangle, TrendingUp } from 'lucide-react'
 
 export default function HomePage({ testDocuments, requirements }) {
   const pendingTests = testDocuments.filter(d => d.status === 'pendente').length
   const approvedTests = testDocuments.filter(d => d.status === 'aprovado').length
   const failedTests = testDocuments.filter(d => d.status === 'reprovado').length
+  const totalTests = testDocuments.length
+  
+  // Calcular progresso
+  const progressPercent = totalTests > 0 ? Math.round(((approvedTests + failedTests) / totalTests) * 100) : 0
+  const approvalRate = totalTests > 0 ? Math.round((approvedTests / totalTests) * 100) : 0
+
+  // Agrupar por módulo/feature
+  const testsByModule = testDocuments.reduce((acc, doc) => {
+    const module = doc.module || doc.feature || 'Sem módulo'
+    if (!acc[module]) {
+      acc[module] = { total: 0, approved: 0, failed: 0, pending: 0 }
+    }
+    acc[module].total++
+    if (doc.status === 'aprovado') acc[module].approved++
+    else if (doc.status === 'reprovado') acc[module].failed++
+    else acc[module].pending++
+    return acc
+  }, {})
+
+  // Testes reprovados
+  const failedTestsList = testDocuments.filter(d => d.status === 'reprovado')
+
+  // Timeline - ordenar por data
+  const sortedTests = [...testDocuments].sort((a, b) => 
+    new Date(b.createdAt) - new Date(a.createdAt)
+  ).slice(0, 8)
+
+  // Agrupar timeline por data
+  const groupByDate = (tests) => {
+    const groups = {}
+    const today = new Date().toDateString()
+    const yesterday = new Date(Date.now() - 86400000).toDateString()
+    
+    tests.forEach(test => {
+      const testDate = new Date(test.createdAt).toDateString()
+      let label = new Date(test.createdAt).toLocaleDateString('pt-BR')
+      if (testDate === today) label = 'Hoje'
+      else if (testDate === yesterday) label = 'Ontem'
+      
+      if (!groups[label]) groups[label] = []
+      groups[label].push(test)
+    })
+    return groups
+  }
+
+  const timelineGroups = groupByDate(sortedTests)
 
   const stats = [
     { label: 'Total de Testes', value: testDocuments.length, color: 'bg-blue-500' },
@@ -67,6 +113,167 @@ export default function HomePage({ testDocuments, requirements }) {
           </div>
         ))}
       </div>
+
+      {/* Dashboard de Progresso */}
+      {totalTests > 0 && (
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Progresso Geral */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary-600" />
+                Progresso da Homologação
+              </h3>
+              <span className="text-2xl font-bold text-primary-600">{progressPercent}%</span>
+            </div>
+            
+            {/* Barra de progresso */}
+            <div className="h-3 bg-gray-200 rounded-full overflow-hidden mb-4">
+              <div className="h-full flex">
+                <div 
+                  className="bg-green-500 transition-all duration-500" 
+                  style={{ width: `${totalTests > 0 ? (approvedTests / totalTests) * 100 : 0}%` }}
+                />
+                <div 
+                  className="bg-red-500 transition-all duration-500" 
+                  style={{ width: `${totalTests > 0 ? (failedTests / totalTests) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-green-700">{approvedTests}</p>
+                <p className="text-xs text-green-600">Aprovados</p>
+              </div>
+              <div className="p-2 bg-red-50 rounded-lg">
+                <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-red-700">{failedTests}</p>
+                <p className="text-xs text-red-600">Reprovados</p>
+              </div>
+              <div className="p-2 bg-yellow-50 rounded-lg">
+                <Clock className="w-5 h-5 text-yellow-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-yellow-700">{pendingTests}</p>
+                <p className="text-xs text-yellow-600">Pendentes</p>
+              </div>
+            </div>
+
+            {approvalRate > 0 && (
+              <p className="text-sm text-gray-500 mt-4 text-center">
+                Taxa de aprovação: <span className="font-semibold text-green-600">{approvalRate}%</span>
+              </p>
+            )}
+          </div>
+
+          {/* Progresso por Módulo */}
+          <div className="card">
+            <h3 className="font-semibold text-gray-900 mb-4">Progresso por Módulo</h3>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {Object.entries(testsByModule).map(([module, data]) => {
+                const moduleProgress = Math.round(((data.approved + data.failed) / data.total) * 100)
+                const moduleApproval = data.total > 0 ? Math.round((data.approved / data.total) * 100) : 0
+                return (
+                  <div key={module} className="group">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-700 truncate max-w-[60%]" title={module}>
+                        {module}
+                      </span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-green-600">{data.approved}</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="text-gray-600">{data.total}</span>
+                      </div>
+                    </div>
+                    <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full flex">
+                        <div 
+                          className="bg-green-500 transition-all" 
+                          style={{ width: `${(data.approved / data.total) * 100}%` }}
+                        />
+                        <div 
+                          className="bg-red-500 transition-all" 
+                          style={{ width: `${(data.failed / data.total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alertas - Testes Reprovados */}
+      {failedTestsList.length > 0 && (
+        <div className="card border-l-4 border-l-red-500 bg-red-50">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <h3 className="font-semibold text-red-800">Testes Reprovados - Atenção Necessária</h3>
+          </div>
+          <div className="space-y-2">
+            {failedTestsList.slice(0, 5).map(test => (
+              <div key={test.id} className="flex items-start gap-2 p-2 bg-white rounded-lg">
+                <XCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 text-sm">{test.title}</p>
+                  <p className="text-xs text-gray-500">{test.feature}</p>
+                  {test.observations && (
+                    <p className="text-xs text-red-600 mt-1 truncate" title={test.observations}>
+                      Obs: {test.observations}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {failedTestsList.length > 5 && (
+            <Link to="/documentos?status=reprovado" className="text-sm text-red-600 font-medium mt-3 inline-block hover:underline">
+              Ver todos os {failedTestsList.length} reprovados →
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Timeline de Atividades */}
+      {sortedTests.length > 0 && (
+        <div className="card">
+          <h3 className="font-semibold text-gray-900 mb-4">Timeline de Atividades</h3>
+          <div className="space-y-4">
+            {Object.entries(timelineGroups).map(([date, tests]) => (
+              <div key={date}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{date}</p>
+                <div className="space-y-2 border-l-2 border-gray-200 pl-4">
+                  {tests.map(test => (
+                    <div key={test.id} className="flex items-center gap-3 relative">
+                      <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white ${
+                        test.status === 'aprovado' ? 'bg-green-500' :
+                        test.status === 'reprovado' ? 'bg-red-500' : 'bg-yellow-500'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900">
+                          <span className="font-medium">{test.title}</span>
+                          <span className={`ml-2 text-xs ${
+                            test.status === 'aprovado' ? 'text-green-600' :
+                            test.status === 'reprovado' ? 'text-red-600' : 'text-yellow-600'
+                          }`}>
+                            {test.status}
+                          </span>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(test.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          {test.tester && ` • ${test.tester}`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div>

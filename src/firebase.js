@@ -1,19 +1,24 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
 // Configuração do Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyC7OMYC7enoEkTsBzliRWiyHkLQ9H92Ekk",
+  apiKey: "AIzaSyC7OMYC7enoEkTsBzliRWiyHklQ9H92EKk",
   authDomain: "docsimplesreports.firebaseapp.com",
   projectId: "docsimplesreports",
   storageBucket: "docsimplesreports.firebasestorage.app",
   messagingSenderId: "37293480302",
-  appId: "1:37293480302:web:ffac0bdc2f2e69985a897f"
+  appId: "1:37293480302:web:ffac0bdc2f2e69985a897f",
+  measurementId: "G-S9FLRP8T6N"
 }
 
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
+const storage = getStorage(app)
+const auth = getAuth(app)
 
 // Collections
 const testDocumentsCollection = collection(db, 'testDocuments')
@@ -76,4 +81,40 @@ export const subscribeToRequirements = (callback) => {
   })
 }
 
-export { db }
+// Funções para Upload de Imagens
+export const uploadScreenshot = async (file, testId) => {
+  const timestamp = Date.now()
+  const fileName = `screenshots/${testId}/${timestamp}_${file.name}`
+  const storageRef = ref(storage, fileName)
+  
+  await uploadBytes(storageRef, file)
+  const downloadURL = await getDownloadURL(storageRef)
+  
+  return {
+    url: downloadURL,
+    path: fileName,
+    name: file.name,
+    uploadedAt: new Date().toISOString()
+  }
+}
+
+export const deleteScreenshot = async (path) => {
+  const storageRef = ref(storage, path)
+  await deleteObject(storageRef)
+}
+
+// Funções de Autenticação
+export const loginWithEmail = async (email, password) => {
+  const userCredential = await signInWithEmailAndPassword(auth, email, password)
+  return userCredential.user
+}
+
+export const logout = async () => {
+  await signOut(auth)
+}
+
+export const onAuthChange = (callback) => {
+  return onAuthStateChanged(auth, callback)
+}
+
+export { db, storage, auth }

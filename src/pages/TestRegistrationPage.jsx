@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Save, Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
+import { Save, Plus, Trash2, AlertCircle, CheckCircle, Upload, Image, X, Loader2 } from 'lucide-react'
+import { uploadScreenshot } from '../firebase'
 
 export default function TestRegistrationPage({ onSave }) {
   const navigate = useNavigate()
   const [showSuccess, setShowSuccess] = useState(false)
+  const [screenshots, setScreenshots] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
   
   const [formData, setFormData] = useState({
     title: '',
@@ -67,9 +71,37 @@ export default function TestRegistrationPage({ onSave }) {
     }
   }
 
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+    
+    setUploading(true)
+    setUploadError(null)
+    
+    try {
+      const tempId = Date.now().toString()
+      const uploadPromises = files.map(file => uploadScreenshot(file, tempId))
+      const uploadedFiles = await Promise.all(uploadPromises)
+      setScreenshots([...screenshots, ...uploadedFiles])
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error)
+      setUploadError('Erro ao fazer upload das imagens. Verifique se o Firebase Storage está configurado.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removeScreenshot = (index) => {
+    setScreenshots(screenshots.filter((_, i) => i !== index))
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSave(formData)
+    const dataWithScreenshots = {
+      ...formData,
+      screenshots: screenshots
+    }
+    onSave(dataWithScreenshots)
     setShowSuccess(true)
     setTimeout(() => {
       navigate('/documentos')
@@ -371,9 +403,81 @@ export default function TestRegistrationPage({ onSave }) {
           </div>
         </div>
 
+        {/* Screenshots/Prints */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Screenshots / Prints</h2>
+              <p className="text-sm text-gray-500">Adicione prints de erros ou evidências do teste</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Upload Area */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
+              <input
+                type="file"
+                id="screenshot-upload"
+                multiple
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                disabled={uploading}
+              />
+              <label 
+                htmlFor="screenshot-upload" 
+                className="cursor-pointer flex flex-col items-center"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-10 h-10 text-primary-500 animate-spin mb-2" />
+                    <span className="text-sm text-gray-600">Fazendo upload...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-10 h-10 text-gray-400 mb-2" />
+                    <span className="text-sm font-medium text-gray-700">Clique para selecionar imagens</span>
+                    <span className="text-xs text-gray-500 mt-1">PNG, JPG, GIF até 10MB</span>
+                  </>
+                )}
+              </label>
+            </div>
+            
+            {uploadError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <p className="text-sm text-red-700">{uploadError}</p>
+              </div>
+            )}
+            
+            {/* Preview das imagens */}
+            {screenshots.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {screenshots.map((screenshot, index) => (
+                  <div key={index} className="relative group">
+                    <img 
+                      src={screenshot.url} 
+                      alt={screenshot.name}
+                      className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeScreenshot(index)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1 truncate">{screenshot.name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Observações e Evidências */}
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Observações e Evidências</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Observações</h2>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
@@ -384,17 +488,6 @@ export default function TestRegistrationPage({ onSave }) {
                 className="textarea-field"
                 rows="3"
                 placeholder="Observações adicionais sobre o teste..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Evidências (URLs ou descrições)</label>
-              <textarea
-                name="evidences"
-                value={formData.evidences}
-                onChange={handleChange}
-                className="textarea-field"
-                rows="2"
-                placeholder="Links para screenshots, vídeos ou descrição das evidências..."
               />
             </div>
           </div>

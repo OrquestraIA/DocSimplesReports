@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/docSimplesReports/',
+  base: '/DocSimplesReports/',
   server: {
     port: 3000,
     host: true
