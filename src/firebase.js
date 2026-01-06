@@ -39,6 +39,24 @@ export const updateTestDocument = async (id, data) => {
   await updateDoc(docRef, data)
 }
 
+// Adicionar comentário/interação a um documento de teste
+export const addCommentToTestDocument = async (testId, comment) => {
+  const docRef = doc(db, 'testDocuments', testId)
+  const commentData = {
+    ...comment,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString()
+  }
+  // Buscar documento atual e adicionar comentário ao array
+  const { getDoc: getDocFn } = await import('firebase/firestore')
+  const docSnap = await getDocFn(docRef)
+  const currentComments = docSnap.data()?.comments || []
+  await updateDoc(docRef, {
+    comments: [...currentComments, commentData]
+  })
+  return commentData
+}
+
 export const deleteTestDocument = async (id) => {
   const docRef = doc(db, 'testDocuments', id)
   await deleteDoc(docRef)

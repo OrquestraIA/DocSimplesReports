@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown } from 'lucide-react'
+import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp } from 'lucide-react'
+import { addCommentToTestDocument } from '../firebase'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
@@ -10,6 +11,65 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
   const [filterType, setFilterType] = useState('all')
   const [selectedDoc, setSelectedDoc] = useState(null)
   const [exportMenuOpen, setExportMenuOpen] = useState(null)
+  const [newComment, setNewComment] = useState('')
+  const [commentType, setCommentType] = useState('resposta')
+  const [sendingComment, setSendingComment] = useState(false)
+
+  // Função para enviar comentário/interação
+  const handleSendComment = async (type) => {
+    if (!newComment.trim() && type === 'resposta') return
+    
+    setSendingComment(true)
+    try {
+      const comment = {
+        type: type, // 'resposta', 'solicitar_reteste', 'aprovado_reteste'
+        text: newComment.trim(),
+        author: 'Desenvolvedor' // Pode ser dinâmico baseado no usuário logado
+      }
+      
+      await addCommentToTestDocument(selectedDoc.id, comment)
+      
+      // Se for aprovação após reteste, atualizar status do documento
+      if (type === 'aprovado_reteste') {
+        await onUpdate(selectedDoc.id, { status: 'aprovado' })
+      }
+      // Se for solicitação de reteste, mudar status para 'em_reteste'
+      if (type === 'solicitar_reteste') {
+        await onUpdate(selectedDoc.id, { status: 'em_reteste' })
+      }
+      
+      setNewComment('')
+      // Atualizar o documento selecionado com os novos comentários
+      const updatedDoc = documents.find(d => d.id === selectedDoc.id)
+      if (updatedDoc) {
+        setSelectedDoc({...updatedDoc, comments: [...(updatedDoc.comments || []), comment]})
+      }
+    } catch (error) {
+      console.error('Erro ao enviar comentário:', error)
+      alert('Erro ao enviar comentário. Tente novamente.')
+    } finally {
+      setSendingComment(false)
+    }
+  }
+
+  // Função para formatar tipo de comentário
+  const getCommentTypeLabel = (type) => {
+    switch(type) {
+      case 'solicitar_reteste': return 'Solicitou Reteste'
+      case 'aprovado_reteste': return 'Aprovou após Reteste'
+      case 'feedback': return 'Feedback'
+      default: return 'Resposta'
+    }
+  }
+
+  const getCommentTypeColor = (type) => {
+    switch(type) {
+      case 'solicitar_reteste': return 'bg-orange-100 text-orange-700'
+      case 'aprovado_reteste': return 'bg-green-100 text-green-700'
+      case 'feedback': return 'bg-blue-100 text-blue-700'
+      default: return 'bg-gray-100 text-gray-700'
+    }
+  }
 
   const filteredDocs = documents.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -411,6 +471,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
         return <CheckCircle2 className="w-5 h-5 text-green-500" />
       case 'reprovado':
         return <XCircle className="w-5 h-5 text-red-500" />
+      case 'em_reteste':
+        return <RefreshCw className="w-5 h-5 text-orange-500" />
       default:
         return <Clock className="w-5 h-5 text-yellow-500" />
     }
@@ -448,6 +510,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
               <option value="pendente">Pendente</option>
               <option value="aprovado">Aprovado</option>
               <option value="reprovado">Reprovado</option>
+              <option value="em_reteste">Em Reteste</option>
               <option value="bloqueado">Bloqueado</option>
             </select>
             <select
@@ -491,9 +554,10 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                     <div className="flex items-center gap-2 mt-2">
                       <span className={`badge ${
                         doc.status === 'aprovado' ? 'badge-success' :
-                        doc.status === 'reprovado' ? 'badge-error' : 'badge-warning'
+                        doc.status === 'reprovado' ? 'badge-error' :
+                        doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' : 'badge-warning'
                       }`}>
-                        {doc.status}
+                        {doc.status === 'em_reteste' ? 'Em Reteste' : doc.status}
                       </span>
                       <span className="badge badge-info">{doc.testType}</span>
                       <span className="text-xs text-gray-500">
@@ -574,9 +638,10 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                   <p className="text-xs text-gray-500">Status</p>
                   <span className={`badge ${
                     selectedDoc.status === 'aprovado' ? 'badge-success' :
-                    selectedDoc.status === 'reprovado' ? 'badge-error' : 'badge-warning'
+                    selectedDoc.status === 'reprovado' ? 'badge-error' :
+                    selectedDoc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' : 'badge-warning'
                   }`}>
-                    {selectedDoc.status}
+                    {selectedDoc.status === 'em_reteste' ? 'Em Reteste' : selectedDoc.status}
                   </span>
                 </div>
                 <div>
@@ -689,6 +754,85 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                   <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedDoc.observations}</p>
                 </div>
               )}
+
+              {/* Seção de Interação - Comentários e Reteste */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary-600" />
+                  Interação / Feedback
+                </h3>
+                
+                {/* Lista de comentários existentes */}
+                {selectedDoc.comments && selectedDoc.comments.length > 0 && (
+                  <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                    {selectedDoc.comments.map((comment, idx) => (
+                      <div key={comment.id || idx} className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-gray-900">{comment.author}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getCommentTypeColor(comment.type)}`}>
+                              {getCommentTypeLabel(comment.type)}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {comment.createdAt ? new Date(comment.createdAt).toLocaleString('pt-BR') : ''}
+                          </span>
+                        </div>
+                        {comment.text && (
+                          <p className="text-sm text-gray-700">{comment.text}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Área para novo comentário */}
+                <div className="space-y-3">
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Escreva uma resposta ou descrição da correção realizada..."
+                    className="textarea-field"
+                    rows="3"
+                  />
+                  
+                  {/* Botões de ação */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleSendComment('resposta')}
+                      disabled={sendingComment || !newComment.trim()}
+                      className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
+                    >
+                      <Send className="w-4 h-4" />
+                      Enviar Resposta
+                    </button>
+                    
+                    <button
+                      onClick={() => handleSendComment('solicitar_reteste')}
+                      disabled={sendingComment}
+                      className="flex items-center gap-2 text-sm px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Solicitar Reteste
+                    </button>
+                    
+                    {selectedDoc.status === 'em_reteste' && (
+                      <button
+                        onClick={() => handleSendComment('aprovado_reteste')}
+                        disabled={sendingComment}
+                        className="flex items-center gap-2 text-sm px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                        Aprovar após Reteste
+                      </button>
+                    )}
+                  </div>
+                  
+                  {sendingComment && (
+                    <p className="text-sm text-gray-500">Enviando...</p>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end space-x-2">
               <div className="relative">
