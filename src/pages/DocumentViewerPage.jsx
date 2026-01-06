@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp } from 'lucide-react'
-import { addCommentToTestDocument } from '../firebase'
+import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp, Image, X, Loader2 } from 'lucide-react'
+import { addCommentToTestDocument, uploadScreenshot } from '../firebase'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
@@ -14,17 +14,43 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
   const [newComment, setNewComment] = useState('')
   const [commentType, setCommentType] = useState('resposta')
   const [sendingComment, setSendingComment] = useState(false)
+  const [commentScreenshots, setCommentScreenshots] = useState([])
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
+
+  // Função para upload de screenshot no comentário
+  const handleCommentScreenshot = async (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+    
+    setUploadingScreenshot(true)
+    try {
+      const tempId = `comment_${Date.now()}`
+      const uploadPromises = files.map(file => uploadScreenshot(file, tempId))
+      const uploadedFiles = await Promise.all(uploadPromises)
+      setCommentScreenshots([...commentScreenshots, ...uploadedFiles])
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error)
+      alert('Erro ao fazer upload da imagem.')
+    } finally {
+      setUploadingScreenshot(false)
+    }
+  }
+
+  const removeCommentScreenshot = (index) => {
+    setCommentScreenshots(commentScreenshots.filter((_, i) => i !== index))
+  }
 
   // Função para enviar comentário/interação
   const handleSendComment = async (type) => {
-    if (!newComment.trim() && type === 'resposta') return
+    if (!newComment.trim() && type === 'resposta' && commentScreenshots.length === 0) return
     
     setSendingComment(true)
     try {
       const comment = {
         type: type, // 'resposta', 'solicitar_reteste', 'aprovado_reteste'
         text: newComment.trim(),
-        author: 'Desenvolvedor' // Pode ser dinâmico baseado no usuário logado
+        author: 'Desenvolvedor', // Pode ser dinâmico baseado no usuário logado
+        screenshots: commentScreenshots
       }
       
       await addCommentToTestDocument(selectedDoc.id, comment)
@@ -39,6 +65,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
       }
       
       setNewComment('')
+      setCommentScreenshots([])
       // Atualizar o documento selecionado com os novos comentários
       const updatedDoc = documents.find(d => d.id === selectedDoc.id)
       if (updatedDoc) {
@@ -781,6 +808,26 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                         {comment.text && (
                           <p className="text-sm text-gray-700">{comment.text}</p>
                         )}
+                        {/* Screenshots do comentário */}
+                        {comment.screenshots && comment.screenshots.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {comment.screenshots.map((screenshot, sIdx) => (
+                              <a
+                                key={sIdx}
+                                href={screenshot.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                              >
+                                <img
+                                  src={screenshot.url}
+                                  alt={screenshot.name}
+                                  className="h-20 w-auto object-cover rounded border border-gray-200 hover:border-primary-500"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -796,11 +843,60 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                     rows="3"
                   />
                   
+                  {/* Upload de Screenshots */}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      id="comment-screenshot"
+                      multiple
+                      accept="image/*"
+                      onChange={handleCommentScreenshot}
+                      className="hidden"
+                      disabled={uploadingScreenshot}
+                    />
+                    <label
+                      htmlFor="comment-screenshot"
+                      className="flex items-center gap-2 text-sm px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      {uploadingScreenshot ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Image className="w-4 h-4" />
+                      )}
+                      <span>{uploadingScreenshot ? 'Enviando...' : 'Anexar Screenshot'}</span>
+                    </label>
+                    {commentScreenshots.length > 0 && (
+                      <span className="text-xs text-gray-500">{commentScreenshots.length} imagem(ns)</span>
+                    )}
+                  </div>
+                  
+                  {/* Preview das screenshots anexadas */}
+                  {commentScreenshots.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {commentScreenshots.map((screenshot, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={screenshot.url}
+                            alt={screenshot.name}
+                            className="h-16 w-auto object-cover rounded border border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeCommentScreenshot(index)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
                   {/* Botões de ação */}
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => handleSendComment('resposta')}
-                      disabled={sendingComment || !newComment.trim()}
+                      disabled={sendingComment || (!newComment.trim() && commentScreenshots.length === 0)}
                       className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
                     >
                       <Send className="w-4 h-4" />
