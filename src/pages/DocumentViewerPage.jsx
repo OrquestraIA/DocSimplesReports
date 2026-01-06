@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp, Image, X, Loader2 } from 'lucide-react'
+import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp, Image, X, Loader2, Edit3, Save, Plus } from 'lucide-react'
 import { addCommentToTestDocument, uploadScreenshot } from '../firebase'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
@@ -16,6 +16,9 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
   const [sendingComment, setSendingComment] = useState(false)
   const [commentScreenshots, setCommentScreenshots] = useState([])
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [editData, setEditData] = useState(null)
+  const [saving, setSaving] = useState(false)
 
   // Função para upload de screenshot no comentário
   const handleCommentScreenshot = async (e) => {
@@ -95,6 +98,68 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
       case 'aprovado_reteste': return 'bg-green-100 text-green-700'
       case 'feedback': return 'bg-blue-100 text-blue-700'
       default: return 'bg-gray-100 text-gray-700'
+    }
+  }
+
+  // Funções de edição
+  const startEdit = () => {
+    setEditData({
+      title: selectedDoc.title,
+      feature: selectedDoc.feature,
+      module: selectedDoc.module || '',
+      testType: selectedDoc.testType,
+      priority: selectedDoc.priority,
+      status: selectedDoc.status,
+      tester: selectedDoc.tester,
+      environment: selectedDoc.environment || '',
+      preconditions: selectedDoc.preconditions || '',
+      observations: selectedDoc.observations || '',
+      steps: selectedDoc.steps || [{ action: '', expectedResult: '', actualResult: '', status: 'pendente' }]
+    })
+    setEditMode(true)
+  }
+
+  const cancelEdit = () => {
+    setEditMode(false)
+    setEditData(null)
+  }
+
+  const handleEditChange = (field, value) => {
+    setEditData({ ...editData, [field]: value })
+  }
+
+  const handleStepChange = (index, field, value) => {
+    const newSteps = [...editData.steps]
+    newSteps[index][field] = value
+    setEditData({ ...editData, steps: newSteps })
+  }
+
+  const addStep = () => {
+    setEditData({
+      ...editData,
+      steps: [...editData.steps, { action: '', expectedResult: '', actualResult: '', status: 'pendente' }]
+    })
+  }
+
+  const removeStep = (index) => {
+    if (editData.steps.length > 1) {
+      const newSteps = editData.steps.filter((_, i) => i !== index)
+      setEditData({ ...editData, steps: newSteps })
+    }
+  }
+
+  const saveEdit = async () => {
+    setSaving(true)
+    try {
+      await onUpdate(selectedDoc.id, editData)
+      setSelectedDoc({ ...selectedDoc, ...editData })
+      setEditMode(false)
+      setEditData(null)
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+      alert('Erro ao salvar alterações.')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -638,14 +703,227 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">{selectedDoc.title}</h2>
-              <button
-                onClick={() => setSelectedDoc(null)}
-                className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
-              >
-                ✕
-              </button>
+              <h2 className="text-xl font-bold text-gray-900">
+                {editMode ? 'Editar Documento' : selectedDoc.title}
+              </h2>
+              <div className="flex items-center gap-2">
+                {!editMode && (
+                  <button
+                    onClick={startEdit}
+                    className="p-2 text-gray-500 hover:text-primary-600 rounded-lg hover:bg-gray-100"
+                    title="Editar"
+                  >
+                    <Edit3 className="w-5 h-5" />
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSelectedDoc(null); setEditMode(false); setEditData(null); }}
+                  className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
+            
+            {/* Modo de Edição */}
+            {editMode && editData ? (
+              <div className="p-6 space-y-6">
+                {/* Informações Básicas */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                    <input
+                      type="text"
+                      value={editData.title}
+                      onChange={(e) => handleEditChange('title', e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Feature</label>
+                    <input
+                      type="text"
+                      value={editData.feature}
+                      onChange={(e) => handleEditChange('feature', e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Módulo</label>
+                    <input
+                      type="text"
+                      value={editData.module}
+                      onChange={(e) => handleEditChange('module', e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Testador</label>
+                    <input
+                      type="text"
+                      value={editData.tester}
+                      onChange={(e) => handleEditChange('tester', e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Teste</label>
+                    <select
+                      value={editData.testType}
+                      onChange={(e) => handleEditChange('testType', e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="funcional">Funcional</option>
+                      <option value="exploratorio">Exploratório</option>
+                      <option value="regressao">Regressão</option>
+                      <option value="integracao">Integração</option>
+                      <option value="usabilidade">Usabilidade</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                    <select
+                      value={editData.priority}
+                      onChange={(e) => handleEditChange('priority', e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="baixa">Baixa</option>
+                      <option value="media">Média</option>
+                      <option value="alta">Alta</option>
+                      <option value="critica">Crítica</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      value={editData.status}
+                      onChange={(e) => handleEditChange('status', e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="pendente">Pendente</option>
+                      <option value="aprovado">Aprovado</option>
+                      <option value="reprovado">Reprovado</option>
+                      <option value="em_reteste">Em Reteste</option>
+                      <option value="bloqueado">Bloqueado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ambiente</label>
+                    <input
+                      type="text"
+                      value={editData.environment}
+                      onChange={(e) => handleEditChange('environment', e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+
+                {/* Pré-condições */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Pré-condições</label>
+                  <textarea
+                    value={editData.preconditions}
+                    onChange={(e) => handleEditChange('preconditions', e.target.value)}
+                    className="textarea-field"
+                    rows="2"
+                  />
+                </div>
+
+                {/* Passos do Teste */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-gray-700">Passos do Teste</label>
+                    <button
+                      type="button"
+                      onClick={addStep}
+                      className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" /> Adicionar Passo
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {editData.steps.map((step, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">Passo {index + 1}</span>
+                          {editData.steps.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeStep(index)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid gap-2">
+                          <input
+                            type="text"
+                            value={step.action}
+                            onChange={(e) => handleStepChange(index, 'action', e.target.value)}
+                            className="input-field text-sm"
+                            placeholder="Ação"
+                          />
+                          <input
+                            type="text"
+                            value={step.expectedResult}
+                            onChange={(e) => handleStepChange(index, 'expectedResult', e.target.value)}
+                            className="input-field text-sm"
+                            placeholder="Resultado Esperado"
+                          />
+                          <input
+                            type="text"
+                            value={step.actualResult}
+                            onChange={(e) => handleStepChange(index, 'actualResult', e.target.value)}
+                            className="input-field text-sm"
+                            placeholder="Resultado Obtido"
+                          />
+                          <select
+                            value={step.status}
+                            onChange={(e) => handleStepChange(index, 'status', e.target.value)}
+                            className="input-field text-sm"
+                          >
+                            <option value="pendente">Pendente</option>
+                            <option value="passou">Passou</option>
+                            <option value="falhou">Falhou</option>
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Observações */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                  <textarea
+                    value={editData.observations}
+                    onChange={(e) => handleEditChange('observations', e.target.value)}
+                    className="textarea-field"
+                    rows="3"
+                  />
+                </div>
+
+                {/* Botões de Ação */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={cancelEdit}
+                    className="btn-secondary"
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={saveEdit}
+                    className="btn-primary flex items-center gap-2"
+                    disabled={saving}
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {saving ? 'Salvando...' : 'Salvar Alterações'}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="p-6 space-y-6">
               {/* Info Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -930,6 +1208,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                 </div>
               </div>
             </div>
+            )}
+            {!editMode && (
             <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end space-x-2">
               <div className="relative">
                 <button
@@ -956,6 +1236,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                 Fechar
               </button>
             </div>
+            )}
           </div>
         </div>
       )}
