@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp, Image, X, Loader2, Edit3, Save, Plus } from 'lucide-react'
-import { addCommentToTestDocument, uploadScreenshot } from '../firebase'
+import { addCommentToTestDocument, uploadScreenshot, updateCommentInTestDocument } from '../firebase'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
@@ -19,6 +19,10 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState(null)
+  const [editingCommentText, setEditingCommentText] = useState('')
+  const [editingCommentScreenshots, setEditingCommentScreenshots] = useState([])
+  const [savingComment, setSavingComment] = useState(false)
 
   // Função para upload de screenshot no comentário
   const handleCommentScreenshot = async (e) => {
@@ -98,6 +102,66 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
       case 'aprovado_reteste': return 'bg-green-100 text-green-700'
       case 'feedback': return 'bg-blue-100 text-blue-700'
       default: return 'bg-gray-100 text-gray-700'
+    }
+  }
+
+  // Funções de edição de comentários
+  const startEditComment = (comment) => {
+    setEditingCommentId(comment.id)
+    setEditingCommentText(comment.text || '')
+    setEditingCommentScreenshots(comment.screenshots || [])
+  }
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null)
+    setEditingCommentText('')
+    setEditingCommentScreenshots([])
+  }
+
+  const handleEditCommentScreenshot = async (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+    
+    setUploadingScreenshot(true)
+    try {
+      const tempId = `edit_comment_${Date.now()}`
+      const uploadPromises = files.map(file => uploadScreenshot(file, tempId))
+      const uploadedFiles = await Promise.all(uploadPromises)
+      setEditingCommentScreenshots([...editingCommentScreenshots, ...uploadedFiles])
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error)
+      alert('Erro ao fazer upload da imagem.')
+    } finally {
+      setUploadingScreenshot(false)
+    }
+  }
+
+  const removeEditingCommentScreenshot = (index) => {
+    setEditingCommentScreenshots(editingCommentScreenshots.filter((_, i) => i !== index))
+  }
+
+  const saveEditComment = async () => {
+    setSavingComment(true)
+    try {
+      await updateCommentInTestDocument(selectedDoc.id, editingCommentId, {
+        text: editingCommentText,
+        screenshots: editingCommentScreenshots
+      })
+      
+      // Atualizar o documento selecionado localmente
+      const updatedComments = (selectedDoc.comments || []).map(c => 
+        c.id === editingCommentId 
+          ? { ...c, text: editingCommentText, screenshots: editingCommentScreenshots }
+          : c
+      )
+      setSelectedDoc({ ...selectedDoc, comments: updatedComments })
+      
+      cancelEditComment()
+    } catch (error) {
+      console.error('Erro ao salvar comentário:', error)
+      alert('Erro ao salvar comentário.')
+    } finally {
+      setSavingComment(false)
     }
   }
 
@@ -1069,42 +1133,127 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                 
                 {/* Lista de comentários existentes */}
                 {selectedDoc.comments && selectedDoc.comments.length > 0 && (
-                  <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                  <div className="space-y-3 mb-4 max-h-80 overflow-y-auto">
                     {selectedDoc.comments.map((comment, idx) => (
                       <div key={comment.id || idx} className="bg-gray-50 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm text-gray-900">{comment.author}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${getCommentTypeColor(comment.type)}`}>
-                              {getCommentTypeLabel(comment.type)}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {comment.createdAt ? new Date(comment.createdAt).toLocaleString('pt-BR') : ''}
-                          </span>
-                        </div>
-                        {comment.text && (
-                          <p className="text-sm text-gray-700">{comment.text}</p>
-                        )}
-                        {/* Screenshots do comentário */}
-                        {comment.screenshots && comment.screenshots.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {comment.screenshots.map((screenshot, sIdx) => (
-                              <a
-                                key={sIdx}
-                                href={screenshot.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block"
+                        {/* Modo de edição do comentário */}
+                        {editingCommentId === comment.id ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={editingCommentText}
+                              onChange={(e) => setEditingCommentText(e.target.value)}
+                              className="textarea-field text-sm"
+                              rows="3"
+                              placeholder="Editar comentário..."
+                            />
+                            
+                            {/* Upload de screenshots na edição */}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="file"
+                                id={`edit-comment-screenshot-${comment.id}`}
+                                multiple
+                                accept="image/*"
+                                onChange={handleEditCommentScreenshot}
+                                className="hidden"
+                                disabled={uploadingScreenshot}
+                              />
+                              <label
+                                htmlFor={`edit-comment-screenshot-${comment.id}`}
+                                className="flex items-center gap-1 text-xs px-2 py-1 border border-gray-300 rounded cursor-pointer hover:bg-gray-100"
                               >
-                                <img
-                                  src={screenshot.url}
-                                  alt={screenshot.name}
-                                  className="h-20 w-auto object-cover rounded border border-gray-200 hover:border-primary-500"
-                                />
-                              </a>
-                            ))}
+                                {uploadingScreenshot ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+                                <span>Anexar</span>
+                              </label>
+                            </div>
+                            
+                            {/* Preview screenshots em edição */}
+                            {editingCommentScreenshots.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {editingCommentScreenshots.map((screenshot, sIdx) => (
+                                  <div key={sIdx} className="relative group">
+                                    <img
+                                      src={screenshot.url}
+                                      alt={screenshot.name}
+                                      className="h-14 w-auto object-cover rounded border border-gray-200"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeEditingCommentScreenshot(sIdx)}
+                                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100"
+                                    >
+                                      <X className="w-2 h-2" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Botões de ação da edição */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={saveEditComment}
+                                disabled={savingComment}
+                                className="flex items-center gap-1 text-xs px-3 py-1 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
+                              >
+                                {savingComment ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                Salvar
+                              </button>
+                              <button
+                                onClick={cancelEditComment}
+                                disabled={savingComment}
+                                className="text-xs px-3 py-1 border border-gray-300 rounded hover:bg-gray-100"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
                           </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm text-gray-900">{comment.author}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${getCommentTypeColor(comment.type)}`}>
+                                  {getCommentTypeLabel(comment.type)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => startEditComment(comment)}
+                                  className="p-1 text-gray-400 hover:text-primary-600 rounded"
+                                  title="Editar"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                </button>
+                                <span className="text-xs text-gray-500">
+                                  {comment.createdAt ? new Date(comment.createdAt).toLocaleString('pt-BR') : ''}
+                                </span>
+                              </div>
+                            </div>
+                            {comment.text && (
+                              <p className="text-sm text-gray-700">{comment.text}</p>
+                            )}
+                            {/* Screenshots do comentário */}
+                            {comment.screenshots && comment.screenshots.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {comment.screenshots.map((screenshot, sIdx) => (
+                                  <a
+                                    key={sIdx}
+                                    href={screenshot.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block"
+                                  >
+                                    <img
+                                      src={screenshot.url}
+                                      alt={screenshot.name}
+                                      className="h-20 w-auto object-cover rounded border border-gray-200 hover:border-primary-500"
+                                    />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     ))}

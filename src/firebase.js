@@ -57,6 +57,22 @@ export const addCommentToTestDocument = async (testId, comment) => {
   return commentData
 }
 
+// Atualizar comentário existente
+export const updateCommentInTestDocument = async (testId, commentId, updatedComment) => {
+  const docRef = doc(db, 'testDocuments', testId)
+  const { getDoc: getDocFn } = await import('firebase/firestore')
+  const docSnap = await getDocFn(docRef)
+  const currentComments = docSnap.data()?.comments || []
+  
+  const updatedComments = currentComments.map(comment => 
+    comment.id === commentId 
+      ? { ...comment, ...updatedComment, updatedAt: new Date().toISOString() }
+      : comment
+  )
+  
+  await updateDoc(docRef, { comments: updatedComments })
+}
+
 export const deleteTestDocument = async (id) => {
   const docRef = doc(db, 'testDocuments', id)
   await deleteDoc(docRef)
