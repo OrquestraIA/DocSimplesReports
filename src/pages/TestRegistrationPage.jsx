@@ -12,6 +12,7 @@ export default function TestRegistrationPage({ onSave }) {
   
   const [formData, setFormData] = useState({
     title: '',
+    requirement: '',
     feature: '',
     module: '',
     testType: 'funcional',
@@ -141,6 +142,20 @@ export default function TestRegistrationPage({ onSave }) {
                 onChange={handleChange}
                 className="input-field"
                 placeholder="Ex: Validar login com credenciais válidas"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Requisito *
+              </label>
+              <input
+                type="text"
+                name="requirement"
+                value={formData.requirement}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Ex: REQ-001 - Usuário deve poder fazer login"
                 required
               />
             </div>
