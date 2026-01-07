@@ -13,6 +13,7 @@ export default function TestRegistrationPage({ onSave }) {
   const [formData, setFormData] = useState({
     title: '',
     requirement: '',
+    requirementDescription: '',
     feature: '',
     module: '',
     testType: 'funcional',
@@ -20,6 +21,9 @@ export default function TestRegistrationPage({ onSave }) {
     status: 'pendente',
     tester: '',
     environment: '',
+    errorType: '',
+    improvement: '',
+    improvementJustification: '',
     preconditions: '',
     steps: [{ action: '', expectedResult: '', actualResult: '', status: 'pendente' }],
     observations: '',
@@ -147,7 +151,7 @@ export default function TestRegistrationPage({ onSave }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Requisito *
+                Requisito
               </label>
               <input
                 type="text"
@@ -155,8 +159,20 @@ export default function TestRegistrationPage({ onSave }) {
                 value={formData.requirement}
                 onChange={handleChange}
                 className="input-field"
-                placeholder="Ex: REQ-001 - Usuário deve poder fazer login"
-                required
+                placeholder="Ex: REQ-001"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Descrição do Requisito
+              </label>
+              <textarea
+                name="requirementDescription"
+                value={formData.requirementDescription}
+                onChange={handleChange}
+                className="textarea-field"
+                rows="2"
+                placeholder="Descreva o requisito em detalhes..."
               />
             </div>
             <div>
@@ -260,6 +276,50 @@ export default function TestRegistrationPage({ onSave }) {
                 onChange={handleChange}
                 className="input-field"
                 placeholder="Ex: Homologação, Staging"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Erro
+              </label>
+              <select
+                name="errorType"
+                value={formData.errorType}
+                onChange={handleChange}
+                className="input-field"
+              >
+                <option value="">Selecione...</option>
+                <option value="bug">Bug</option>
+                <option value="regra_negocio">Regra de Negócio</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Melhoria */}
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Sugestão de Melhoria</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Melhoria</label>
+              <input
+                type="text"
+                name="improvement"
+                value={formData.improvement}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="Descreva a melhoria sugerida..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Justificativa da Melhoria</label>
+              <textarea
+                name="improvementJustification"
+                value={formData.improvementJustification}
+                onChange={handleChange}
+                className="textarea-field"
+                rows="3"
+                placeholder="Justifique por que essa melhoria é importante..."
               />
             </div>
           </div>

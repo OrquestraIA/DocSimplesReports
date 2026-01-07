@@ -274,8 +274,27 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
     md += `| Status | **${doc.status.toUpperCase()}** |\n`
     md += `| Testador | ${doc.tester} |\n`
     md += `| Ambiente | ${doc.environment || 'N/A'} |\n`
+    if (doc.errorType) {
+      md += `| Tipo de Erro | ${doc.errorType === 'bug' ? 'Bug' : 'Regra de Negócio'} |\n`
+    }
     md += `| Data | ${new Date(doc.createdAt).toLocaleString('pt-BR')} |\n\n`
     
+    if (doc.requirement) {
+      md += `## Requisito\n\n`
+      md += `**Código:** ${doc.requirement}\n\n`
+      if (doc.requirementDescription) {
+        md += `**Descrição:** ${doc.requirementDescription}\n\n`
+      }
+    }
+
+    if (doc.improvement) {
+      md += `## Sugestão de Melhoria\n\n`
+      md += `**Melhoria:** ${doc.improvement}\n\n`
+      if (doc.improvementJustification) {
+        md += `**Justificativa:** ${doc.improvementJustification}\n\n`
+      }
+    }
+
     if (doc.preconditions) {
       md += `## Pré-condições\n\n${doc.preconditions}\n\n`
     }
@@ -397,9 +416,42 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
       }),
       new Paragraph({
         text: `Data: ${new Date(doc.createdAt).toLocaleString('pt-BR')}`,
-        spacing: { after: 400 },
+        spacing: { after: 200 },
       })
     )
+
+    if (doc.errorType) {
+      children.push(
+        new Paragraph({
+          text: `Tipo de Erro: ${doc.errorType === 'bug' ? 'Bug' : 'Regra de Negócio'}`,
+          spacing: { after: 400 },
+        })
+      )
+    }
+
+    if (doc.requirement) {
+      children.push(
+        new Paragraph({ text: 'Requisito', heading: HeadingLevel.HEADING_1 }),
+        new Paragraph({ children: [new TextRun({ text: 'Código: ', bold: true }), new TextRun(doc.requirement)] })
+      )
+      if (doc.requirementDescription) {
+        children.push(
+          new Paragraph({ children: [new TextRun({ text: 'Descrição: ', bold: true }), new TextRun(doc.requirementDescription)], spacing: { after: 300 } })
+        )
+      }
+    }
+
+    if (doc.improvement) {
+      children.push(
+        new Paragraph({ text: 'Sugestão de Melhoria', heading: HeadingLevel.HEADING_1 }),
+        new Paragraph({ children: [new TextRun({ text: 'Melhoria: ', bold: true }), new TextRun(doc.improvement)] })
+      )
+      if (doc.improvementJustification) {
+        children.push(
+          new Paragraph({ children: [new TextRun({ text: 'Justificativa: ', bold: true }), new TextRun(doc.improvementJustification)], spacing: { after: 300 } })
+        )
+      }
+    }
 
     if (doc.preconditions) {
       children.push(
@@ -523,7 +575,28 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
     addText(`Status: ${doc.status.toUpperCase()} | Tipo: ${doc.testType} | Prioridade: ${doc.priority}`)
     addText(`Testador: ${doc.tester} | Ambiente: ${doc.environment || 'N/A'}`)
     addText(`Data: ${new Date(doc.createdAt).toLocaleString('pt-BR')}`)
+    if (doc.errorType) {
+      addText(`Tipo de Erro: ${doc.errorType === 'bug' ? 'Bug' : 'Regra de Negócio'}`)
+    }
     y += 10
+
+    if (doc.requirement) {
+      addText('Requisito', true, 14)
+      addText(`Código: ${doc.requirement}`)
+      if (doc.requirementDescription) {
+        addText(`Descrição: ${doc.requirementDescription}`)
+      }
+      y += 5
+    }
+
+    if (doc.improvement) {
+      addText('Sugestão de Melhoria', true, 14)
+      addText(`Melhoria: ${doc.improvement}`)
+      if (doc.improvementJustification) {
+        addText(`Justificativa: ${doc.improvementJustification}`)
+      }
+      y += 5
+    }
 
     if (doc.preconditions) {
       addText('Pré-condições', true, 14)
@@ -586,8 +659,29 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
     text += `Status: ${doc.status.toUpperCase()}\n`
     text += `Testador: ${doc.tester}\n`
     text += `Ambiente: ${doc.environment || 'N/A'}\n`
+    if (doc.errorType) {
+      text += `Tipo de Erro: ${doc.errorType === 'bug' ? 'Bug' : 'Regra de Negócio'}\n`
+    }
     text += `Data: ${new Date(doc.createdAt).toLocaleString('pt-BR')}\n\n`
     
+    if (doc.requirement) {
+      text += `REQUISITO:\n${'-'.repeat(30)}\n`
+      text += `Código: ${doc.requirement}\n`
+      if (doc.requirementDescription) {
+        text += `Descrição: ${doc.requirementDescription}\n`
+      }
+      text += `\n`
+    }
+
+    if (doc.improvement) {
+      text += `SUGESTÃO DE MELHORIA:\n${'-'.repeat(30)}\n`
+      text += `Melhoria: ${doc.improvement}\n`
+      if (doc.improvementJustification) {
+        text += `Justificativa: ${doc.improvementJustification}\n`
+      }
+      text += `\n`
+    }
+
     if (doc.preconditions) {
       text += `PRÉ-CONDIÇÕES:\n${'-'.repeat(30)}\n${doc.preconditions}\n\n`
     }
@@ -1029,7 +1123,41 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                   <p className="text-xs text-gray-500">Data</p>
                   <p className="font-medium">{new Date(selectedDoc.createdAt).toLocaleDateString('pt-BR')}</p>
                 </div>
+                {selectedDoc.errorType && (
+                  <div>
+                    <p className="text-xs text-gray-500">Tipo de Erro</p>
+                    <span className={`badge ${selectedDoc.errorType === 'bug' ? 'badge-error' : 'bg-purple-100 text-purple-700'}`}>
+                      {selectedDoc.errorType === 'bug' ? 'Bug' : 'Regra de Negócio'}
+                    </span>
+                  </div>
+                )}
               </div>
+
+              {/* Requisito */}
+              {selectedDoc.requirement && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Requisito</h3>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="font-medium text-gray-800">{selectedDoc.requirement}</p>
+                    {selectedDoc.requirementDescription && (
+                      <p className="text-gray-600 mt-1 text-sm">{selectedDoc.requirementDescription}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Melhoria */}
+              {selectedDoc.improvement && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Sugestão de Melhoria</h3>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="font-medium text-gray-800">{selectedDoc.improvement}</p>
+                    {selectedDoc.improvementJustification && (
+                      <p className="text-gray-600 mt-2 text-sm"><strong>Justificativa:</strong> {selectedDoc.improvementJustification}</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Preconditions */}
               {selectedDoc.preconditions && (
