@@ -1017,9 +1017,9 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                   <p className="text-xs text-gray-500">Testador</p>
                   <p className="font-medium">{selectedDoc.tester}</p>
                 </div>
-                <div>
+                <div className="overflow-hidden">
                   <p className="text-xs text-gray-500">Ambiente</p>
-                  <p className="font-medium">{selectedDoc.environment || 'N/A'}</p>
+                  <p className="font-medium break-all" title={selectedDoc.environment || 'N/A'}>{selectedDoc.environment || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Prioridade</p>
