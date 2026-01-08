@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, ArrowRight, CheckCircle2, Clock, XCircle, AlertTriangle, TrendingUp } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, ArrowRight, CheckCircle2, Clock, XCircle, AlertTriangle, TrendingUp, Lightbulb } from 'lucide-react'
 
 export default function HomePage({ testDocuments, requirements }) {
   const pendingTests = testDocuments.filter(d => d.status === 'pendente').length
   const approvedTests = testDocuments.filter(d => d.status === 'aprovado').length
   const failedTests = testDocuments.filter(d => d.status === 'reprovado').length
+  const improvementTests = testDocuments.filter(d => d.status === 'melhoria').length
   const totalTests = testDocuments.length
   
   // Calcular progresso
@@ -57,6 +58,7 @@ export default function HomePage({ testDocuments, requirements }) {
     { label: 'Aprovados', value: approvedTests, color: 'bg-green-500' },
     { label: 'Reprovados', value: failedTests, color: 'bg-red-500' },
     { label: 'Pendentes', value: pendingTests, color: 'bg-yellow-500' },
+    { label: 'Melhorias', value: improvementTests, color: 'bg-cyan-500' },
     { label: 'Requisitos', value: requirements.length, color: 'bg-purple-500' },
   ]
 
@@ -104,7 +106,7 @@ export default function HomePage({ testDocuments, requirements }) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         {stats.map((stat) => (
           <div key={stat.label} className="card">
             <div className={`w-2 h-2 rounded-full ${stat.color} mb-2`}></div>
@@ -141,7 +143,7 @@ export default function HomePage({ testDocuments, requirements }) {
               </div>
             </div>
             
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="grid grid-cols-4 gap-4 text-center">
               <div className="p-2 bg-green-50 rounded-lg">
                 <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
                 <p className="text-lg font-bold text-green-700">{approvedTests}</p>
@@ -156,6 +158,11 @@ export default function HomePage({ testDocuments, requirements }) {
                 <Clock className="w-5 h-5 text-yellow-600 mx-auto mb-1" />
                 <p className="text-lg font-bold text-yellow-700">{pendingTests}</p>
                 <p className="text-xs text-yellow-600">Pendentes</p>
+              </div>
+              <div className="p-2 bg-cyan-50 rounded-lg">
+                <Lightbulb className="w-5 h-5 text-cyan-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-cyan-700">{improvementTests}</p>
+                <p className="text-xs text-cyan-600">Melhorias</p>
               </div>
             </div>
 
@@ -249,14 +256,16 @@ export default function HomePage({ testDocuments, requirements }) {
                     <div key={test.id} className="flex items-center gap-3 relative">
                       <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white ${
                         test.status === 'aprovado' ? 'bg-green-500' :
-                        test.status === 'reprovado' ? 'bg-red-500' : 'bg-yellow-500'
+                        test.status === 'reprovado' ? 'bg-red-500' :
+                        test.status === 'melhoria' ? 'bg-cyan-500' : 'bg-yellow-500'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-gray-900">
                           <span className="font-medium">{test.title}</span>
                           <span className={`ml-2 text-xs ${
                             test.status === 'aprovado' ? 'text-green-600' :
-                            test.status === 'reprovado' ? 'text-red-600' : 'text-yellow-600'
+                            test.status === 'reprovado' ? 'text-red-600' :
+                            test.status === 'melhoria' ? 'text-cyan-600' : 'text-yellow-600'
                           }`}>
                             {test.status}
                           </span>
@@ -321,7 +330,9 @@ export default function HomePage({ testDocuments, requirements }) {
                     {test.status === 'aprovado' ? (
                       <CheckCircle2 className="w-5 h-5 text-green-500" />
                     ) : test.status === 'reprovado' ? (
-                      <CheckCircle2 className="w-5 h-5 text-red-500" />
+                      <XCircle className="w-5 h-5 text-red-500" />
+                    ) : test.status === 'melhoria' ? (
+                      <Lightbulb className="w-5 h-5 text-cyan-500" />
                     ) : (
                       <Clock className="w-5 h-5 text-yellow-500" />
                     )}
@@ -332,7 +343,8 @@ export default function HomePage({ testDocuments, requirements }) {
                   </div>
                   <span className={`badge ${
                     test.status === 'aprovado' ? 'badge-success' :
-                    test.status === 'reprovado' ? 'badge-error' : 'badge-warning'
+                    test.status === 'reprovado' ? 'badge-error' :
+                    test.status === 'melhoria' ? 'bg-cyan-100 text-cyan-700' : 'badge-warning'
                   }`}>
                     {test.status}
                   </span>
