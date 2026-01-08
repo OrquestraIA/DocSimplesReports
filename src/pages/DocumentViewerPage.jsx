@@ -723,6 +723,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
         return <XCircle className="w-5 h-5 text-red-500" />
       case 'em_reteste':
         return <RefreshCw className="w-5 h-5 text-orange-500" />
+      case 'melhoria':
+        return <CheckCircle2 className="w-5 h-5 text-blue-500" />
       default:
         return <Clock className="w-5 h-5 text-yellow-500" />
     }
@@ -805,7 +807,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                       <span className={`badge ${
                         doc.status === 'aprovado' ? 'badge-success' :
                         doc.status === 'reprovado' ? 'badge-error' :
-                        doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' : 'badge-warning'
+                        doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
+                        doc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
                       }`}>
                         {doc.status === 'em_reteste' ? 'Em Reteste' : doc.status}
                       </span>
@@ -1102,7 +1105,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                   <span className={`badge ${
                     selectedDoc.status === 'aprovado' ? 'badge-success' :
                     selectedDoc.status === 'reprovado' ? 'badge-error' :
-                    selectedDoc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' : 'badge-warning'
+                    selectedDoc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
+                    selectedDoc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
                   }`}>
                     {selectedDoc.status === 'em_reteste' ? 'Em Reteste' : selectedDoc.status}
                   </span>

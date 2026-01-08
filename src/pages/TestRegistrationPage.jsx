@@ -263,6 +263,7 @@ export default function TestRegistrationPage({ onSave }) {
                 <option value="aprovado">Aprovado</option>
                 <option value="reprovado">Reprovado</option>
                 <option value="bloqueado">Bloqueado</option>
+                <option value="melhoria">Melhoria</option>
               </select>
             </div>
             <div>
