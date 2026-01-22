@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FileText, Lock, Mail, Loader2, AlertCircle } from 'lucide-react'
 import { loginWithEmail } from '../firebase'
+import { APP_VERSION } from '../version'
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('')
@@ -36,7 +37,8 @@ export default function LoginPage({ onLogin }) {
         <div className="text-center mb-8">
           <img src="/DocSimplesReports/logo.jpg" alt="Logo" className="w-16 h-16 mx-auto mb-4 rounded-full object-contain" />
           <h1 className="text-2xl font-bold text-gray-900">DocSimples Reports</h1>
-          <p className="text-gray-500 mt-1">Sistema de Documentação de Testes</p>
+          <p className="text-xs text-gray-400 mb-1">v{APP_VERSION}</p>
+          <p className="text-gray-500">Sistema de Documentação de Testes</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">

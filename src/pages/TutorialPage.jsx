@@ -1,0 +1,462 @@
+import { useState } from 'react'
+import { 
+  BookOpen, 
+  ChevronDown, 
+  ChevronRight,
+  FileText, 
+  FlaskConical, 
+  MessageSquare, 
+  RefreshCw, 
+  CheckCircle, 
+  XCircle,
+  Users,
+  Code,
+  ArrowRight,
+  Lightbulb,
+  AlertTriangle,
+  HelpCircle,
+  AtSign,
+  Upload,
+  Bell,
+  Smile
+} from 'lucide-react'
+
+export default function TutorialPage() {
+  const [expandedSection, setExpandedSection] = useState('registro')
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section)
+  }
+
+  const sections = [
+    {
+      id: 'registro',
+      title: 'Como Registrar um Teste',
+      icon: FlaskConical,
+      color: 'bg-blue-500',
+      steps: [
+        {
+          title: 'Acesse "Registrar Teste"',
+          description: 'No menu superior, clique em "Registrar Teste" para abrir o formulário de registro.',
+          tip: 'Você também pode acessar pela página inicial clicando no botão "Novo Teste".'
+        },
+        {
+          title: 'Preencha as Informações Básicas',
+          description: 'Informe o título do teste, requisito relacionado, feature e módulo que está sendo testado.',
+          tip: 'Use títulos descritivos que facilitem a identificação do teste posteriormente.'
+        },
+        {
+          title: 'Selecione a Categoria',
+          description: 'Escolha entre: Regra de Negócio (validação de requisitos), Bug (erro encontrado) ou Melhoria (sugestão de melhoria).',
+          important: true,
+          tip: 'A categoria é obrigatória e determina como o teste será classificado no Jira.'
+        },
+        {
+          title: 'Defina Tipo, Prioridade e Status',
+          description: 'Selecione o tipo de teste (funcional, exploratório, etc.), a prioridade e o status inicial.',
+          tip: 'Para bugs críticos, use prioridade "Crítica" para destacar a urgência.'
+        },
+        {
+          title: 'Adicione os Passos do Teste',
+          description: 'Para cada passo, informe: a ação realizada, o resultado esperado e o resultado obtido.',
+          tip: 'Seja detalhista nos passos para facilitar a reprodução do cenário pelo desenvolvedor.'
+        },
+        {
+          title: 'Anexe Evidências',
+          description: 'Faça upload de imagens ou vídeos: clique para selecionar, arraste arquivos ou cole com Ctrl+V.',
+          tip: 'Vídeos são ótimos para demonstrar bugs de comportamento. Veja a seção "Upload de Evidências" para mais detalhes.'
+        },
+        {
+          title: 'Salve o Teste',
+          description: 'Clique em "Salvar Teste". Uma issue será criada automaticamente no Jira (projeto OH).',
+          tip: 'O link da issue do Jira aparecerá na confirmação e ficará vinculado ao documento.'
+        }
+      ]
+    },
+    {
+      id: 'fluxo',
+      title: 'Fluxo de Interação: Operação ↔ Desenvolvimento',
+      icon: Users,
+      color: 'bg-purple-500',
+      steps: [
+        {
+          title: '1. Operação Registra o Teste',
+          description: 'A equipe de Operação (QA) registra o teste com todas as informações e evidências.',
+          role: 'operacao'
+        },
+        {
+          title: '2. Desenvolvedor Analisa',
+          description: 'O desenvolvedor acessa "Documentos", visualiza o teste e analisa o problema reportado.',
+          role: 'dev'
+        },
+        {
+          title: '3. Desenvolvedor Responde',
+          description: 'O dev pode adicionar comentários explicando a causa, solução ou pedindo mais informações.',
+          role: 'dev',
+          tip: 'Use o campo de comentários para manter o histórico da comunicação.'
+        },
+        {
+          title: '4. Desenvolvedor Solicita Reteste',
+          description: 'Após corrigir o problema, o dev clica em "Solicitar Reteste" para que a Operação valide.',
+          role: 'dev',
+          important: true
+        },
+        {
+          title: '5. Operação Realiza o Reteste',
+          description: 'A Operação testa novamente o cenário para verificar se a correção foi efetiva.',
+          role: 'operacao'
+        },
+        {
+          title: '6. Operação Aprova ou Reprova',
+          description: 'Se OK, clica em "Aprovar Reteste" (status → Aprovado). Se não, clica em "Reprovar Reteste" (status → Reprovado).',
+          role: 'operacao',
+          important: true
+        }
+      ]
+    },
+    {
+      id: 'status',
+      title: 'Entendendo os Status',
+      icon: FileText,
+      color: 'bg-green-500',
+      steps: [
+        {
+          title: 'Pendente',
+          description: 'Teste registrado aguardando análise ou correção.',
+          badge: 'bg-yellow-100 text-yellow-700'
+        },
+        {
+          title: 'Em Reteste',
+          description: 'Desenvolvedor solicitou reteste. Aguardando validação da Operação.',
+          badge: 'bg-blue-100 text-blue-700'
+        },
+        {
+          title: 'Aprovado',
+          description: 'Teste passou! A funcionalidade está funcionando conforme esperado.',
+          badge: 'bg-green-100 text-green-700'
+        },
+        {
+          title: 'Reprovado',
+          description: 'Teste falhou. O problema persiste ou um novo problema foi encontrado.',
+          badge: 'bg-red-100 text-red-700'
+        },
+        {
+          title: 'Bloqueado',
+          description: 'Teste não pode ser executado por algum impedimento externo.',
+          badge: 'bg-gray-100 text-gray-700'
+        }
+      ]
+    },
+    {
+      id: 'categorias',
+      title: 'Categorias de Teste',
+      icon: Code,
+      color: 'bg-indigo-500',
+      steps: [
+        {
+          title: 'Regra de Negócio',
+          description: 'Validação de requisitos e regras do sistema. Ex: "Usuário não pode fazer pedido sem endereço cadastrado".',
+          badge: 'bg-indigo-100 text-indigo-700'
+        },
+        {
+          title: 'Bug',
+          description: 'Erro ou comportamento inesperado do sistema. Ex: "Botão de salvar não funciona", "Erro 500 ao acessar relatório".',
+          badge: 'bg-red-100 text-red-700'
+        },
+        {
+          title: 'Melhoria',
+          description: 'Sugestão de melhoria na usabilidade ou funcionalidade. Ex: "Adicionar filtro por data no relatório".',
+          badge: 'bg-emerald-100 text-emerald-700'
+        }
+      ]
+    },
+    {
+      id: 'upload',
+      title: 'Upload de Evidências (Imagens e Vídeos)',
+      icon: Upload,
+      color: 'bg-teal-500',
+      steps: [
+        {
+          title: 'Clique para Selecionar',
+          description: 'Clique na área de upload para abrir o seletor de arquivos. Você pode selecionar múltiplas imagens e vídeos de uma vez.',
+          tip: 'Formatos suportados: PNG, JPG, GIF, MP4, WebM, MOV, AVI, MKV.'
+        },
+        {
+          title: 'Arraste e Solte (Drag-and-Drop)',
+          description: 'Arraste arquivos diretamente do seu computador para a área de upload tracejada. A borda ficará azul indicando que você pode soltar.',
+          important: true,
+          tip: 'Você pode arrastar vários arquivos de uma vez!'
+        },
+        {
+          title: 'Cole da Área de Transferência (Ctrl+V)',
+          description: 'Tire um print da tela (Print Screen) e cole diretamente na área de upload usando Ctrl+V.',
+          important: true,
+          tip: 'Ideal para capturar erros rapidamente sem precisar salvar o arquivo primeiro.'
+        },
+        {
+          title: 'Vídeos como Evidência',
+          description: 'Grave a tela mostrando o bug ou comportamento e faça upload do vídeo. Vídeos são exibidos com player integrado.',
+          tip: 'Vídeos são especialmente úteis para bugs de comportamento ou animações.'
+        },
+        {
+          title: 'Visualizando Evidências',
+          description: 'Imagens podem ser ampliadas clicando nelas. Vídeos têm controles de play/pause e botão para abrir em nova aba.',
+          tip: 'Use o botão "↗ Abrir" nos vídeos para visualizar em tela cheia.'
+        }
+      ]
+    },
+    {
+      id: 'notificacoes',
+      title: 'Sistema de Notificações',
+      icon: Bell,
+      color: 'bg-orange-500',
+      steps: [
+        {
+          title: 'Notificações Personalizadas',
+          description: 'Você só recebe notificações relevantes para você: menções diretas, ações do seu perfil oposto e novos testes (para devs).',
+          important: true,
+          tip: 'Desenvolvedores veem ações da Operação. Operação vê ações dos Desenvolvedores.'
+        },
+        {
+          title: 'Novo Teste Registrado',
+          description: 'Desenvolvedores recebem notificação automática quando um novo teste é registrado pela Operação.',
+          tip: 'Fique atento ao sino para não perder novos testes!'
+        },
+        {
+          title: 'Solicitação de Reteste',
+          description: 'A Operação recebe notificação quando um desenvolvedor solicita reteste de um bug corrigido.',
+          tip: 'Clique na notificação para ir direto ao documento.'
+        },
+        {
+          title: 'Aprovação/Reprovação',
+          description: 'Desenvolvedores recebem notificação quando a Operação aprova ou reprova um reteste.',
+          tip: 'Notificações verdes = aprovado, vermelhas = reprovado.'
+        },
+        {
+          title: 'Menções (@)',
+          description: 'Quando alguém te menciona em um comentário, você recebe uma notificação destacada em roxo.',
+          tip: 'Menções são úteis para chamar atenção de pessoas específicas.'
+        }
+      ]
+    },
+    {
+      id: 'mencoes',
+      title: 'Como Usar Menções (@)',
+      icon: AtSign,
+      color: 'bg-purple-500',
+      steps: [
+        {
+          title: 'Mencionando um Colega',
+          description: 'Nos comentários, digite @ seguido do nome do usuário. Uma lista de sugestões aparecerá automaticamente.',
+          tip: 'Ex: "@marcelo você pode verificar isso?" ou "@adriana preciso de mais detalhes".'
+        },
+        {
+          title: 'Autocomplete Inteligente',
+          description: 'Ao digitar @, o sistema mostra todos os usuários disponíveis. Continue digitando para filtrar a lista.',
+          tip: 'Você pode buscar pelo nome, email ou nome de menção do usuário.'
+        },
+        {
+          title: 'Selecionando o Usuário',
+          description: 'Use as setas ↑↓ para navegar e Enter para selecionar, ou clique diretamente no nome desejado.',
+          tip: 'A menção será inserida automaticamente no formato @nomedousuario.'
+        },
+        {
+          title: 'Notificação Automática',
+          description: 'Quando você menciona alguém, essa pessoa recebe uma notificação destacada em roxo no sino.',
+          important: true,
+          tip: 'Use menções para chamar atenção de pessoas específicas sobre um teste.'
+        },
+        {
+          title: 'Visualizando Menções',
+          description: 'Menções aparecem destacadas em roxo nos comentários. Passe o mouse para ver o email do usuário.',
+          tip: 'Menções facilitam identificar rapidamente quem foi envolvido na discussão.'
+        }
+      ]
+    },
+    {
+      id: 'reacoes',
+      title: 'Reações com Emojis e GIFs',
+      icon: Smile,
+      color: 'bg-pink-500',
+      steps: [
+        {
+          title: 'Reagindo a um Comentário',
+          description: 'Clique no ícone 😊 (smile) ao lado de qualquer comentário para abrir o seletor de reações.',
+          tip: 'Reações são uma forma rápida de dar feedback sem precisar escrever um comentário.'
+        },
+        {
+          title: 'Escolhendo um Emoji',
+          description: 'Na aba "Emojis", escolha entre categorias: Frequentes, Gestos, Símbolos, Objetos e Rostos. Clique no emoji desejado.',
+          tip: 'Use a barra de busca para encontrar emojis específicos rapidamente.'
+        },
+        {
+          title: 'Adicionando GIFs',
+          description: 'Clique na aba "GIFs" para buscar GIFs animados do GIPHY. Digite para buscar ou escolha dos trending.',
+          important: true,
+          tip: 'GIFs são ótimos para expressar reações de forma divertida!'
+        },
+        {
+          title: 'Reações Agrupadas',
+          description: 'Reações iguais são agrupadas com um contador. Passe o mouse para ver quem reagiu.',
+          tip: 'Suas próprias reações aparecem destacadas em azul.'
+        },
+        {
+          title: 'Removendo uma Reação',
+          description: 'Clique novamente na mesma reação para removê-la. Você pode trocar sua reação a qualquer momento.',
+          tip: 'Cada usuário pode ter múltiplas reações diferentes no mesmo comentário.'
+        }
+      ]
+    },
+    {
+      id: 'dicas',
+      title: 'Dicas e Boas Práticas',
+      icon: Lightbulb,
+      color: 'bg-amber-500',
+      steps: [
+        {
+          title: 'Seja Específico no Título',
+          description: 'Use títulos que descrevam exatamente o que foi testado. Ex: "Login com email inválido deve exibir mensagem de erro".',
+          tip: 'Evite títulos genéricos como "Teste de login" ou "Bug na tela".'
+        },
+        {
+          title: 'Documente o Ambiente',
+          description: 'Sempre informe em qual ambiente o teste foi realizado (Homologação, Produção, etc.).',
+          tip: 'Bugs podem se comportar diferente em ambientes distintos.'
+        },
+        {
+          title: 'Anexe Evidências Claras',
+          description: 'Screenshots devem mostrar claramente o problema. Destaque áreas importantes se necessário.',
+          tip: 'Uma boa evidência vale mais que mil palavras.'
+        },
+        {
+          title: 'Mantenha Comunicação no Sistema',
+          description: 'Use os comentários e menções para toda comunicação sobre o teste. Isso mantém o histórico centralizado.',
+          tip: 'Evite discutir detalhes do teste por outros canais (WhatsApp, email).'
+        },
+        {
+          title: 'Atualize o Status Corretamente',
+          description: 'Sempre atualize o status após cada ação. Isso mantém o dashboard e relatórios precisos.',
+          tip: 'Status desatualizado gera confusão e retrabalho.'
+        }
+      ]
+    }
+  ]
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-primary-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Tutorial e Ajuda</h1>
+            <p className="text-gray-600">Aprenda a usar o DocSimples Reports</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {sections.map((section) => {
+          const Icon = section.icon
+          const isExpanded = expandedSection === section.id
+
+          return (
+            <div key={section.id} className="card overflow-hidden">
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 ${section.color} rounded-lg flex items-center justify-center`}>
+                    <Icon className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="font-semibold text-gray-900">{section.title}</span>
+                </div>
+                {isExpanded ? (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                )}
+              </button>
+
+              {isExpanded && (
+                <div className="px-4 pb-4 border-t border-gray-100">
+                  <div className="mt-4 space-y-4">
+                    {section.steps.map((step, index) => (
+                      <div 
+                        key={index}
+                        className={`p-4 rounded-lg ${step.important ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {section.id === 'fluxo' && step.role && (
+                            <div className={`px-2 py-1 rounded text-xs font-medium ${
+                              step.role === 'operacao' 
+                                ? 'bg-purple-100 text-purple-700' 
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {step.role === 'operacao' ? 'Operação' : 'Dev'}
+                            </div>
+                          )}
+                          {section.id === 'status' || section.id === 'categorias' ? (
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${step.badge}`}>
+                              {step.title}
+                            </span>
+                          ) : (
+                            <div className="flex-shrink-0 w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-bold text-primary-600">{index + 1}</span>
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            {section.id !== 'status' && section.id !== 'categorias' && (
+                              <h4 className="font-medium text-gray-900 mb-1">{step.title}</h4>
+                            )}
+                            <p className="text-gray-600 text-sm">{step.description}</p>
+                            {step.tip && (
+                              <div className="mt-2 flex items-start gap-2 text-sm">
+                                <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                                <span className="text-amber-700">{step.tip}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Quick Reference Card */}
+      <div className="mt-8 card bg-gradient-to-r from-primary-50 to-primary-100 border-primary-200">
+        <div className="p-6">
+          <h3 className="font-semibold text-primary-900 mb-4 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5" />
+            Referência Rápida
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              <span><strong>Aprovar Reteste:</strong> Correção validada com sucesso</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-red-500" />
+              <span><strong>Reprovar Reteste:</strong> Problema ainda persiste</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-blue-500" />
+              <span><strong>Solicitar Reteste:</strong> Dev pede nova validação</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-purple-500" />
+              <span><strong>Comentários:</strong> Comunicação entre equipes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

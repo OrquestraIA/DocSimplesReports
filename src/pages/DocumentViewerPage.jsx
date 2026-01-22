@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp, Image, X, Loader2, Edit3, Save, Plus } from 'lucide-react'
-import { addCommentToTestDocument, uploadScreenshot, updateCommentInTestDocument } from '../firebase'
+import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp, ThumbsDown, Image, X, Loader2, Edit3, Save, Plus, Smile } from 'lucide-react'
+import { addCommentToTestDocument, uploadScreenshot, updateCommentInTestDocument, addNotification, toggleReactionOnComment } from '../firebase'
+import ReactionPicker, { ReactionButton, ReactionDisplay } from '../components/ReactionPicker'
+import MentionInput, { renderTextWithMentions, extractMentions } from '../components/MentionInput'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
 
-export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
+export default function DocumentViewerPage({ documents, onUpdate, onDelete, users = [], currentUser = null }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
+  const [filterCategory, setFilterCategory] = useState('all')
   const [selectedDoc, setSelectedDoc] = useState(null)
   const [exportMenuOpen, setExportMenuOpen] = useState(null)
   const [newComment, setNewComment] = useState('')
@@ -23,24 +26,109 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
   const [editingCommentText, setEditingCommentText] = useState('')
   const [editingCommentScreenshots, setEditingCommentScreenshots] = useState([])
   const [savingComment, setSavingComment] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [openReactionPicker, setOpenReactionPicker] = useState(null)
 
-  // Função para upload de screenshot no comentário
-  const handleCommentScreenshot = async (e) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
+  // Helper para detectar se é vídeo (por mediaType ou extensão do arquivo)
+  const isVideo = (media) => {
+    if (media.mediaType === 'video') return true
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv']
+    const name = (media.name || media.url || '').toLowerCase()
+    return videoExtensions.some(ext => name.includes(ext))
+  }
+
+  // Função para processar arquivos de mídia (imagens e vídeos) - usada por input, drag-drop e paste
+  const processMediaFiles = async (files, targetSetter = null) => {
+    const mediaFiles = Array.from(files).filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    )
+    if (mediaFiles.length === 0) return
     
     setUploadingScreenshot(true)
     try {
       const tempId = `comment_${Date.now()}`
-      const uploadPromises = files.map(file => uploadScreenshot(file, tempId))
+      const uploadPromises = mediaFiles.map(file => uploadScreenshot(file, tempId))
       const uploadedFiles = await Promise.all(uploadPromises)
-      setCommentScreenshots([...commentScreenshots, ...uploadedFiles])
+      
+      // Adicionar tipo de mídia ao arquivo
+      const filesWithType = uploadedFiles.map((file, idx) => ({
+        ...file,
+        mediaType: mediaFiles[idx].type.startsWith('video/') ? 'video' : 'image'
+      }))
+      
+      if (targetSetter) {
+        targetSetter(prev => [...prev, ...filesWithType])
+      } else {
+        setCommentScreenshots(prev => [...prev, ...filesWithType])
+      }
     } catch (error) {
       console.error('Erro ao fazer upload:', error)
-      alert('Erro ao fazer upload da imagem.')
+      alert('Erro ao fazer upload do arquivo.')
     } finally {
       setUploadingScreenshot(false)
     }
+  }
+
+  // Handler para drag-and-drop
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    
+    const files = e.dataTransfer.files
+    await processMediaFiles(files)
+  }
+
+  // Handler para paste (Ctrl+V)
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    
+    const mediaFiles = []
+    for (const item of items) {
+      if (item.type.startsWith('image/') || item.type.startsWith('video/')) {
+        const file = item.getAsFile()
+        if (file) mediaFiles.push(file)
+      }
+    }
+    
+    if (mediaFiles.length > 0) {
+      e.preventDefault()
+      await processMediaFiles(mediaFiles)
+    }
+  }
+
+  // Função para gerar mensagem padrão da notificação
+  const getNotificationMessage = (type) => {
+    switch (type) {
+      case 'solicitar_reteste':
+        return 'Desenvolvedor solicitou reteste'
+      case 'aprovado_reteste':
+        return 'Reteste aprovado pela Operação'
+      case 'reprovado_reteste':
+        return 'Reteste reprovado pela Operação'
+      default:
+        return 'Nova interação no teste'
+    }
+  }
+
+  // Função para upload de mídia no comentário (via input file)
+  const handleCommentScreenshot = async (e) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    await processMediaFiles(files)
   }
 
   const removeCommentScreenshot = (index) => {
@@ -53,18 +141,77 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
     
     setSendingComment(true)
     try {
+      // Determinar autor baseado no tipo de ação
+      const getAuthorByType = (actionType) => {
+        switch (actionType) {
+          case 'aprovado_reteste':
+          case 'reprovado_reteste':
+            return 'Operação'
+          case 'resposta':
+          case 'solicitar_reteste':
+          default:
+            return 'Desenvolvedor'
+        }
+      }
+
       const comment = {
-        type: type, // 'resposta', 'solicitar_reteste', 'aprovado_reteste'
+        type: type, // 'resposta', 'solicitar_reteste', 'aprovado_reteste', 'reprovado_reteste'
         text: newComment.trim(),
-        author: 'Desenvolvedor', // Pode ser dinâmico baseado no usuário logado
+        author: getAuthorByType(type),
         screenshots: commentScreenshots
       }
       
       await addCommentToTestDocument(selectedDoc.id, comment)
       
+      // Criar notificação baseada no tipo de ação
+      // Determinar para quem vai a notificação (perfil oposto ao autor)
+      const getTargetRole = (actionType) => {
+        switch (actionType) {
+          case 'aprovado_reteste':
+          case 'reprovado_reteste':
+            // Operação aprovou/reprovou -> notificar Desenvolvedor
+            return 'desenvolvedor'
+          case 'resposta':
+          case 'solicitar_reteste':
+          default:
+            // Desenvolvedor respondeu/solicitou -> notificar Operação
+            return 'operacao'
+        }
+      }
+
+      const notificationData = {
+        testId: selectedDoc.id,
+        testTitle: selectedDoc.title,
+        type: type === 'resposta' ? 'comentario' : type,
+        message: newComment.trim() || getNotificationMessage(type),
+        author: comment.author,
+        authorEmail: currentUser?.email || null,
+        targetRole: getTargetRole(type)
+      }
+      await addNotification(notificationData)
+
+      // Criar notificações para usuários mencionados
+      const mentionedUsers = extractMentions(newComment, users)
+      for (const mentionedUser of mentionedUsers) {
+        await addNotification({
+          testId: selectedDoc.id,
+          testTitle: selectedDoc.title,
+          type: 'mencao',
+          message: `${comment.author} mencionou você: "${newComment.trim().substring(0, 100)}${newComment.length > 100 ? '...' : ''}"`,
+          author: comment.author,
+          authorEmail: currentUser?.email || null,
+          targetUserId: mentionedUser.uid,
+          targetEmail: mentionedUser.email
+        })
+      }
+      
       // Se for aprovação após reteste, atualizar status do documento
       if (type === 'aprovado_reteste') {
         await onUpdate(selectedDoc.id, { status: 'aprovado' })
+      }
+      // Se for reprovação do reteste, voltar status para 'reprovado'
+      if (type === 'reprovado_reteste') {
+        await onUpdate(selectedDoc.id, { status: 'reprovado' })
       }
       // Se for solicitação de reteste, mudar status para 'em_reteste'
       if (type === 'solicitar_reteste') {
@@ -91,6 +238,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
     switch(type) {
       case 'solicitar_reteste': return 'Solicitou Reteste'
       case 'aprovado_reteste': return 'Aprovou após Reteste'
+      case 'reprovado_reteste': return 'Reprovou Reteste'
       case 'feedback': return 'Feedback'
       default: return 'Resposta'
     }
@@ -100,6 +248,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
     switch(type) {
       case 'solicitar_reteste': return 'bg-orange-100 text-orange-700'
       case 'aprovado_reteste': return 'bg-green-100 text-green-700'
+      case 'reprovado_reteste': return 'bg-red-100 text-red-700'
       case 'feedback': return 'bg-blue-100 text-blue-700'
       default: return 'bg-gray-100 text-gray-700'
     }
@@ -119,21 +268,9 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
   }
 
   const handleEditCommentScreenshot = async (e) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-    
-    setUploadingScreenshot(true)
-    try {
-      const tempId = `edit_comment_${Date.now()}`
-      const uploadPromises = files.map(file => uploadScreenshot(file, tempId))
-      const uploadedFiles = await Promise.all(uploadPromises)
-      setEditingCommentScreenshots([...editingCommentScreenshots, ...uploadedFiles])
-    } catch (error) {
-      console.error('Erro ao fazer upload:', error)
-      alert('Erro ao fazer upload da imagem.')
-    } finally {
-      setUploadingScreenshot(false)
-    }
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    await processMediaFiles(files, setEditingCommentScreenshots)
   }
 
   const removeEditingCommentScreenshot = (index) => {
@@ -163,6 +300,51 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
     } finally {
       setSavingComment(false)
     }
+  }
+
+  // Função para adicionar/remover reação em um comentário
+  const handleReaction = async (commentId, reaction) => {
+    if (!currentUser) return
+    
+    try {
+      await toggleReactionOnComment(
+        selectedDoc.id,
+        commentId,
+        reaction,
+        currentUser.uid,
+        currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuário'
+      )
+      
+      // Atualizar localmente
+      const updatedComments = (selectedDoc.comments || []).map(c => {
+        if (c.id !== commentId) return c
+        
+        const reactions = c.reactions || []
+        const existingIdx = reactions.findIndex(
+          r => r.type === reaction.type && r.value === reaction.value && r.userId === currentUser.uid
+        )
+        
+        let newReactions
+        if (existingIdx >= 0) {
+          newReactions = reactions.filter((_, idx) => idx !== existingIdx)
+        } else {
+          newReactions = [...reactions, {
+            ...reaction,
+            userId: currentUser.uid,
+            userName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuário',
+            createdAt: new Date().toISOString()
+          }]
+        }
+        
+        return { ...c, reactions: newReactions }
+      })
+      
+      setSelectedDoc({ ...selectedDoc, comments: updatedComments })
+    } catch (error) {
+      console.error('Erro ao reagir:', error)
+    }
+    
+    setOpenReactionPicker(null)
   }
 
   // Funções de edição
@@ -232,7 +414,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                          doc.feature.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || doc.status === filterStatus
     const matchesType = filterType === 'all' || doc.testType === filterType
-    return matchesSearch && matchesStatus && matchesType
+    const matchesCategory = filterCategory === 'all' || doc.category === filterCategory
+    return matchesSearch && matchesStatus && matchesType && matchesCategory
   })
 
   const exportAsTxt = (doc) => {
@@ -740,8 +923,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
       </div>
 
       {/* Filters */}
-      <div className="card">
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="card overflow-visible">
+        <div className="flex flex-col gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -752,11 +935,11 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
               placeholder="Buscar por título ou feature..."
             />
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="input-field w-40"
+              className="input-field"
             >
               <option value="all">Todos Status</option>
               <option value="pendente">Pendente</option>
@@ -768,13 +951,23 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="input-field w-40"
+              className="input-field"
             >
               <option value="all">Todos Tipos</option>
               <option value="funcional">Funcional</option>
               <option value="exploratorio">Exploratório</option>
               <option value="regressao">Regressão</option>
               <option value="integracao">Integração</option>
+            </select>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="input-field"
+            >
+              <option value="all">Todas Categorias</option>
+              <option value="regra_negocio">Regra de Negócio</option>
+              <option value="bug">Bug</option>
+              <option value="melhoria">Melhoria</option>
             </select>
           </div>
         </div>
@@ -861,12 +1054,25 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
 
       {/* Document Detail Modal */}
       {selectedDoc && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
-                {editMode ? 'Editar Documento' : selectedDoc.title}
-              </h2>
+        <div className="fixed inset-0 bg-black/50 z-50 overflow-hidden">
+          <div className="h-full sm:p-4 sm:flex sm:items-center sm:justify-center sm:overflow-y-auto">
+            <div className="bg-white sm:rounded-xl w-full sm:max-w-3xl h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto overflow-x-hidden">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-3 sm:p-4 flex items-start justify-between gap-2 z-10">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 break-words">
+                  {editMode ? 'Editar Documento' : selectedDoc.title}
+                </h2>
+                {selectedDoc.jiraKey && !editMode && (
+                  <a 
+                    href={selectedDoc.jiraUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
+                  >
+                    🎫 {selectedDoc.jiraKey}
+                  </a>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {!editMode && (
                   <button
@@ -1085,9 +1291,9 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                 </div>
               </div>
             ) : (
-            <div className="p-6 space-y-6">
+            <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
               {/* Info Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                 <div>
                   <p className="text-xs text-gray-500">Feature</p>
                   <p className="font-medium">{selectedDoc.feature}</p>
@@ -1223,26 +1429,46 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                 </div>
               )}
 
-              {/* Screenshots */}
+              {/* Screenshots e Vídeos */}
               {selectedDoc.screenshots && selectedDoc.screenshots.length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Screenshots / Prints</h3>
+                  <h3 className="font-semibold text-gray-900 mb-3">Evidências (Imagens e Vídeos)</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedDoc.screenshots.map((screenshot, i) => (
-                      <a
-                        key={i}
-                        href={screenshot.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                      >
-                        <img
-                          src={screenshot.url}
-                          alt={screenshot.name}
-                          className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-primary-500 transition-colors"
-                        />
-                        <p className="text-xs text-gray-500 mt-1 truncate">{screenshot.name}</p>
-                      </a>
+                    {selectedDoc.screenshots.map((media, i) => (
+                      <div key={i}>
+                        {isVideo(media) ? (
+                          <div className="relative">
+                            <video
+                              src={media.url}
+                              controls
+                              className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                            />
+                            <a
+                              href={media.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="absolute top-1 right-1 bg-black/50 text-white text-xs px-2 py-1 rounded hover:bg-black/70"
+                            >
+                              ↗ Abrir
+                            </a>
+                            <p className="text-xs text-gray-500 mt-1 truncate">{media.name}</p>
+                          </div>
+                        ) : (
+                          <a
+                            href={media.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <img
+                              src={media.url}
+                              alt={media.name}
+                              className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-primary-500 transition-colors"
+                            />
+                            <p className="text-xs text-gray-500 mt-1 truncate">{media.name}</p>
+                          </a>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -1279,13 +1505,13 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                               placeholder="Editar comentário..."
                             />
                             
-                            {/* Upload de screenshots na edição */}
+                            {/* Upload de mídia na edição */}
                             <div className="flex items-center gap-2">
                               <input
                                 type="file"
                                 id={`edit-comment-screenshot-${comment.id}`}
                                 multiple
-                                accept="image/*"
+                                accept="image/*,video/*"
                                 onChange={handleEditCommentScreenshot}
                                 className="hidden"
                                 disabled={uploadingScreenshot}
@@ -1295,20 +1521,28 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                                 className="flex items-center gap-1 text-xs px-2 py-1 border border-gray-300 rounded cursor-pointer hover:bg-gray-100"
                               >
                                 {uploadingScreenshot ? <Loader2 className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
-                                <span>Anexar</span>
+                                <span>Anexar imagem/vídeo</span>
                               </label>
                             </div>
                             
-                            {/* Preview screenshots em edição */}
+                            {/* Preview mídia em edição */}
                             {editingCommentScreenshots.length > 0 && (
                               <div className="flex flex-wrap gap-2">
-                                {editingCommentScreenshots.map((screenshot, sIdx) => (
+                                {editingCommentScreenshots.map((media, sIdx) => (
                                   <div key={sIdx} className="relative group">
-                                    <img
-                                      src={screenshot.url}
-                                      alt={screenshot.name}
-                                      className="h-14 w-auto object-cover rounded border border-gray-200"
-                                    />
+                                    {isVideo(media) ? (
+                                      <video
+                                        src={media.url}
+                                        className="h-14 w-auto object-cover rounded border border-gray-200"
+                                        muted
+                                      />
+                                    ) : (
+                                      <img
+                                        src={media.url}
+                                        alt={media.name}
+                                        className="h-14 w-auto object-cover rounded border border-gray-200"
+                                      />
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => removeEditingCommentScreenshot(sIdx)}
@@ -1363,28 +1597,72 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                               </div>
                             </div>
                             {comment.text && (
-                              <p className="text-sm text-gray-700">{comment.text}</p>
+                              <p className="text-sm text-gray-700">{renderTextWithMentions(comment.text, users)}</p>
                             )}
-                            {/* Screenshots do comentário */}
+                            {/* Mídia do comentário (imagens e vídeos) */}
                             {comment.screenshots && comment.screenshots.length > 0 && (
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {comment.screenshots.map((screenshot, sIdx) => (
-                                  <a
-                                    key={sIdx}
-                                    href={screenshot.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block"
-                                  >
-                                    <img
-                                      src={screenshot.url}
-                                      alt={screenshot.name}
-                                      className="h-20 w-auto object-cover rounded border border-gray-200 hover:border-primary-500"
-                                    />
-                                  </a>
+                                {comment.screenshots.map((media, sIdx) => (
+                                  <div key={sIdx}>
+                                    {isVideo(media) ? (
+                                      <div className="relative">
+                                        <video
+                                          src={media.url}
+                                          controls
+                                          className="h-40 max-w-xs rounded border border-gray-200"
+                                        />
+                                        <a
+                                          href={media.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="absolute top-1 right-1 bg-black/50 text-white text-xs px-2 py-1 rounded hover:bg-black/70"
+                                        >
+                                          ↗ Abrir
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <a
+                                        href={media.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block"
+                                      >
+                                        <img
+                                          src={media.url}
+                                          alt={media.name}
+                                          className="h-20 w-auto object-cover rounded border border-gray-200 hover:border-primary-500"
+                                        />
+                                      </a>
+                                    )}
+                                  </div>
                                 ))}
                               </div>
                             )}
+                            
+                            {/* Reações do comentário */}
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="relative">
+                                <button
+                                  onClick={() => setOpenReactionPicker(openReactionPicker === comment.id ? null : comment.id)}
+                                  className="p-1 text-gray-400 hover:text-primary-600 rounded hover:bg-gray-100 transition-colors"
+                                  title="Reagir"
+                                >
+                                  <Smile className="w-4 h-4" />
+                                </button>
+                                {openReactionPicker === comment.id && (
+                                  <ReactionPicker
+                                    onSelect={(reaction) => handleReaction(comment.id, reaction)}
+                                    onClose={() => setOpenReactionPicker(null)}
+                                    position="bottom"
+                                  />
+                                )}
+                              </div>
+                              <ReactionDisplay
+                                reactions={comment.reactions}
+                                currentUserId={currentUser?.uid}
+                                onToggle={(reaction) => handleReaction(comment.id, reaction)}
+                              />
+                            </div>
                           </>
                         )}
                       </div>
@@ -1393,66 +1671,108 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                 )}
 
                 {/* Área para novo comentário */}
-                <div className="space-y-3">
-                  <textarea
+                <div 
+                  className="space-y-3"
+                  onPaste={handlePaste}
+                >
+                  <MentionInput
                     value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Escreva uma resposta ou descrição da correção realizada..."
+                    onChange={setNewComment}
+                    users={users}
+                    placeholder="Escreva uma resposta... Use @ para mencionar alguém"
                     className="textarea-field"
-                    rows="3"
                   />
                   
-                  {/* Upload de Screenshots */}
-                  <div className="flex items-center gap-3">
+                  {/* Zona de Drag-and-Drop para Screenshots */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`relative border-2 border-dashed rounded-lg p-4 transition-all ${
+                      isDragging 
+                        ? 'border-primary-500 bg-primary-50' 
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
                     <input
                       type="file"
                       id="comment-screenshot"
                       multiple
-                      accept="image/*"
+                      accept="image/*,video/*"
                       onChange={handleCommentScreenshot}
                       className="hidden"
                       disabled={uploadingScreenshot}
                     />
-                    <label
-                      htmlFor="comment-screenshot"
-                      className="flex items-center gap-2 text-sm px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                    >
+                    
+                    <div className="flex flex-col items-center gap-2 text-center">
                       {uploadingScreenshot ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <div className="flex items-center gap-2 text-primary-600">
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span className="text-sm font-medium">Enviando arquivo...</span>
+                        </div>
                       ) : (
-                        <Image className="w-4 h-4" />
+                        <>
+                          <Image className={`w-8 h-8 ${isDragging ? 'text-primary-500' : 'text-gray-400'}`} />
+                          <div className="text-sm text-gray-600">
+                            <label
+                              htmlFor="comment-screenshot"
+                              className="text-primary-600 font-medium cursor-pointer hover:underline"
+                            >
+                              Clique para anexar
+                            </label>
+                            <span className="mx-1">ou arraste arquivos aqui</span>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            Imagens e vídeos • Ctrl+V para colar da área de transferência
+                          </p>
+                        </>
                       )}
-                      <span>{uploadingScreenshot ? 'Enviando...' : 'Anexar Screenshot'}</span>
-                    </label>
+                    </div>
+                    
+                    {/* Preview das mídias anexadas */}
                     {commentScreenshots.length > 0 && (
-                      <span className="text-xs text-gray-500">{commentScreenshots.length} imagem(ns)</span>
+                      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
+                        {commentScreenshots.map((media, index) => (
+                          <div key={index} className="relative group">
+                            {isVideo(media) ? (
+                              <a href={media.url} target="_blank" rel="noopener noreferrer" className="block relative">
+                                <video
+                                  src={media.url}
+                                  className="h-16 w-auto object-cover rounded border border-gray-200 hover:border-primary-500"
+                                  muted
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded">
+                                  <span className="text-white text-xs">▶</span>
+                                </div>
+                              </a>
+                            ) : (
+                              <a href={media.url} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={media.url}
+                                  alt={media.name}
+                                  className="h-16 w-auto object-cover rounded border border-gray-200 hover:border-primary-500"
+                                />
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeCommentScreenshot(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        <span className="self-center text-xs text-gray-500 ml-2">
+                          {commentScreenshots.length} arquivo(s) anexado(s)
+                        </span>
+                      </div>
                     )}
                   </div>
                   
-                  {/* Preview das screenshots anexadas */}
-                  {commentScreenshots.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {commentScreenshots.map((screenshot, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={screenshot.url}
-                            alt={screenshot.name}
-                            className="h-16 w-auto object-cover rounded border border-gray-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeCommentScreenshot(index)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Botões de ação */}
+                  {/* Botões de ação - separados por contexto */}
                   <div className="flex flex-wrap gap-2">
+                    {/* Botão de resposta sempre visível */}
                     <button
                       onClick={() => handleSendComment('resposta')}
                       disabled={sendingComment || (!newComment.trim() && commentScreenshots.length === 0)}
@@ -1462,24 +1782,38 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                       Enviar Resposta
                     </button>
                     
-                    <button
-                      onClick={() => handleSendComment('solicitar_reteste')}
-                      disabled={sendingComment}
-                      className="flex items-center gap-2 text-sm px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      Solicitar Reteste
-                    </button>
-                    
-                    {selectedDoc.status === 'em_reteste' && (
+                    {/* Dev: Solicitar Reteste - só aparece quando NÃO está em reteste */}
+                    {selectedDoc.status !== 'em_reteste' && (
                       <button
-                        onClick={() => handleSendComment('aprovado_reteste')}
+                        onClick={() => handleSendComment('solicitar_reteste')}
                         disabled={sendingComment}
-                        className="flex items-center gap-2 text-sm px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 text-sm px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
                       >
-                        <ThumbsUp className="w-4 h-4" />
-                        Aprovar após Reteste
+                        <RefreshCw className="w-4 h-4" />
+                        Solicitar Reteste
                       </button>
+                    )}
+                    
+                    {/* Operação: Aprovar/Reprovar - só aparece quando ESTÁ em reteste */}
+                    {selectedDoc.status === 'em_reteste' && (
+                      <>
+                        <button
+                          onClick={() => handleSendComment('aprovado_reteste')}
+                          disabled={sendingComment}
+                          className="flex items-center gap-2 text-sm px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                          Aprovar Reteste
+                        </button>
+                        <button
+                          onClick={() => handleSendComment('reprovado_reteste')}
+                          disabled={sendingComment}
+                          className="flex items-center gap-2 text-sm px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                        >
+                          <ThumbsDown className="w-4 h-4" />
+                          Reprovar Reteste
+                        </button>
+                      </>
                     )}
                   </div>
                   
@@ -1491,18 +1825,24 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
             </div>
             )}
             {!editMode && (
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end space-x-2">
+            <div className="bg-gray-50 border-t border-gray-200 p-3 sm:p-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button
+                onClick={() => setSelectedDoc(null)}
+                className="btn-primary w-full sm:w-auto"
+              >
+                Fechar
+              </button>
               <div className="relative">
                 <button
                   onClick={() => setExportMenuOpen(exportMenuOpen === 'modal' ? null : 'modal')}
-                  className="btn-secondary flex items-center space-x-1"
+                  className="btn-secondary flex items-center justify-center space-x-1 w-full sm:w-auto"
                 >
                   <Download className="w-4 h-4" />
                   <span>Exportar</span>
                   <ChevronDown className="w-3 h-3" />
                 </button>
                 {exportMenuOpen === 'modal' && (
-                  <div className="absolute bottom-full right-0 mb-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                  <div className="absolute bottom-full left-0 sm:right-0 sm:left-auto mb-1 w-full sm:w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
                     <button onClick={() => exportAsTxt(selectedDoc)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">.txt</button>
                     <button onClick={() => exportAsMarkdown(selectedDoc)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">.md (Markdown)</button>
                     <button onClick={() => exportAsDocx(selectedDoc)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100">.docx (Word)</button>
@@ -1510,14 +1850,9 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete }) {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => setSelectedDoc(null)}
-                className="btn-primary"
-              >
-                Fechar
-              </button>
             </div>
             )}
+            </div>
           </div>
         </div>
       )}

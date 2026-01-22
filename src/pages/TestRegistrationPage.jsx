@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Save, Plus, Trash2, AlertCircle, CheckCircle, Upload, Image, X, Loader2 } from 'lucide-react'
+import { Save, Plus, Trash2, AlertCircle, CheckCircle, Upload, Image, X, Loader2, ExternalLink } from 'lucide-react'
 import { uploadScreenshot } from '../firebase'
+import { createJiraIssue } from '../jiraService'
 
 export default function TestRegistrationPage({ onSave }) {
   const navigate = useNavigate()
   const [showSuccess, setShowSuccess] = useState(false)
+  const [jiraIssue, setJiraIssue] = useState(null)
+  const [savingToJira, setSavingToJira] = useState(false)
+  const [jiraError, setJiraError] = useState(null)
   const [screenshots, setScreenshots] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
   
   const [formData, setFormData] = useState({
     title: '',
@@ -21,6 +26,7 @@ export default function TestRegistrationPage({ onSave }) {
     status: 'pendente',
     tester: '',
     environment: '',
+    category: '', // 'regra_negocio', 'bug', 'melhoria'
     errorType: '',
     improvement: '',
     improvementJustification: '',
@@ -76,23 +82,86 @@ export default function TestRegistrationPage({ onSave }) {
     }
   }
 
-  const handleFileSelect = async (e) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
+  // Helper para detectar se é vídeo (por mediaType ou extensão do arquivo)
+  const isVideo = (media) => {
+    if (media.mediaType === 'video') return true
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv']
+    const name = (media.name || media.url || '').toLowerCase()
+    return videoExtensions.some(ext => name.includes(ext))
+  }
+
+  // Função para processar arquivos de mídia (imagens e vídeos)
+  const processMediaFiles = async (files) => {
+    const mediaFiles = Array.from(files).filter(file => 
+      file.type.startsWith('image/') || file.type.startsWith('video/')
+    )
+    if (mediaFiles.length === 0) return
     
     setUploading(true)
     setUploadError(null)
     
     try {
       const tempId = Date.now().toString()
-      const uploadPromises = files.map(file => uploadScreenshot(file, tempId))
+      const uploadPromises = mediaFiles.map(file => uploadScreenshot(file, tempId))
       const uploadedFiles = await Promise.all(uploadPromises)
-      setScreenshots([...screenshots, ...uploadedFiles])
+      
+      // Adicionar tipo de mídia ao arquivo
+      const filesWithType = uploadedFiles.map((file, idx) => ({
+        ...file,
+        mediaType: mediaFiles[idx].type.startsWith('video/') ? 'video' : 'image'
+      }))
+      
+      setScreenshots(prev => [...prev, ...filesWithType])
     } catch (error) {
       console.error('Erro ao fazer upload:', error)
-      setUploadError('Erro ao fazer upload das imagens. Verifique se o Firebase Storage está configurado.')
+      setUploadError('Erro ao fazer upload. Verifique se o Firebase Storage está configurado.')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleFileSelect = async (e) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    await processMediaFiles(files)
+  }
+
+  // Handlers para drag-and-drop
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    await processMediaFiles(e.dataTransfer.files)
+  }
+
+  // Handler para paste (Ctrl+V)
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    
+    const mediaFiles = []
+    for (const item of items) {
+      if (item.type.startsWith('image/') || item.type.startsWith('video/')) {
+        const file = item.getAsFile()
+        if (file) mediaFiles.push(file)
+      }
+    }
+    
+    if (mediaFiles.length > 0) {
+      e.preventDefault()
+      await processMediaFiles(mediaFiles)
     }
   }
 
@@ -100,17 +169,46 @@ export default function TestRegistrationPage({ onSave }) {
     setScreenshots(screenshots.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setSavingToJira(true)
+    setJiraError(null)
+    
     const dataWithScreenshots = {
       ...formData,
       screenshots: screenshots
     }
-    onSave(dataWithScreenshots)
-    setShowSuccess(true)
-    setTimeout(() => {
-      navigate('/documentos')
-    }, 1500)
+    
+    try {
+      // Criar issue no Jira
+      const jiraResult = await createJiraIssue(dataWithScreenshots)
+      setJiraIssue(jiraResult)
+      
+      // Salvar no Firebase com referência do Jira
+      const dataWithJira = {
+        ...dataWithScreenshots,
+        jiraKey: jiraResult.key,
+        jiraUrl: jiraResult.url
+      }
+      await onSave(dataWithJira)
+      
+      setShowSuccess(true)
+      setTimeout(() => {
+        navigate('/documentos')
+      }, 2500)
+    } catch (error) {
+      console.error('Erro ao criar issue no Jira:', error)
+      setJiraError(error.message)
+      
+      // Salvar no Firebase mesmo sem Jira
+      await onSave(dataWithScreenshots)
+      setShowSuccess(true)
+      setTimeout(() => {
+        navigate('/documentos')
+      }, 2500)
+    } finally {
+      setSavingToJira(false)
+    }
   }
 
   if (showSuccess) {
@@ -118,6 +216,27 @@ export default function TestRegistrationPage({ onSave }) {
       <div className="flex flex-col items-center justify-center py-20">
         <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
         <h2 className="text-2xl font-bold text-gray-900">Teste Registrado!</h2>
+        {jiraIssue && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <p className="text-blue-800 font-medium flex items-center gap-2">
+              <ExternalLink className="w-4 h-4" />
+              Issue criada no Jira: 
+              <a 
+                href={jiraIssue.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800"
+              >
+                {jiraIssue.key}
+              </a>
+            </p>
+          </div>
+        )}
+        {jiraError && (
+          <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+            <p className="text-yellow-800 text-sm">⚠️ Teste salvo, mas não foi possível criar issue no Jira</p>
+          </div>
+        )}
         <p className="text-gray-600 mt-2">Redirecionando para documentos...</p>
       </div>
     )
@@ -281,8 +400,61 @@ export default function TestRegistrationPage({ onSave }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de Erro
+                Categoria *
               </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleChange}
+                className="input-field"
+                required
+              >
+                <option value="">Selecione a categoria...</option>
+                <option value="regra_negocio">Regra de Negócio</option>
+                <option value="bug">Bug</option>
+                <option value="melhoria">Melhoria</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Detalhes adicionais baseado na categoria */}
+        {formData.category === 'melhoria' && (
+          <div className="card">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Detalhes da Melhoria</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição da Melhoria *</label>
+                <input
+                  type="text"
+                  name="improvement"
+                  value={formData.improvement}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="Descreva a melhoria sugerida..."
+                  required={formData.category === 'melhoria'}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Justificativa da Melhoria</label>
+                <textarea
+                  name="improvementJustification"
+                  value={formData.improvementJustification}
+                  onChange={handleChange}
+                  className="textarea-field"
+                  rows="3"
+                  placeholder="Justifique por que essa melhoria é importante..."
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {formData.category === 'bug' && (
+          <div className="card">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Detalhes do Bug</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Erro</label>
               <select
                 name="errorType"
                 value={formData.errorType}
@@ -290,41 +462,17 @@ export default function TestRegistrationPage({ onSave }) {
                 className="input-field"
               >
                 <option value="">Selecione...</option>
-                <option value="bug">Bug</option>
-                <option value="regra_negocio">Regra de Negócio</option>
+                <option value="erro_500">Erro 500 (Servidor)</option>
+                <option value="erro_400">Erro 400 (Requisição)</option>
+                <option value="erro_404">Erro 404 (Não encontrado)</option>
+                <option value="erro_interface">Erro de Interface</option>
+                <option value="erro_funcional">Erro Funcional</option>
+                <option value="erro_performance">Erro de Performance</option>
+                <option value="outro">Outro</option>
               </select>
             </div>
           </div>
-        </div>
-
-        {/* Melhoria */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Sugestão de Melhoria</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Melhoria</label>
-              <input
-                type="text"
-                name="improvement"
-                value={formData.improvement}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="Descreva a melhoria sugerida..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Justificativa da Melhoria</label>
-              <textarea
-                name="improvementJustification"
-                value={formData.improvementJustification}
-                onChange={handleChange}
-                className="textarea-field"
-                rows="3"
-                placeholder="Justifique por que essa melhoria é importante..."
-              />
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Pré-condições */}
         <div className="card">
@@ -479,23 +627,32 @@ export default function TestRegistrationPage({ onSave }) {
           </div>
         </div>
 
-        {/* Screenshots/Prints */}
-        <div className="card">
+        {/* Screenshots/Prints/Vídeos */}
+        <div className="card" onPaste={handlePaste}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Screenshots / Prints</h2>
-              <p className="text-sm text-gray-500">Adicione prints de erros ou evidências do teste</p>
+              <h2 className="text-lg font-semibold text-gray-900">Evidências (Imagens e Vídeos)</h2>
+              <p className="text-sm text-gray-500">Adicione prints, screenshots ou vídeos de evidências do teste</p>
             </div>
           </div>
           
           <div className="space-y-4">
-            {/* Upload Area */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
+            {/* Upload Area com Drag-and-Drop */}
+            <div 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+                isDragging 
+                  ? 'border-primary-500 bg-primary-50' 
+                  : 'border-gray-300 hover:border-primary-500'
+              }`}
+            >
               <input
                 type="file"
                 id="screenshot-upload"
                 multiple
-                accept="image/*"
+                accept="image/*,video/*"
                 onChange={handleFileSelect}
                 className="hidden"
                 disabled={uploading}
@@ -511,9 +668,13 @@ export default function TestRegistrationPage({ onSave }) {
                   </>
                 ) : (
                   <>
-                    <Upload className="w-10 h-10 text-gray-400 mb-2" />
-                    <span className="text-sm font-medium text-gray-700">Clique para selecionar imagens</span>
-                    <span className="text-xs text-gray-500 mt-1">PNG, JPG, GIF até 10MB</span>
+                    <Upload className={`w-10 h-10 mb-2 ${isDragging ? 'text-primary-500' : 'text-gray-400'}`} />
+                    <span className="text-sm font-medium text-gray-700">
+                      Clique para selecionar ou arraste arquivos aqui
+                    </span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      Imagens e vídeos • Ctrl+V para colar da área de transferência
+                    </span>
                   </>
                 )}
               </label>
@@ -526,24 +687,45 @@ export default function TestRegistrationPage({ onSave }) {
               </div>
             )}
             
-            {/* Preview das imagens */}
+            {/* Preview das mídias */}
             {screenshots.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {screenshots.map((screenshot, index) => (
+                {screenshots.map((media, index) => (
                   <div key={index} className="relative group">
-                    <img 
-                      src={screenshot.url} 
-                      alt={screenshot.name}
-                      className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                    />
+                    {isVideo(media) ? (
+                      <a href={media.url} target="_blank" rel="noopener noreferrer" className="block">
+                        <video 
+                          src={media.url}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-primary-500"
+                          muted
+                          playsInline
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-white text-xs font-medium">▶ Abrir vídeo</span>
+                        </div>
+                      </a>
+                    ) : (
+                      <a href={media.url} target="_blank" rel="noopener noreferrer">
+                        <img 
+                          src={media.url} 
+                          alt={media.name}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200 hover:border-primary-500"
+                        />
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={() => removeScreenshot(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                     >
                       <X className="w-4 h-4" />
                     </button>
-                    <p className="text-xs text-gray-500 mt-1 truncate">{screenshot.name}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      {isVideo(media) && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded">Vídeo</span>
+                      )}
+                      <p className="text-xs text-gray-500 truncate">{media.name}</p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -578,9 +760,22 @@ export default function TestRegistrationPage({ onSave }) {
           >
             Cancelar
           </button>
-          <button type="submit" className="btn-primary flex items-center space-x-2">
-            <Save className="w-4 h-4" />
-            <span>Salvar Teste</span>
+          <button 
+            type="submit" 
+            className="btn-primary flex items-center space-x-2"
+            disabled={savingToJira}
+          >
+            {savingToJira ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Salvando e criando issue no Jira...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Salvar Teste</span>
+              </>
+            )}
           </button>
         </div>
       </form>
