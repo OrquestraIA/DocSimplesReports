@@ -1,8 +1,43 @@
 // Sistema de Versionamento do DocSimples Reports
 
-export const APP_VERSION = '1.8.0'
+export const APP_VERSION = '1.9.0'
 
 export const CHANGELOG = [
+  {
+    version: '1.9.0',
+    date: '2026-01-23',
+    title: 'Gestão de Requisitos da Planilha',
+    changes: [
+      {
+        type: 'feature',
+        description: 'Nova página de Requisitos - importe sua planilha Excel com os requisitos do projeto'
+      },
+      {
+        type: 'feature',
+        description: 'Edição inline de status diretamente na tabela: Status Dev, QA Dev, QA Homolog, Status Homolog'
+      },
+      {
+        type: 'feature',
+        description: 'Gráfico de Requisitos Obrigatórios - acompanhe quantos obrigatórios estão aprovados/pendentes'
+      },
+      {
+        type: 'feature',
+        description: 'Filtros avançados: Obrigatório, Status Homolog, Status Dev, QA Dev, QA Homolog, Módulo'
+      },
+      {
+        type: 'feature',
+        description: 'Paginação na tabela de requisitos (50 por página)'
+      },
+      {
+        type: 'improvement',
+        description: 'Campos editáveis: Versão Dev, Versão Homolog e Observação salvam automaticamente'
+      },
+      {
+        type: 'improvement',
+        description: 'Gráfico "Testes por Categoria" agora mostra barras empilhadas por status'
+      }
+    ]
+  },
   {
     version: '1.8.0',
     date: '2026-01-22',

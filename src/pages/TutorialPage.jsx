@@ -18,7 +18,8 @@ import {
   AtSign,
   Upload,
   Bell,
-  Smile
+  Smile,
+  FileSpreadsheet
 } from 'lucide-react'
 
 export default function TutorialPage() {
@@ -304,6 +305,51 @@ export default function TutorialPage() {
           title: 'Removendo uma Reação',
           description: 'Clique novamente na mesma reação para removê-la. Você pode trocar sua reação a qualquer momento.',
           tip: 'Cada usuário pode ter múltiplas reações diferentes no mesmo comentário.'
+        }
+      ]
+    },
+    {
+      id: 'requisitos',
+      title: 'Gestão de Requisitos (Planilha)',
+      icon: FileSpreadsheet,
+      color: 'bg-emerald-500',
+      steps: [
+        {
+          title: 'Acessando a Página de Requisitos',
+          description: 'No menu lateral, clique em "Requisitos" para acessar a página de gestão de requisitos importados da planilha.',
+          tip: 'Esta página permite acompanhar todos os requisitos do projeto em um só lugar.'
+        },
+        {
+          title: 'Importando a Planilha Excel',
+          description: 'Clique em "Importar Excel" e selecione sua planilha de requisitos. O sistema lê automaticamente as colunas: ID, Módulo, Descrição, Status Dev, Status Homolog, etc.',
+          important: true,
+          tip: 'A planilha deve ter uma aba chamada "Requisitos" ou o sistema usará a primeira aba.'
+        },
+        {
+          title: 'Visualizando Gráficos',
+          description: 'A página exibe gráficos de: Requisitos Obrigatórios (aprovados/pendentes), Status Homologação, Status Desenvolvimento e Top Módulos.',
+          tip: 'O gráfico de Obrigatórios em vermelho mostra o progresso dos requisitos críticos.'
+        },
+        {
+          title: 'Usando os Filtros',
+          description: 'Use os filtros para encontrar requisitos específicos: Obrigatório (Sim/Não), Status Homolog, Status Dev, QA Dev, QA Homolog e Módulo.',
+          tip: 'Combine múltiplos filtros para refinar sua busca.'
+        },
+        {
+          title: 'Editando Status na Tabela',
+          description: 'Clique nos dropdowns de status (Status Dev, QA Dev, QA Homolog, Status Homolog) para alterar diretamente. As alterações são salvas automaticamente.',
+          important: true,
+          tip: 'A coluna "Status Homolog" em roxo é o status principal de homologação.'
+        },
+        {
+          title: 'Editando Versões e Observações',
+          description: 'Os campos V. Dev, V. Homolog e Observação são editáveis. Digite o valor e clique fora do campo para salvar.',
+          tip: 'Use a Observação para adicionar notas importantes sobre o requisito.'
+        },
+        {
+          title: 'Navegando com Paginação',
+          description: 'A tabela mostra 50 requisitos por página. Use os botões de navegação no rodapé para ver mais.',
+          tip: 'O contador mostra quantos requisitos estão sendo exibidos do total filtrado.'
         }
       ]
     },

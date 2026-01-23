@@ -63,19 +63,30 @@ export default function ReportsPage({ testDocuments }) {
     }))
   }, [filteredDocs])
 
-  // Dados para gráfico de barras (Categoria)
+  // Dados para gráfico de barras (Categoria com status empilhados)
   const categoryData = useMemo(() => {
-    const counts = filteredDocs.reduce((acc, doc) => {
-      const category = doc.category || 'sem_categoria'
-      acc[category] = (acc[category] || 0) + 1
-      return acc
-    }, {})
-
-    return [
-      { name: 'Regra de Negócio', value: counts.regra_negocio || 0, fill: CATEGORY_COLORS.regra_negocio },
-      { name: 'Bug', value: counts.bug || 0, fill: CATEGORY_COLORS.bug },
-      { name: 'Melhoria', value: counts.melhoria || 0, fill: CATEGORY_COLORS.melhoria }
-    ]
+    const categories = ['regra_negocio', 'bug', 'melhoria', 'sem_categoria']
+    const categoryLabels = {
+      regra_negocio: 'Regra de Negócio',
+      bug: 'Bug',
+      melhoria: 'Melhoria',
+      sem_categoria: 'Sem Categoria'
+    }
+    
+    return categories.map(category => {
+      const docsInCategory = category === 'sem_categoria'
+        ? filteredDocs.filter(doc => !doc.category || doc.category === '')
+        : filteredDocs.filter(doc => doc.category === category)
+      return {
+        name: categoryLabels[category],
+        aprovado: docsInCategory.filter(d => d.status === 'aprovado').length,
+        pendente: docsInCategory.filter(d => d.status === 'pendente').length,
+        reprovado: docsInCategory.filter(d => d.status === 'reprovado').length,
+        em_reteste: docsInCategory.filter(d => d.status === 'em_reteste').length,
+        melhoria: docsInCategory.filter(d => d.status === 'melhoria').length,
+        bloqueado: docsInCategory.filter(d => d.status === 'bloqueado').length,
+      }
+    })
   }, [filteredDocs])
 
   // Dados para gráfico de evolução
@@ -430,7 +441,7 @@ export default function ReportsPage({ testDocuments }) {
             </div>
           </div>
 
-          {/* Barras - Categoria */}
+          {/* Barras - Categoria com Status */}
           <div className="card">
             <h3 className="font-semibold text-gray-900 mb-4">Testes por Categoria</h3>
             <div className="h-64">
@@ -440,11 +451,13 @@ export default function ReportsPage({ testDocuments }) {
                   <XAxis type="number" />
                   <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
                   <Tooltip />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Bar>
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="aprovado" name="Aprovado" stackId="a" fill={COLORS.aprovado} />
+                  <Bar dataKey="pendente" name="Pendente" stackId="a" fill={COLORS.pendente} />
+                  <Bar dataKey="reprovado" name="Reprovado" stackId="a" fill={COLORS.reprovado} />
+                  <Bar dataKey="em_reteste" name="Em Reteste" stackId="a" fill={COLORS.em_reteste} />
+                  <Bar dataKey="melhoria" name="Melhoria" stackId="a" fill={COLORS.melhoria} />
+                  <Bar dataKey="bloqueado" name="Bloqueado" stackId="a" fill={COLORS.bloqueado} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

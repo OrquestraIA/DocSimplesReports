@@ -239,6 +239,66 @@ export const deleteNotification = async (id) => {
   await deleteDoc(docRef)
 }
 
+// Funções para Requisitos Importados
+const importedRequirementsCollection = collection(db, 'importedRequirements')
+
+export const importRequirements = async (requirements) => {
+  const { getDocs, writeBatch } = await import('firebase/firestore')
+  
+  // Limpar requisitos existentes antes de importar novos
+  const snapshot = await getDocs(importedRequirementsCollection)
+  const batch = writeBatch(db)
+  snapshot.docs.forEach(docSnap => {
+    batch.delete(docSnap.ref)
+  })
+  await batch.commit()
+  
+  // Importar novos requisitos em batches de 500 (limite do Firestore)
+  const batchSize = 500
+  for (let i = 0; i < requirements.length; i += batchSize) {
+    const batchReqs = requirements.slice(i, i + batchSize)
+    const newBatch = writeBatch(db)
+    batchReqs.forEach(req => {
+      const docRef = doc(importedRequirementsCollection)
+      newBatch.set(docRef, {
+        ...req,
+        importedAt: new Date().toISOString()
+      })
+    })
+    await newBatch.commit()
+  }
+  
+  return requirements.length
+}
+
+export const clearImportedRequirements = async () => {
+  const { getDocs, writeBatch } = await import('firebase/firestore')
+  const snapshot = await getDocs(importedRequirementsCollection)
+  const batch = writeBatch(db)
+  snapshot.docs.forEach(docSnap => {
+    batch.delete(docSnap.ref)
+  })
+  await batch.commit()
+}
+
+export const subscribeToImportedRequirements = (callback, onError) => {
+  return onSnapshot(importedRequirementsCollection, (snapshot) => {
+    const requirements = snapshot.docs.map(doc => ({
+      firebaseId: doc.id,
+      ...doc.data()
+    }))
+    callback(requirements)
+  }, onError)
+}
+
+export const updateImportedRequirement = async (firebaseId, data) => {
+  const docRef = doc(db, 'importedRequirements', firebaseId)
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date().toISOString()
+  })
+}
+
 export const subscribeToNotifications = (callback, onError, currentUser = null) => {
   const q = query(notificationsCollection, orderBy('createdAt', 'desc'))
   return onSnapshot(q, (snapshot) => {

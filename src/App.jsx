@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3 } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
@@ -9,6 +9,7 @@ import PartitionTablePage from './pages/PartitionTablePage'
 import LoginPage from './pages/LoginPage'
 import TutorialPage from './pages/TutorialPage'
 import ReportsPage from './pages/ReportsPage'
+import RequirementsPage from './pages/RequirementsPage'
 import WhatsNewModal from './components/WhatsNewModal'
 import NotificationsPanel from './components/NotificationsPanel'
 import { APP_VERSION } from './version'
@@ -27,7 +28,11 @@ import {
   getUserRole,
   onAuthChange,
   logout,
-  addNotification
+  addNotification,
+  importRequirements,
+  clearImportedRequirements,
+  subscribeToImportedRequirements,
+  updateImportedRequirement
 } from './firebase'
 
 function Navigation({ user, onLogout, notifications = [] }) {
@@ -38,6 +43,7 @@ function Navigation({ user, onLogout, notifications = [] }) {
     { path: '/', label: 'Início', icon: Home },
     { path: '/registro', label: 'Registrar Teste', icon: FlaskConical },
     { path: '/documentos', label: 'Documentos', icon: FileText },
+    { path: '/requisitos', label: 'Requisitos', icon: FileSpreadsheet },
     { path: '/gherkin', label: 'Gerar Gherkin', icon: Code },
     { path: '/particao', label: 'Tabela Partição', icon: Table2 },
     { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
@@ -157,6 +163,7 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true)
   const [testDocuments, setTestDocuments] = useState([])
   const [requirements, setRequirements] = useState([])
+  const [importedRequirements, setImportedRequirements] = useState([])
   const [notifications, setNotifications] = useState([])
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -180,7 +187,7 @@ function App() {
       return
     }
 
-    let unsubscribeDocs, unsubscribeReqs, unsubscribeNotifs, unsubscribeUsers
+    let unsubscribeDocs, unsubscribeReqs, unsubscribeNotifs, unsubscribeUsers, unsubscribeImportedReqs
     
     try {
       unsubscribeDocs = subscribeToTestDocuments((docs) => {
@@ -209,6 +216,12 @@ function App() {
       }, (err) => {
         console.error('[App] Erro Firebase users:', err)
       })
+
+      unsubscribeImportedReqs = subscribeToImportedRequirements((reqs) => {
+        setImportedRequirements(reqs)
+      }, (err) => {
+        console.error('[App] Erro Firebase importedRequirements:', err)
+      })
     } catch (err) {
       console.error('Erro ao conectar com Firebase:', err)
       setError('Erro ao conectar com o banco de dados. Verifique a configuração do Firebase.')
@@ -220,6 +233,7 @@ function App() {
       if (unsubscribeUsers) unsubscribeUsers()
       if (unsubscribeReqs) unsubscribeReqs()
       if (unsubscribeNotifs) unsubscribeNotifs()
+      if (unsubscribeImportedReqs) unsubscribeImportedReqs()
     }
   }, [user])
 
@@ -369,6 +383,18 @@ function App() {
             />
             <Route path="/ajuda" element={<TutorialPage />} />
             <Route path="/relatorios" element={<ReportsPage testDocuments={testDocuments} />} />
+            <Route 
+              path="/requisitos" 
+              element={
+                <RequirementsPage 
+                  requirements={importedRequirements}
+                  onImport={importRequirements}
+                  onClear={clearImportedRequirements}
+                  onUpdateRequirement={updateImportedRequirement}
+                  testDocuments={testDocuments}
+                />
+              } 
+            />
           </Routes>
         </main>
       </div>
