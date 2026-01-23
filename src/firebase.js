@@ -399,4 +399,25 @@ export const updateUsersRoles = async () => {
   console.log('Usuários atualizados com emails corretos!')
 }
 
+// Função para migrar registros com categoria 'melhoria' que estão com status 'pendente'
+export const migrateMelhoriaStatus = async () => {
+  const { getDocs } = await import('firebase/firestore')
+  const snapshot = await getDocs(testDocumentsCollection)
+  
+  let updatedCount = 0
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data()
+    // Se categoria é 'melhoria' e status é 'pendente', atualizar para 'melhoria'
+    if (data.category === 'melhoria' && data.status === 'pendente') {
+      const docRef = doc(db, 'testDocuments', docSnap.id)
+      await updateDoc(docRef, { status: 'melhoria' })
+      updatedCount++
+      console.log(`Atualizado documento ${docSnap.id}: status alterado de 'pendente' para 'melhoria'`)
+    }
+  }
+  
+  console.log(`Migração concluída! ${updatedCount} documento(s) atualizado(s).`)
+  return updatedCount
+}
+
 export { db, storage, auth }

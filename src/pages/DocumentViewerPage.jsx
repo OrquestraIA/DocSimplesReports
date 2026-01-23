@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle, Clock, ChevronDown, MessageSquare, Send, RefreshCw, ThumbsUp, ThumbsDown, Image, X, Loader2, Edit3, Save, Plus, Smile } from 'lucide-react'
-import { addCommentToTestDocument, uploadScreenshot, updateCommentInTestDocument, addNotification, toggleReactionOnComment } from '../firebase'
+import { addCommentToTestDocument, uploadScreenshot, updateCommentInTestDocument, addNotification, toggleReactionOnComment, migrateMelhoriaStatus } from '../firebase'
 import ReactionPicker, { ReactionButton, ReactionDisplay } from '../components/ReactionPicker'
 import MentionInput, { renderTextWithMentions, extractMentions } from '../components/MentionInput'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx'
@@ -28,6 +28,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
   const [savingComment, setSavingComment] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [openReactionPicker, setOpenReactionPicker] = useState(null)
+  const [migrating, setMigrating] = useState(false)
+  const [migrationResult, setMigrationResult] = useState(null)
 
   // Helper para detectar se é vídeo (por mediaType ou extensão do arquivo)
   const isVideo = (media) => {
@@ -913,6 +915,22 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
     }
   }
 
+  const handleMigrateMelhoria = async () => {
+    setMigrating(true)
+    setMigrationResult(null)
+    try {
+      const count = await migrateMelhoriaStatus()
+      setMigrationResult({ success: true, count })
+      // Recarregar a página após 2 segundos para atualizar os dados
+      setTimeout(() => window.location.reload(), 2000)
+    } catch (error) {
+      console.error('Erro na migração:', error)
+      setMigrationResult({ success: false, error: error.message })
+    } finally {
+      setMigrating(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -920,7 +938,24 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
           <h1 className="text-2xl font-bold text-gray-900">Documentos de Teste</h1>
           <p className="text-gray-600 mt-1">{documents.length} documento(s) registrado(s)</p>
         </div>
+        <button
+          onClick={handleMigrateMelhoria}
+          disabled={migrating}
+          className="btn-secondary flex items-center gap-2 text-sm"
+          title="Atualizar status de registros com categoria 'melhoria' que estão como 'pendente'"
+        >
+          {migrating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {migrating ? 'Migrando...' : 'Migrar Melhorias'}
+        </button>
       </div>
+
+      {migrationResult && (
+        <div className={`p-3 rounded-lg ${migrationResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          {migrationResult.success 
+            ? `✓ Migração concluída! ${migrationResult.count} documento(s) atualizado(s). Recarregando...`
+            : `✗ Erro na migração: ${migrationResult.error}`}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card overflow-visible">

@@ -39,7 +39,13 @@ export default function TestRegistrationPage({ onSave }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
+    
+    // Quando a categoria for 'melhoria', atualizar o status automaticamente para 'melhoria'
+    if (name === 'category' && value === 'melhoria') {
+      setFormData({ ...formData, [name]: value, status: 'melhoria' })
+    } else {
+      setFormData({ ...formData, [name]: value })
+    }
   }
 
   const handleStepChange = (index, field, value) => {
