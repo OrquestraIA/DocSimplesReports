@@ -1,8 +1,63 @@
-// Sistema de Versionamento do DocSimples Reports
+// Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '1.9.0'
+export const APP_VERSION = '2.0.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.0.0',
+    date: '2026-01-24',
+    title: 'TestWise 2.0 - Plataforma Completa de QA',
+    changes: [
+      {
+        type: 'feature',
+        description: '🎨 Nova identidade visual - Sistema renomeado para TestWise com novo design de login'
+      },
+      {
+        type: 'feature',
+        description: '📋 Gestão de Sprints e Backlog - Organize tarefas em sprints como no Jira/ClickUp'
+      },
+      {
+        type: 'feature',
+        description: '✅ Casos de Teste - Crie e gerencie casos de teste com geração automática de Gherkin e Playwright'
+      },
+      {
+        type: 'feature',
+        description: '▶️ Execução de Testes - Execute casos de teste com cronômetro, evidências e salvamento de progresso'
+      },
+      {
+        type: 'feature',
+        description: '📥 Importação automática - Testes pendentes/reprovados viram tarefas no backlog'
+      },
+      {
+        type: 'feature',
+        description: '🔄 Fluxo Dev ↔ QA - Desenvolvedores podem solicitar reteste diretamente das tarefas'
+      },
+      {
+        type: 'feature',
+        description: '💬 Comentários completos nas tarefas - Mesmo sistema da página de Documentos com emojis, menções e evidências'
+      },
+      {
+        type: 'feature',
+        description: '📱 Minhas Tarefas - Visualize todas as tarefas atribuídas a você em um só lugar'
+      },
+      {
+        type: 'feature',
+        description: '🌙 Dark Mode - Tema escuro em toda a aplicação'
+      },
+      {
+        type: 'feature',
+        description: '⏱️ Expiração de sessão - Segurança com logout automático após 8h de inatividade ou 24h'
+      },
+      {
+        type: 'improvement',
+        description: '🦶 Novo rodapé com "Powered by OM30"'
+      },
+      {
+        type: 'improvement',
+        description: '🔔 Notificações melhoradas para fluxo de reteste'
+      }
+    ]
+  },
   {
     version: '1.9.0',
     date: '2026-01-23',

@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { 
   Upload, FileSpreadsheet, Search, Filter, CheckCircle2, XCircle, Clock, 
-  AlertTriangle, BarChart3, RefreshCw, Trash2, Download, ChevronDown
+  AlertTriangle, BarChart3, RefreshCw, Trash2, Download, ChevronDown, X
 } from 'lucide-react'
+import LoadingSpinner from '../components/LoadingSpinner'
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
@@ -26,6 +27,7 @@ const STATUS_DEV_COLORS = {
 
 const STATUS_HOMOLOG_OPTIONS = [
   { value: 'Pendente', label: 'Pendente', color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'Para_Teste_Homolog', label: 'Para Teste Homolog', color: 'bg-cyan-100 text-cyan-700' },
   { value: 'Em Teste', label: 'Em Teste', color: 'bg-blue-100 text-blue-700' },
   { value: 'Aprovado', label: 'Aprovado', color: 'bg-green-100 text-green-700' },
   { value: 'Reprovado', label: 'Reprovado', color: 'bg-red-100 text-red-700' },
@@ -42,12 +44,30 @@ const STATUS_DEV_OPTIONS = [
 
 const STATUS_QA_OPTIONS = [
   { value: 'Pendente', label: 'Pendente' },
+  { value: 'Para_Teste_QA', label: 'Para Teste QA' },
   { value: 'Em Teste', label: 'Em Teste' },
   { value: 'Aprovado', label: 'Aprovado' },
   { value: 'Reprovado', label: 'Reprovado' },
   { value: 'Aguardando_Dev', label: 'Aguardando Dev' },
   { value: '', label: '-' }
 ]
+
+// Tooltip customizado para Dark Mode
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 shadow-lg">
+        {label && <p className="text-gray-200 font-medium mb-1">{label}</p>}
+        {payload.map((entry, index) => (
+          <p key={index} className="text-sm" style={{ color: entry.color || entry.payload?.color || '#fff' }}>
+            {entry.name}: {entry.value}
+          </p>
+        ))}
+      </div>
+    )
+  }
+  return null
+}
 
 export default function RequirementsPage({ requirements = [], onImport, onClear, onUpdateRequirement, testDocuments = [] }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -60,6 +80,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
   const [importing, setImporting] = useState(false)
   const [showStats, setShowStats] = useState(true)
   const [updatingId, setUpdatingId] = useState(null)
+  const [loadingMessage, setLoadingMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 50
 
@@ -69,9 +90,16 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     return uniqueModules.sort()
   }, [requirements])
 
-  // Filtrar requisitos
+  // Função para extrair número do ID (ex: "FONTE-123" -> 123)
+  const extractIdNumber = (id) => {
+    if (!id) return Infinity // IDs vazios vão para o final
+    const match = id.match(/(\d+)/)
+    return match ? parseInt(match[1], 10) : Infinity
+  }
+
+  // Filtrar e ordenar requisitos
   const filteredRequirements = useMemo(() => {
-    return requirements.filter(req => {
+    const filtered = requirements.filter(req => {
       const matchesSearch = 
         req.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         req.descricao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,6 +115,9 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
         (filterObrigatorio === 'nao' && req.obrigatorio !== 'SIM' && req.obrigatorio !== 'Sim' && req.obrigatorio !== 'sim')
       return matchesSearch && matchesModule && matchesStatusDev && matchesStatusQADev && matchesStatusQAHomolog && matchesStatusHomolog && matchesObrigatorio
     })
+    
+    // Ordenar por número do ID em ordem crescente
+    return filtered.sort((a, b) => extractIdNumber(a.id) - extractIdNumber(b.id))
   }, [requirements, searchTerm, filterModule, filterStatusDev, filterStatusQADev, filterStatusQAHomolog, filterStatusHomolog, filterObrigatorio])
 
   // Paginação
@@ -224,6 +255,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     if (!file) return
 
     setImporting(true)
+    setLoadingMessage('Importando planilha...')
     try {
       const data = await file.arrayBuffer()
       const workbook = XLSX.read(data)
@@ -294,6 +326,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       alert('Erro ao importar arquivo. Verifique se é um arquivo Excel válido.')
     } finally {
       setImporting(false)
+      setLoadingMessage('')
       e.target.value = ''
     }
   }
@@ -334,6 +367,9 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
 
   return (
     <div className="space-y-6">
+      {/* Loading Spinner */}
+      {loadingMessage && <LoadingSpinner message={loadingMessage} />}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -347,22 +383,26 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
         <div className="flex gap-2">
           {requirements.length > 0 && (
             <button
-              onClick={onClear}
+              onClick={() => {
+                if (window.confirm('Isso removerá todos os requisitos. Deseja continuar?')) {
+                  onClear()
+                }
+              }}
               className="btn-secondary flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
             >
               <Trash2 className="w-4 h-4" />
-              Limpar
+              Limpar Dados
             </button>
           )}
-          <label className="btn-primary flex items-center gap-2 cursor-pointer">
+          <label className={`flex items-center gap-2 ${requirements.length > 0 ? 'btn-secondary opacity-50 cursor-not-allowed' : 'btn-primary cursor-pointer'}`}>
             <Upload className="w-4 h-4" />
-            {importing ? 'Importando...' : 'Importar Excel'}
+            {importing ? 'Importando...' : 'Importar Planilha'}
             <input
               type="file"
               accept=".xlsx,.xls"
               onChange={handleFileUpload}
               className="hidden"
-              disabled={importing}
+              disabled={importing || requirements.length > 0}
             />
           </label>
         </div>
@@ -472,7 +512,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -504,7 +544,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -536,7 +576,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -559,7 +599,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" tick={{ fontSize: 10 }} />
                     <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 9 }} />
-                    <Tooltip />
+                    <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="aprovado" name="Aprovado" stackId="a" fill="#22c55e" />
                     <Bar dataKey="pendente" name="Pendente" stackId="a" fill="#eab308" />
                     <Bar dataKey="reprovado" name="Reprovado" stackId="a" fill="#ef4444" />
@@ -607,6 +647,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                 className="input-field md:w-40 border-indigo-300 bg-indigo-50"
               >
                 <option value="all">Status Homolog</option>
+                <option value="Para_Teste_Homolog">Para Teste Homolog</option>
                 <option value="Aprovado">Aprovado</option>
                 <option value="Reprovado">Reprovado</option>
                 <option value="Pendente">Pendente</option>
@@ -630,6 +671,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                 className="input-field md:w-32"
               >
                 <option value="all">QA Dev</option>
+                <option value="Para_Teste_QA">Para Teste QA</option>
                 <option value="Aprovado">Aprovado</option>
                 <option value="Reprovado">Reprovado</option>
                 <option value="Pendente">Pendente</option>
@@ -642,12 +684,32 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                 className="input-field md:w-36"
               >
                 <option value="all">QA Homolog</option>
+                <option value="Para_Teste_QA">Para Teste QA</option>
                 <option value="Aprovado">Aprovado</option>
                 <option value="Reprovado">Reprovado</option>
                 <option value="Pendente">Pendente</option>
                 <option value="Em Teste">Em Teste</option>
                 <option value="Aguardando_Dev">Aguardando</option>
               </select>
+              {/* Botão Limpar Filtros */}
+              {(searchTerm || filterModule !== 'all' || filterObrigatorio !== 'all' || filterStatusHomolog !== 'all' || filterStatusDev !== 'all' || filterStatusQADev !== 'all' || filterStatusQAHomolog !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('')
+                    setFilterModule('all')
+                    setFilterObrigatorio('all')
+                    setFilterStatusHomolog('all')
+                    setFilterStatusDev('all')
+                    setFilterStatusQADev('all')
+                    setFilterStatusQAHomolog('all')
+                    setCurrentPage(1)
+                  }}
+                  className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-300 flex items-center gap-1 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Limpar
+                </button>
+              )}
             </div>
           </div>
 
@@ -715,6 +777,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             req.statusQADev === 'Aprovado' ? 'bg-green-100 text-green-700 border-green-300' :
                             req.statusQADev === 'Reprovado' ? 'bg-red-100 text-red-700 border-red-300' :
                             req.statusQADev === 'Em Teste' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                            req.statusQADev === 'Para_Teste_QA' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusQADev === 'Pendente' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
                             req.statusQADev === 'Aguardando_Dev' ? 'bg-gray-100 text-gray-700 border-gray-300' :
                             'bg-gray-50 text-gray-500 border-gray-200'
@@ -735,6 +798,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             req.statusQAHomolog === 'Aprovado' ? 'bg-green-100 text-green-700 border-green-300' :
                             req.statusQAHomolog === 'Reprovado' ? 'bg-red-100 text-red-700 border-red-300' :
                             req.statusQAHomolog === 'Em Teste' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                            req.statusQAHomolog === 'Para_Teste_QA' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusQAHomolog === 'Pendente' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
                             req.statusQAHomolog === 'Aguardando_Dev' ? 'bg-gray-100 text-gray-700 border-gray-300' :
                             'bg-gray-50 text-gray-500 border-gray-200'
@@ -756,6 +820,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             req.statusHomolog === 'Aprovado' ? 'bg-green-100 text-green-700 border-green-300' :
                             req.statusHomolog === 'Reprovado' ? 'bg-red-100 text-red-700 border-red-300' :
                             req.statusHomolog === 'Em Teste' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                            req.statusHomolog === 'Para_Teste_Homolog' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusHomolog === 'Em-reteste-homolog' ? 'bg-orange-100 text-orange-700 border-orange-300' :
                             req.statusHomolog === 'Bloqueado' ? 'bg-gray-100 text-gray-700 border-gray-300' :
                             'bg-yellow-100 text-yellow-700 border-yellow-300'

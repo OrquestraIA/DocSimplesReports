@@ -58,7 +58,7 @@ export default function ReportGenerator({ testDocuments }) {
       // Título
       doc.setFontSize(20)
       doc.setTextColor(59, 130, 246)
-      doc.text('DocSimples Reports', pageWidth / 2, 20, { align: 'center' })
+      doc.text('TestWise', pageWidth / 2, 20, { align: 'center' })
 
       // Subtítulo
       doc.setFontSize(14)
@@ -158,7 +158,7 @@ export default function ReportGenerator({ testDocuments }) {
         doc.setFontSize(8)
         doc.setTextColor(150)
         doc.text(
-          `Página ${i} de ${pageCount} - DocSimples Reports`,
+          `Página ${i} de ${pageCount} - TestWise`,
           pageWidth / 2,
           doc.internal.pageSize.getHeight() - 10,
           { align: 'center' }

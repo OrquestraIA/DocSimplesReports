@@ -6,6 +6,7 @@ export default function HomePage({ testDocuments, requirements }) {
   const approvedTests = testDocuments.filter(d => d.status === 'aprovado').length
   const failedTests = testDocuments.filter(d => d.status === 'reprovado').length
   const improvementTests = testDocuments.filter(d => d.status === 'melhoria').length
+  const bugTests = testDocuments.filter(d => d.category === 'bug').length
   const totalTests = testDocuments.length
   
   // Calcular progresso
@@ -59,7 +60,7 @@ export default function HomePage({ testDocuments, requirements }) {
     { label: 'Reprovados', value: failedTests, color: 'bg-red-500' },
     { label: 'Pendentes', value: pendingTests, color: 'bg-yellow-500' },
     { label: 'Melhorias', value: improvementTests, color: 'bg-cyan-500' },
-    { label: 'Requisitos', value: requirements.length, color: 'bg-purple-500' },
+    { label: 'Bugs', value: bugTests, color: 'bg-orange-500' },
   ]
 
   const quickActions = [
@@ -99,9 +100,9 @@ export default function HomePage({ testDocuments, requirements }) {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">DocSimples Reports</h1>
+        <h1 className="text-3xl font-bold text-gray-900">TestWise</h1>
         <p className="mt-2 text-gray-600">
-          Sistema de documentação de testes de homologação com geração automática de Gherkin e Playwright
+          Plataforma de QA e Gestão de Testes com geração automática de Gherkin e Playwright
         </p>
       </div>
 

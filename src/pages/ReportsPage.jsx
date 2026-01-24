@@ -166,7 +166,7 @@ export default function ReportsPage({ testDocuments }) {
 
       doc.setFontSize(20)
       doc.setTextColor(59, 130, 246)
-      doc.text('DocSimples Reports', pageWidth / 2, 20, { align: 'center' })
+      doc.text('TestWise', pageWidth / 2, 20, { align: 'center' })
 
       doc.setFontSize(14)
       doc.setTextColor(100)

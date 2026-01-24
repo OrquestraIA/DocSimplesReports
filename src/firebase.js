@@ -480,4 +480,360 @@ export const migrateMelhoriaStatus = async () => {
   return updatedCount
 }
 
+// ==========================================
+// Funções para Casos de Teste (Estilo Zephyr)
+// ==========================================
+const testCasesCollection = collection(db, 'testCases')
+const testExecutionsCollection = collection(db, 'testExecutions')
+
+// Criar novo caso de teste
+export const createTestCase = async (testCase) => {
+  const docRef = await addDoc(testCasesCollection, {
+    ...testCase,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: 'draft' // draft, ready, deprecated
+  })
+  return docRef.id
+}
+
+// Atualizar caso de teste
+export const updateTestCase = async (id, data) => {
+  const docRef = doc(db, 'testCases', id)
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date().toISOString()
+  })
+}
+
+// Deletar caso de teste
+export const deleteTestCase = async (id) => {
+  const docRef = doc(db, 'testCases', id)
+  await deleteDoc(docRef)
+}
+
+// Buscar caso de teste por ID
+export const getTestCase = async (id) => {
+  const docRef = doc(db, 'testCases', id)
+  const docSnap = await getDoc(docRef)
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() }
+  }
+  return null
+}
+
+// Inscrever-se para atualizações de casos de teste
+export const subscribeToTestCases = (callback, onError) => {
+  const q = query(testCasesCollection, orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snapshot) => {
+    const testCases = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    callback(testCases)
+  }, onError)
+}
+
+// Criar nova execução de teste
+export const createTestExecution = async (execution) => {
+  const docRef = await addDoc(testExecutionsCollection, {
+    ...execution,
+    startedAt: new Date().toISOString(),
+    status: 'in_progress' // in_progress, passed, failed, blocked
+  })
+  return docRef.id
+}
+
+// Atualizar execução de teste
+export const updateTestExecution = async (id, data) => {
+  const docRef = doc(db, 'testExecutions', id)
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date().toISOString()
+  })
+}
+
+// Finalizar execução de teste
+export const finishTestExecution = async (id, data) => {
+  const docRef = doc(db, 'testExecutions', id)
+  await updateDoc(docRef, {
+    steps: data.steps,
+    status: data.status,
+    notes: data.notes || '',
+    elapsedTime: data.elapsedTime || 0,
+    finishedAt: new Date().toISOString()
+  })
+}
+
+// Buscar execuções de um caso de teste
+export const subscribeToTestExecutions = (testCaseId, callback, onError) => {
+  const q = query(
+    testExecutionsCollection, 
+    where('testCaseId', '==', testCaseId),
+    orderBy('startedAt', 'desc')
+  )
+  return onSnapshot(q, (snapshot) => {
+    const executions = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    callback(executions)
+  }, onError)
+}
+
+// Buscar todas as execuções
+export const subscribeToAllTestExecutions = (callback, onError) => {
+  const q = query(testExecutionsCollection, orderBy('startedAt', 'desc'))
+  return onSnapshot(q, (snapshot) => {
+    const executions = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    callback(executions)
+  }, onError)
+}
+
+// Upload de evidência para execução de teste
+export const uploadTestEvidence = async (file, executionId, stepIndex) => {
+  const timestamp = Date.now()
+  const fileName = `${timestamp}_${file.name}`
+  const storageRef = ref(storage, `test-evidences/${executionId}/step-${stepIndex}/${fileName}`)
+  
+  await uploadBytes(storageRef, file)
+  const url = await getDownloadURL(storageRef)
+  
+  return url
+}
+
+// ==========================================
+// SPRINTS E TAREFAS
+// ==========================================
+
+const sprintsCollection = collection(db, 'sprints')
+const tasksCollection = collection(db, 'tasks')
+
+// Tipos de tarefa
+export const TASK_TYPES = {
+  'bug': { label: 'Bug', color: 'red' },
+  'business_rule': { label: 'Regra de Negócio', color: 'purple' },
+  'improvement': { label: 'Melhoria', color: 'blue' }
+}
+
+// Status de tarefa
+export const TASK_STATUS = {
+  'pending': { label: 'Pendente', color: 'gray' },
+  'in_progress': { label: 'Em Andamento', color: 'blue' },
+  'in_review': { label: 'Em Revisão', color: 'yellow' },
+  'done': { label: 'Concluído', color: 'green' }
+}
+
+// --- SPRINTS ---
+
+// Criar sprint
+export const createSprint = async (sprintData) => {
+  const docRef = await addDoc(sprintsCollection, {
+    ...sprintData,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  })
+  return docRef.id
+}
+
+// Atualizar sprint
+export const updateSprint = async (sprintId, data) => {
+  const docRef = doc(db, 'sprints', sprintId)
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date().toISOString()
+  })
+}
+
+// Deletar sprint
+export const deleteSprint = async (sprintId) => {
+  const docRef = doc(db, 'sprints', sprintId)
+  await deleteDoc(docRef)
+}
+
+// Buscar sprints
+export const subscribeToSprints = (callback, onError) => {
+  const q = query(sprintsCollection, orderBy('startDate', 'desc'))
+  return onSnapshot(q, (snapshot) => {
+    const sprints = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    callback(sprints)
+  }, onError)
+}
+
+// --- TAREFAS ---
+
+// Criar tarefa
+export const createTask = async (taskData) => {
+  const docRef = await addDoc(tasksCollection, {
+    ...taskData,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  })
+  return docRef.id
+}
+
+// Atualizar tarefa
+export const updateTask = async (taskId, data) => {
+  const docRef = doc(db, 'tasks', taskId)
+  await updateDoc(docRef, {
+    ...data,
+    updatedAt: new Date().toISOString()
+  })
+}
+
+// Deletar tarefa
+export const deleteTask = async (taskId) => {
+  const docRef = doc(db, 'tasks', taskId)
+  await deleteDoc(docRef)
+}
+
+// Buscar tarefas
+export const subscribeToTasks = (callback, onError) => {
+  const q = query(tasksCollection, orderBy('createdAt', 'desc'))
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    callback(tasks)
+  }, onError)
+}
+
+// Criar tarefa automaticamente a partir de teste reprovado
+export const createTaskFromFailedTest = async (testDocument, type = 'bug', assigneeId = null) => {
+  // Formatar passos do teste
+  const stepsText = testDocument.steps?.map((step, i) => {
+    let stepText = `${i + 1}. ${step.action || 'Ação não informada'}`
+    if (step.expectedResult) stepText += `\n   Esperado: ${step.expectedResult}`
+    if (step.actualResult) stepText += `\n   Obtido: ${step.actualResult}`
+    if (step.status) stepText += `\n   Status: ${step.status}`
+    return stepText
+  }).join('\n\n') || ''
+
+  // Montar descrição completa similar ao Jira
+  let description = ''
+  
+  if (testDocument.requirement) {
+    description += `📋 REQUISITO: ${testDocument.requirement}\n`
+    if (testDocument.requirementDescription) {
+      description += `${testDocument.requirementDescription}\n`
+    }
+    description += '\n'
+  }
+
+  if (testDocument.category) {
+    const categoryLabel = testDocument.category === 'regra_negocio' ? 'Regra de Negócio' : 
+                          testDocument.category === 'bug' ? 'Bug' : 
+                          testDocument.category === 'melhoria' ? 'Melhoria' : testDocument.category
+    description += `🏷️ CATEGORIA: ${categoryLabel}\n`
+  }
+  
+  if (testDocument.module) description += `📁 MÓDULO: ${testDocument.module}\n`
+  if (testDocument.feature) description += `⚡ FEATURE: ${testDocument.feature}\n`
+  if (testDocument.testType) description += `🧪 TIPO DE TESTE: ${testDocument.testType}\n`
+  if (testDocument.priority) description += `🎯 PRIORIDADE: ${testDocument.priority}\n`
+  if (testDocument.tester) description += `👤 TESTADOR: ${testDocument.tester}\n`
+  if (testDocument.environment) description += `🌐 AMBIENTE: ${testDocument.environment}\n`
+  
+  if (testDocument.errorType) description += `❌ TIPO DE ERRO: ${testDocument.errorType}\n`
+  
+  if (testDocument.preconditions) {
+    description += `\n📝 PRÉ-CONDIÇÕES:\n${testDocument.preconditions}\n`
+  }
+  
+  if (stepsText) {
+    description += `\n🔢 PASSOS DO TESTE:\n${stepsText}\n`
+  }
+  
+  if (testDocument.observations) {
+    description += `\n💬 OBSERVAÇÕES:\n${testDocument.observations}\n`
+  }
+
+  if (testDocument.improvement) {
+    description += `\n💡 MELHORIA SUGERIDA:\n${testDocument.improvement}\n`
+    if (testDocument.improvementJustification) {
+      description += `Justificativa: ${testDocument.improvementJustification}\n`
+    }
+  }
+
+  if (testDocument.screenshots?.length > 0) {
+    description += `\n📸 EVIDÊNCIAS: ${testDocument.screenshots.length} arquivo(s) anexado(s)\n`
+  }
+
+  // Remover campos undefined do sourceData (Firestore não aceita undefined)
+  const sourceData = {
+    title: testDocument.title || '',
+    requirement: testDocument.requirement || '',
+    requirementDescription: testDocument.requirementDescription || '',
+    feature: testDocument.feature || '',
+    module: testDocument.module || '',
+    testType: testDocument.testType || '',
+    category: testDocument.category || '',
+    errorType: testDocument.errorType || '',
+    tester: testDocument.tester || '',
+    environment: testDocument.environment || '',
+    preconditions: testDocument.preconditions || '',
+    steps: testDocument.steps || [],
+    observations: testDocument.observations || '',
+    improvement: testDocument.improvement || '',
+    improvementJustification: testDocument.improvementJustification || '',
+    status: testDocument.status || '',
+    screenshots: testDocument.screenshots || [],
+    jiraKey: testDocument.jiraKey || '',
+    jiraUrl: testDocument.jiraUrl || ''
+  }
+
+  const taskData = {
+    title: `[${type === 'bug' ? 'Bug' : type === 'business_rule' ? 'RN' : 'Melhoria'}] ${testDocument.title || testDocument.feature || 'Correção necessária'}`,
+    description: description.trim(),
+    type: type,
+    status: 'pending',
+    priority: testDocument.priority === 'alta' ? 'high' : testDocument.priority === 'baixa' ? 'low' : 'medium',
+    sprintId: null,
+    sourceType: 'test_document',
+    sourceId: testDocument.id,
+    sourceData: sourceData,
+    assignee: assigneeId || null,
+    createdBy: testDocument.tester || 'Sistema'
+  }
+  
+  return await createTask(taskData)
+}
+
+// Criar tarefa a partir de execução de caso de teste reprovado
+export const createTaskFromFailedExecution = async (execution, testCase, type = 'bug') => {
+  // Encontrar os passos que falharam
+  const failedSteps = execution.steps?.filter(s => s.status === 'failed') || []
+  const failedStepsText = failedSteps.map((s, i) => `- Passo ${i + 1}: ${s.action}`).join('\n')
+  
+  const taskData = {
+    title: `[${type === 'bug' ? 'Bug' : type === 'business_rule' ? 'RN' : 'Melhoria'}] ${testCase?.title || 'Caso de Teste Reprovado'}`,
+    description: `Caso de teste reprovado.\n\nPassos que falharam:\n${failedStepsText}\n\nObservações: ${execution.notes || 'Nenhuma'}`,
+    type: type,
+    status: 'pending',
+    priority: 'high',
+    sprintId: null,
+    sourceType: 'test_execution',
+    sourceId: execution.id,
+    testCaseId: testCase?.id,
+    sourceData: {
+      testCaseTitle: testCase?.title,
+      module: testCase?.module,
+      failedSteps: failedSteps,
+      executedBy: execution.executedBy,
+      finishedAt: execution.finishedAt
+    },
+    assignee: null,
+    createdBy: execution.executedBy?.name || 'Sistema'
+  }
+  
+  return await createTask(taskData)
+}
+
 export { db, storage, auth }

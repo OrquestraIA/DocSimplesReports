@@ -120,7 +120,7 @@ export default function WhatsNewModal() {
             Entendi, vamos lá! 🚀
           </button>
           <p className="text-center text-xs text-gray-400 mt-3">
-            {changelog.date} • DocSimples Reports v{APP_VERSION}
+            {changelog.date} • TestWise v{APP_VERSION}
           </p>
         </div>
       </div>

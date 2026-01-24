@@ -19,7 +19,12 @@ import {
   Upload,
   Bell,
   Smile,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Calendar,
+  Play,
+  ClipboardList,
+  Timer,
+  Moon
 } from 'lucide-react'
 
 export default function TutorialPage() {
@@ -354,6 +359,163 @@ export default function TutorialPage() {
       ]
     },
     {
+      id: 'sprints',
+      title: 'Gestão de Sprints e Backlog',
+      icon: Calendar,
+      color: 'bg-indigo-500',
+      steps: [
+        {
+          title: 'Acessando a Gestão de Sprints',
+          description: 'No menu superior, clique em "Sprints" para acessar a página de gestão de tarefas e sprints.',
+          tip: 'Esta página funciona como um mini Jira/ClickUp dentro do TestWise.'
+        },
+        {
+          title: 'Importando Testes para o Backlog',
+          description: 'Testes pendentes e reprovados podem ser importados como tarefas. Clique em "Importar Testes" e selecione quais deseja trazer.',
+          important: true,
+          tip: 'As tarefas importadas mantêm o vínculo com o documento de teste original.'
+        },
+        {
+          title: 'Criando Tarefas Manualmente',
+          description: 'Clique em "Nova Tarefa" para criar uma tarefa do zero. Defina tipo (Bug, Regra de Negócio, Melhoria), prioridade e responsável.',
+          tip: 'Você pode criar tarefas que não estão vinculadas a documentos de teste.'
+        },
+        {
+          title: 'Criando Sprints',
+          description: 'Clique em "Nova Sprint" para criar uma sprint. Defina nome, datas de início/fim e status (Planejamento, Ativa, Concluída).',
+          tip: 'Apenas uma sprint pode estar ativa por vez.'
+        },
+        {
+          title: 'Movendo Tarefas para Sprints',
+          description: 'No menu de 3 pontinhos da tarefa, selecione "Mover para Sprint" e escolha a sprint desejada.',
+          tip: 'Tarefas sem sprint ficam no Backlog.'
+        },
+        {
+          title: 'Fluxo Dev ↔ QA nas Tarefas',
+          description: 'Ao visualizar uma tarefa, você tem acesso ao sistema completo de comentários, evidências e solicitação de reteste.',
+          important: true,
+          tip: 'Tudo que você faz na tarefa é sincronizado com o documento de teste original.'
+        }
+      ]
+    },
+    {
+      id: 'casos-teste',
+      title: 'Casos de Teste',
+      icon: ClipboardList,
+      color: 'bg-cyan-500',
+      steps: [
+        {
+          title: 'Acessando Casos de Teste',
+          description: 'No menu superior, clique em "Casos de Teste" para acessar a página de gestão de casos de teste.',
+          tip: 'Casos de teste são diferentes de documentos de teste - são cenários reutilizáveis.'
+        },
+        {
+          title: 'Criando um Caso de Teste',
+          description: 'Clique em "Novo Caso de Teste" e preencha: título, descrição, módulo, prioridade e os passos do teste.',
+          tip: 'Defina passos claros com ação e resultado esperado.'
+        },
+        {
+          title: 'Geração Automática de Gherkin',
+          description: 'O sistema gera automaticamente o código Gherkin (Given/When/Then) baseado nos passos do caso de teste.',
+          important: true,
+          tip: 'Use o botão "Copiar Gherkin" para usar em ferramentas de automação.'
+        },
+        {
+          title: 'Geração de Código Playwright',
+          description: 'O sistema também gera código Playwright para automação de testes. Copie e adapte para seu projeto.',
+          tip: 'O código gerado é um ponto de partida - ajuste seletores e lógica conforme necessário.'
+        },
+        {
+          title: 'Executando um Caso de Teste',
+          description: 'Clique no botão ▶️ (Play) para iniciar a execução do caso de teste. Você será levado para a tela de execução.',
+          important: true,
+          tip: 'A execução permite registrar o resultado de cada passo.'
+        }
+      ]
+    },
+    {
+      id: 'execucao',
+      title: 'Execução de Testes',
+      icon: Play,
+      color: 'bg-green-500',
+      steps: [
+        {
+          title: 'Iniciando uma Execução',
+          description: 'Na página de Casos de Teste, clique no botão ▶️ de um caso de teste para iniciar a execução.',
+          tip: 'O cronômetro inicia automaticamente ao entrar na execução.'
+        },
+        {
+          title: 'Executando os Passos',
+          description: 'Para cada passo, registre o resultado obtido e marque como Passou ✓ ou Falhou ✗.',
+          important: true,
+          tip: 'Você pode adicionar evidências (imagens/vídeos) em cada passo.'
+        },
+        {
+          title: 'Cronômetro de Execução',
+          description: 'O cronômetro mostra o tempo total da execução. Ele para automaticamente ao finalizar todos os passos.',
+          tip: 'O tempo é salvo junto com a execução para métricas de performance.'
+        },
+        {
+          title: 'Salvando Progresso',
+          description: 'Clique em "Salvar Progresso" para salvar a execução parcial. Você pode continuar depois de onde parou.',
+          tip: 'O progresso é salvo automaticamente ao mudar de passo também.'
+        },
+        {
+          title: 'Finalizando a Execução',
+          description: 'Após executar todos os passos, clique em "Finalizar Execução". O status final (Passou/Falhou) é calculado automaticamente.',
+          important: true,
+          tip: 'Se qualquer passo falhou, a execução é marcada como Falhou.'
+        }
+      ]
+    },
+    {
+      id: 'minhas-tarefas',
+      title: 'Minhas Tarefas',
+      icon: Users,
+      color: 'bg-violet-500',
+      steps: [
+        {
+          title: 'Acessando Minhas Tarefas',
+          description: 'No menu superior, clique em "Minhas Tarefas" para ver todas as tarefas atribuídas a você.',
+          tip: 'Esta página mostra apenas tarefas onde você é o responsável.'
+        },
+        {
+          title: 'Visualizando Estatísticas',
+          description: 'No topo da página, veja quantas tarefas você tem em cada status: Pendentes, Em Andamento, Em Revisão e Concluídas.',
+          tip: 'Use essas métricas para priorizar seu trabalho.'
+        },
+        {
+          title: 'Atualizando Status',
+          description: 'Clique no dropdown de status de qualquer tarefa para atualizar rapidamente. Ou abra a tarefa para mais opções.',
+          tip: 'Mantenha os status atualizados para que a equipe saiba o progresso.'
+        },
+        {
+          title: 'Interagindo nas Tarefas',
+          description: 'Ao abrir uma tarefa, você tem acesso ao sistema completo de comentários, evidências e solicitação de reteste.',
+          important: true,
+          tip: 'Tudo é sincronizado com o documento de teste original.'
+        }
+      ]
+    },
+    {
+      id: 'darkmode',
+      title: 'Dark Mode',
+      icon: Moon,
+      color: 'bg-slate-700',
+      steps: [
+        {
+          title: 'Ativando o Dark Mode',
+          description: 'Clique no ícone de sol/lua no canto superior direito da tela para alternar entre tema claro e escuro.',
+          tip: 'Sua preferência é salva automaticamente.'
+        },
+        {
+          title: 'Benefícios do Dark Mode',
+          description: 'O tema escuro reduz a fadiga ocular em ambientes com pouca luz e pode economizar bateria em telas OLED.',
+          tip: 'Experimente usar o Dark Mode à noite!'
+        }
+      ]
+    },
+    {
       id: 'dicas',
       title: 'Dicas e Boas Práticas',
       icon: Lightbulb,
@@ -397,7 +559,7 @@ export default function TutorialPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Tutorial e Ajuda</h1>
-            <p className="text-gray-600">Aprenda a usar o DocSimples Reports</p>
+            <p className="text-gray-600">Aprenda a usar o TestWise</p>
           </div>
         </div>
       </div>
@@ -477,9 +639,9 @@ export default function TutorialPage() {
       </div>
 
       {/* Quick Reference Card */}
-      <div className="mt-8 card bg-gradient-to-r from-primary-50 to-primary-100 border-primary-200">
+      <div className="mt-8 card bg-gradient-to-r from-primary-50 to-primary-100 border-primary-200 dark:from-primary-900/30 dark:to-primary-800/40 dark:border-primary-700/50">
         <div className="p-6">
-          <h3 className="font-semibold text-primary-900 mb-4 flex items-center gap-2">
+          <h3 className="font-semibold text-primary-900 dark:text-primary-100 mb-4 flex items-center gap-2">
             <HelpCircle className="w-5 h-5" />
             Referência Rápida
           </h3>

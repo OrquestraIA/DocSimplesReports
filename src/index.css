@@ -4,7 +4,405 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-50 text-gray-900 transition-colors duration-200;
+  }
+  
+  html.dark body {
+    @apply bg-slate-900 text-gray-100;
+  }
+  
+  html.dark {
+    color-scheme: dark;
+  }
+  
+  /* Melhorar contraste de textos no dark mode */
+  html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark h5, html.dark h6 {
+    @apply text-white;
+  }
+  
+  html.dark p, html.dark span, html.dark label {
+    @apply text-gray-300;
+  }
+  
+  html.dark .text-gray-900 {
+    @apply text-white;
+  }
+  
+  html.dark .text-gray-700 {
+    @apply text-gray-200;
+  }
+  
+  html.dark .text-gray-600 {
+    @apply text-gray-300;
+  }
+  
+  html.dark .text-gray-500 {
+    @apply text-gray-400;
+  }
+  
+  html.dark .bg-gray-50 {
+    @apply bg-slate-800;
+  }
+  
+  html.dark .bg-gray-100 {
+    @apply bg-slate-700;
+  }
+  
+  html.dark .border-gray-200 {
+    @apply border-slate-700;
+  }
+  
+  html.dark .border-gray-300 {
+    @apply border-slate-600;
+  }
+  
+  /* Cards de estatísticas */
+  html.dark .bg-white {
+    @apply bg-slate-800;
+  }
+  
+  /* Backgrounds claros */
+  html.dark .bg-gray-50,
+  html.dark .bg-gray-100 {
+    @apply bg-slate-700/50;
+  }
+  
+  html.dark .bg-blue-50 {
+    @apply bg-blue-900/30;
+  }
+  
+  html.dark .bg-green-50 {
+    @apply bg-green-900/30;
+  }
+  
+  html.dark .bg-red-50 {
+    @apply bg-red-900/30;
+  }
+  
+  html.dark .bg-yellow-50 {
+    @apply bg-yellow-900/30;
+  }
+  
+  html.dark .bg-purple-50 {
+    @apply bg-purple-900/30;
+  }
+  
+  html.dark .bg-orange-50 {
+    @apply bg-orange-900/30;
+  }
+  
+  html.dark .bg-cyan-50 {
+    @apply bg-cyan-900/30;
+  }
+  
+  html.dark .bg-teal-50 {
+    @apply bg-teal-900/30;
+  }
+  
+  html.dark .bg-pink-50 {
+    @apply bg-pink-900/30;
+  }
+  
+  html.dark .bg-indigo-50 {
+    @apply bg-indigo-900/30;
+  }
+  
+  /* Selects e inputs */
+  html.dark select {
+    @apply bg-slate-700 border-slate-600 text-gray-100;
+  }
+  
+  html.dark select option {
+    @apply bg-slate-700 text-gray-100;
+  }
+  
+  /* Barras de progresso */
+  html.dark .bg-gray-200 {
+    @apply bg-slate-600;
+  }
+  
+  /* Divisores */
+  html.dark .divide-gray-100 > * + *,
+  html.dark .divide-gray-200 > * + * {
+    @apply border-slate-700;
+  }
+  
+  /* Hover states */
+  html.dark .hover\:bg-gray-50:hover {
+    @apply bg-slate-700;
+  }
+  
+  html.dark .hover\:bg-gray-100:hover {
+    @apply bg-slate-600;
+  }
+  
+  /* Badges de status - garantir texto visível */
+  html.dark .bg-green-100 {
+    @apply bg-green-900/40 text-green-300;
+  }
+  
+  html.dark .bg-red-100 {
+    @apply bg-red-900/40 text-red-300;
+  }
+  
+  html.dark .bg-yellow-100 {
+    @apply bg-yellow-900/40 text-yellow-300;
+  }
+  
+  html.dark .bg-blue-100 {
+    @apply bg-blue-900/40 text-blue-300;
+  }
+  
+  html.dark .bg-purple-100 {
+    @apply bg-purple-900/40 text-purple-300;
+  }
+  
+  html.dark .bg-orange-100 {
+    @apply bg-orange-900/40 text-orange-300;
+  }
+  
+  html.dark .bg-pink-100 {
+    @apply bg-pink-900/40 text-pink-300;
+  }
+  
+  html.dark .bg-indigo-100 {
+    @apply bg-indigo-900/40 text-indigo-300;
+  }
+  
+  html.dark .bg-teal-100 {
+    @apply bg-teal-900/40 text-teal-300;
+  }
+  
+  html.dark .bg-cyan-100 {
+    @apply bg-cyan-900/40 text-cyan-300;
+  }
+  
+  /* Textos coloridos escuros - tornar mais claros */
+  html.dark .text-green-800 {
+    @apply text-green-300;
+  }
+  
+  html.dark .text-red-800 {
+    @apply text-red-300;
+  }
+  
+  html.dark .text-yellow-800 {
+    @apply text-yellow-300;
+  }
+  
+  html.dark .text-blue-800 {
+    @apply text-blue-300;
+  }
+  
+  html.dark .text-purple-800 {
+    @apply text-purple-300;
+  }
+  
+  html.dark .text-orange-800 {
+    @apply text-orange-300;
+  }
+  
+  html.dark .text-pink-800 {
+    @apply text-pink-300;
+  }
+  
+  html.dark .text-indigo-800 {
+    @apply text-indigo-300;
+  }
+  
+  html.dark .text-cyan-600 {
+    @apply text-cyan-400;
+  }
+  
+  html.dark .text-cyan-700 {
+    @apply text-cyan-300;
+  }
+  
+  html.dark .text-teal-600 {
+    @apply text-teal-400;
+  }
+  
+  html.dark .text-teal-700 {
+    @apply text-teal-300;
+  }
+  
+  html.dark .text-blue-600,
+  html.dark .text-blue-700 {
+    @apply text-blue-300;
+  }
+  
+  html.dark .text-green-600,
+  html.dark .text-green-700 {
+    @apply text-green-300;
+  }
+  
+  html.dark .text-yellow-600,
+  html.dark .text-yellow-700 {
+    @apply text-yellow-300;
+  }
+  
+  html.dark .text-red-600,
+  html.dark .text-red-700 {
+    @apply text-red-300;
+  }
+  
+  html.dark .text-red-900 {
+    @apply text-red-200;
+  }
+  
+  /* Gradientes coloridos para cards */
+  html.dark .from-blue-50 {
+    --tw-gradient-from: rgb(30 58 138 / 0.3);
+  }
+  
+  html.dark .to-blue-100 {
+    --tw-gradient-to: rgb(30 58 138 / 0.4);
+  }
+  
+  html.dark .from-green-50 {
+    --tw-gradient-from: rgb(20 83 45 / 0.3);
+  }
+  
+  html.dark .to-green-100 {
+    --tw-gradient-to: rgb(20 83 45 / 0.4);
+  }
+  
+  html.dark .from-yellow-50 {
+    --tw-gradient-from: rgb(113 63 18 / 0.3);
+  }
+  
+  html.dark .to-yellow-100 {
+    --tw-gradient-to: rgb(113 63 18 / 0.4);
+  }
+  
+  html.dark .from-red-50 {
+    --tw-gradient-from: rgb(127 29 29 / 0.3);
+  }
+  
+  html.dark .to-red-100 {
+    --tw-gradient-to: rgb(127 29 29 / 0.4);
+  }
+  
+  html.dark .from-cyan-50 {
+    --tw-gradient-from: rgb(22 78 99 / 0.3);
+  }
+  
+  html.dark .to-cyan-100 {
+    --tw-gradient-to: rgb(22 78 99 / 0.4);
+  }
+  
+  html.dark .from-purple-50 {
+    --tw-gradient-from: rgb(88 28 135 / 0.3);
+  }
+  
+  html.dark .to-purple-100 {
+    --tw-gradient-to: rgb(88 28 135 / 0.4);
+  }
+  
+  /* Bordas coloridas */
+  html.dark .border-blue-200 {
+    @apply border-blue-800/50;
+  }
+  
+  html.dark .border-green-200 {
+    @apply border-green-800/50;
+  }
+  
+  html.dark .border-yellow-200 {
+    @apply border-yellow-800/50;
+  }
+  
+  html.dark .border-red-200 {
+    @apply border-red-800/50;
+  }
+  
+  html.dark .border-cyan-200 {
+    @apply border-cyan-800/50;
+  }
+  
+  html.dark .border-purple-200 {
+    @apply border-purple-800/50;
+  }
+  
+  /* Primary colors para bolinhas numeradas */
+  html.dark .bg-primary-100 {
+    @apply bg-primary-900/50;
+  }
+  
+  html.dark .text-primary-600 {
+    @apply text-primary-300;
+  }
+  
+  html.dark .text-primary-700 {
+    @apply text-primary-300;
+  }
+  
+  /* Amber/Yellow para tips */
+  html.dark .text-amber-700 {
+    @apply text-amber-400;
+  }
+  
+  html.dark .text-amber-500 {
+    @apply text-amber-400;
+  }
+  
+  /* Emerald para badge de Melhoria */
+  html.dark .bg-emerald-100 {
+    @apply bg-emerald-900/40 text-emerald-300;
+  }
+  
+  html.dark .text-emerald-700 {
+    @apply text-emerald-300;
+  }
+  
+  /* Primary gradientes para Referência Rápida */
+  html.dark .from-primary-50 {
+    --tw-gradient-from: rgb(var(--color-primary-900) / 0.3);
+  }
+  
+  html.dark .to-primary-100 {
+    --tw-gradient-to: rgb(var(--color-primary-900) / 0.4);
+  }
+  
+  html.dark .border-primary-200 {
+    @apply border-primary-800/50;
+  }
+  
+  html.dark .text-primary-900 {
+    @apply text-primary-100;
+  }
+  
+  /* Cards com fundo amarelo/laranja (alertas) */
+  html.dark .bg-amber-50 {
+    @apply bg-amber-900/30;
+  }
+  
+  html.dark .bg-amber-100 {
+    @apply bg-amber-900/40 text-amber-300;
+  }
+  
+  /* Ring colors */
+  html.dark .ring-white {
+    @apply ring-slate-700;
+  }
+  
+  /* Placeholder text */
+  html.dark input::placeholder,
+  html.dark textarea::placeholder {
+    @apply text-slate-400;
+  }
+  
+  /* Tables */
+  html.dark th {
+    @apply bg-slate-700 text-gray-200;
+  }
+  
+  html.dark td {
+    @apply border-slate-700;
+  }
+  
+  html.dark tr:hover {
+    @apply bg-slate-700/50;
   }
 }
 
@@ -17,6 +415,10 @@
     @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
   }
   
+  html.dark .btn-secondary {
+    @apply bg-gray-700 hover:bg-gray-600 text-gray-200;
+  }
+  
   .btn-success {
     @apply bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
   }
@@ -25,16 +427,29 @@
     @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
   }
   
-  .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all duration-200;
+  .input-field, .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all duration-200 bg-white text-gray-900;
+  }
+  
+  html.dark .input-field,
+  html.dark .input {
+    @apply bg-gray-800 border-gray-600 text-gray-100;
   }
   
   .textarea-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all duration-200 resize-y;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all duration-200 resize-y bg-white text-gray-900;
+  }
+  
+  html.dark .textarea-field {
+    @apply bg-gray-800 border-gray-600 text-gray-100;
   }
   
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+    @apply bg-white rounded-xl shadow-sm border border-gray-200;
+  }
+  
+  html.dark .card {
+    @apply bg-slate-800/80 border-slate-700/50 shadow-lg shadow-slate-900/20;
   }
   
   .badge {

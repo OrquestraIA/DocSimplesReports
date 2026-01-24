@@ -263,3 +263,138 @@ function getCategoryLabel(category) {
   };
   return labels[category] || category || 'N/A';
 }
+
+// Configuração do Nodemailer (usar variáveis de ambiente)
+const nodemailer = require('nodemailer');
+
+// Configuração padrão para Outlook/Office 365
+const EMAIL_CONFIG = {
+  host: process.env.SMTP_HOST || 'smtp.office365.com',
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || ''
+  },
+  tls: {
+    ciphers: 'SSLv3',
+    rejectUnauthorized: false
+  }
+};
+
+/**
+ * Cloud Function para enviar email de notificação de tarefa atribuída
+ */
+exports.sendTaskAssignmentEmail = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+      const { task, assignee, assignedBy } = req.body;
+      
+      if (!task || !assignee || !assignee.email) {
+        return res.status(400).json({ error: 'task e assignee.email são obrigatórios' });
+      }
+
+      // Criar transporter
+      const transporter = nodemailer.createTransport(EMAIL_CONFIG);
+
+      // Tipo da tarefa
+      const taskTypeLabels = {
+        'bug': '🐛 Bug',
+        'business_rule': '📋 Regra de Negócio',
+        'improvement': '💡 Melhoria'
+      };
+      const taskTypeLabel = taskTypeLabels[task.type] || task.type;
+
+      // Prioridade
+      const priorityLabels = {
+        'low': '🟢 Baixa',
+        'medium': '🟡 Média',
+        'high': '🟠 Alta',
+        'critical': '🔴 Crítica'
+      };
+      const priorityLabel = priorityLabels[task.priority] || task.priority;
+
+      // HTML do email
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+            .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
+            .task-card { background: white; padding: 20px; border-radius: 8px; margin: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-right: 8px; }
+            .badge-bug { background: #fee2e2; color: #dc2626; }
+            .badge-improvement { background: #dbeafe; color: #2563eb; }
+            .badge-business_rule { background: #f3e8ff; color: #9333ea; }
+            .badge-priority { background: #fef3c7; color: #d97706; }
+            .description { background: #f3f4f6; padding: 15px; border-radius: 6px; margin: 15px 0; white-space: pre-wrap; }
+            .footer { padding: 20px; text-align: center; color: #6b7280; font-size: 12px; }
+            .btn { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0;">📋 Nova Tarefa Atribuída</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">DocSimples Reports - Gestão de Tarefas</p>
+            </div>
+            <div class="content">
+              <p>Olá <strong>${assignee.name || assignee.email}</strong>,</p>
+              <p>Uma nova tarefa foi atribuída a você${assignedBy ? ` por <strong>${assignedBy}</strong>` : ''}:</p>
+              
+              <div class="task-card">
+                <h2 style="margin: 0 0 15px 0; color: #1f2937;">${task.title}</h2>
+                <div style="margin-bottom: 15px;">
+                  <span class="badge badge-${task.type}">${taskTypeLabel}</span>
+                  <span class="badge badge-priority">${priorityLabel}</span>
+                </div>
+                ${task.description ? `<div class="description">${task.description}</div>` : ''}
+              </div>
+
+              <p>Acesse o sistema para ver mais detalhes e atualizar o status da tarefa.</p>
+              
+              <a href="https://orquestraia.github.io/DocSimplesReports/#/minhas-tarefas" class="btn">
+                Ver Minhas Tarefas
+              </a>
+            </div>
+            <div class="footer">
+              <p>Este é um email automático do DocSimples Reports.</p>
+              <p>© ${new Date().getFullYear()} OrquestraIA - Todos os direitos reservados</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Enviar email
+      const mailOptions = {
+        from: `"DocSimples Reports" <${EMAIL_CONFIG.auth.user}>`,
+        to: assignee.email,
+        subject: `📋 Nova Tarefa: ${task.title}`,
+        html: htmlContent
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Email enviado com sucesso' 
+      });
+
+    } catch (error) {
+      console.error('Erro ao enviar email:', error);
+      return res.status(500).json({ 
+        error: 'Erro ao enviar email',
+        message: error.message 
+      });
+    }
+  });
+});
