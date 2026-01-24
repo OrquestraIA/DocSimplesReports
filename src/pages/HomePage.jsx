@@ -102,7 +102,7 @@ export default function HomePage({ testDocuments, requirements }) {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">TestWise</h1>
         <p className="mt-2 text-gray-600">
-          Plataforma de QA e Gestão de Testes com geração automática de Gherkin e Playwright
+          Plataforma completa de QA, Sprints e Gestão de Desenvolvimento
         </p>
       </div>
 

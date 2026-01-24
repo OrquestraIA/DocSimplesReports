@@ -48,7 +48,7 @@ export default function LoginPage({ onLogin }) {
             <h1 className="text-4xl font-bold text-white mb-2">
               Test<span className="text-green-400">Wise</span>
             </h1>
-            <p className="text-slate-400 text-lg">Gestão de Tarefas e Sprints</p>
+            <p className="text-slate-400 text-lg">Plataforma completa de QA, Sprints e Gestão de Desenvolvimento</p>
           </div>
 
           {/* Título do Formulário */}
