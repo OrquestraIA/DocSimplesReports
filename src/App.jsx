@@ -110,7 +110,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
             </Link>
             <div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
             <a href="https://github.com/OrquestraIA" target="_blank" rel="noopener noreferrer" className="hidden sm:block hover:opacity-80 transition-opacity">
-              <img src="/DocSimplesReports/logo-orquestraia-transp.png" alt="OrquestraIA" className="h-7 w-auto" />
+              <img src="/DocSimplesReports/logo-orquestraia-transp.png" alt="OrquestraIA" className="h-10 w-auto" />
             </a>
           </div>
 

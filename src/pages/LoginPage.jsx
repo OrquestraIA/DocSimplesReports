@@ -38,9 +38,9 @@ export default function LoginPage({ onLogin }) {
         <div className="max-w-md mx-auto w-full">
           {/* Logos OM30 e OrquestraIA */}
           <div className="flex items-center gap-4 mb-8">
-            <img src="/DocSimplesReports/logo.png" alt="OM30" className="h-10 w-auto" />
-            <div className="h-8 w-px bg-slate-600"></div>
-            <img src="/DocSimplesReports/logo-orquestraia-transp.png" alt="OrquestraIA" className="h-8 w-auto" />
+            <img src="/DocSimplesReports/logo.png" alt="OM30" className="h-12 w-auto" />
+            <div className="h-10 w-px bg-slate-600"></div>
+            <img src="/DocSimplesReports/logo-orquestraia-transp.png" alt="OrquestraIA" className="h-12 w-auto" />
           </div>
 
           {/* Logo e Título */}

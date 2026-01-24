@@ -20,7 +20,7 @@ export default function Footer() {
             <img 
               src="/DocSimplesReports/logo-orquestraia-transp.png" 
               alt="OrquestraIA" 
-              className="h-5 w-auto"
+              className="h-8 w-auto"
             />
           </a>
           <span className="text-gray-300 dark:text-gray-600">•</span>
