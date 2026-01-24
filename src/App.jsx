@@ -100,14 +100,18 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
     <nav className="bg-white dark:bg-slate-800/95 shadow-sm dark:shadow-slate-900/50 border-b border-gray-200 dark:border-slate-700/50 transition-colors backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex items-center flex-shrink-0">
+          <div className="flex items-center flex-shrink-0 gap-3">
             <Link to="/" className="flex items-center space-x-2">
-              <img src="/DocSimplesReports/logo.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain" />
+              <img src="/DocSimplesReports/logo.png" alt="OM30" className="w-8 h-8 rounded-lg object-contain" />
               <div className="flex flex-col">
                 <span className="font-bold text-xl text-gray-900 dark:text-white whitespace-nowrap leading-tight">TestWise</span>
                 <span className="text-xs text-gray-400">v{APP_VERSION}</span>
               </div>
             </Link>
+            <div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
+            <a href="https://github.com/OrquestraIA" target="_blank" rel="noopener noreferrer" className="hidden sm:block hover:opacity-80 transition-opacity">
+              <img src="/DocSimplesReports/logo-orquestraia-transp.png" alt="OrquestraIA" className="h-7 w-auto" />
+            </a>
           </div>
 
           {/* Desktop Navigation */}

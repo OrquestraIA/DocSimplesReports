@@ -36,6 +36,13 @@ export default function LoginPage({ onLogin }) {
       {/* Lado Esquerdo - Formulário */}
       <div className="w-full lg:w-[35%] bg-gradient-to-b from-slate-800 to-slate-900 flex flex-col justify-center px-8 sm:px-12 lg:px-12 py-12">
         <div className="max-w-md mx-auto w-full">
+          {/* Logos OM30 e OrquestraIA */}
+          <div className="flex items-center gap-4 mb-8">
+            <img src="/DocSimplesReports/logo.png" alt="OM30" className="h-10 w-auto" />
+            <div className="h-8 w-px bg-slate-600"></div>
+            <img src="/DocSimplesReports/logo-orquestraia-transp.png" alt="OrquestraIA" className="h-8 w-auto" />
+          </div>
+
           {/* Logo e Título */}
           <div className="mb-10">
             <h1 className="text-4xl font-bold text-white mb-2">
