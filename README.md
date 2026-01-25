@@ -2,8 +2,6 @@
 
 **Plataforma completa de QA e Gestão de Testes** com geração automática de Gherkin e Playwright.
 
-![TestWise](public/test-wise-image.png)
-
 ## 🚀 Sobre o Projeto
 
 TestWise é uma plataforma integrada para equipes de QA que combina:
