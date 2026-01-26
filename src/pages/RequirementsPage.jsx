@@ -160,6 +160,14 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     const reprovadosQA = requirements.filter(r => r.statusQAHomolog === 'Reprovado').length
     const pendentesQA = requirements.filter(r => r.statusQAHomolog === 'Pendente').length
     const emTesteQA = requirements.filter(r => r.statusQAHomolog === 'Em Teste' || r.statusQAHomolog === 'Em-reteste-homolog').length
+    const paraTesteQA = requirements.filter(r => r.statusQAHomolog === 'Para_Teste_QA').length
+
+    // Status QA Dev
+    const aprovadosQADev = requirements.filter(r => r.statusQADev === 'Aprovado').length
+    const reprovadosQADev = requirements.filter(r => r.statusQADev === 'Reprovado').length
+    const pendentesQADev = requirements.filter(r => r.statusQADev === 'Pendente' || !r.statusQADev).length
+    const emTesteQADev = requirements.filter(r => r.statusQADev === 'Em Teste').length
+    const paraTesteQADev = requirements.filter(r => r.statusQADev === 'Para_Teste_QA').length
 
     // Status Homologação (coluna principal)
     const aprovadosHomolog = requirements.filter(r => r.statusHomolog === 'Aprovado').length
@@ -201,7 +209,13 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       taxaImplementacao: total > 0 ? ((implementados / total) * 100).toFixed(1) : 0,
       taxaAprovacao: total > 0 ? ((aprovadosQA / total) * 100).toFixed(1) : 0,
       taxaAprovacaoHomolog: total > 0 ? ((aprovadosHomolog / total) * 100).toFixed(1) : 0,
-      taxaObrigatoriosAprovados: totalObrigatorios > 0 ? ((obrigatoriosAprovados / totalObrigatorios) * 100).toFixed(1) : 0
+      taxaObrigatoriosAprovados: totalObrigatorios > 0 ? ((obrigatoriosAprovados / totalObrigatorios) * 100).toFixed(1) : 0,
+      aprovadosQADev,
+      reprovadosQADev,
+      pendentesQADev,
+      emTesteQADev,
+      paraTesteQADev,
+      paraTesteQA
     }
   }, [requirements])
 
@@ -233,6 +247,34 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     { name: 'Aprovado', value: stats.obrigatoriosAprovados, color: '#22c55e' },
     { name: 'Reprovado', value: stats.obrigatoriosReprovados, color: '#ef4444' },
     { name: 'Pendente', value: stats.obrigatoriosPendentes, color: '#eab308' }
+  ], [stats])
+
+  // Dados para gráfico comparativo Dev vs QA Dev vs QA Homolog
+  const comparativoData = useMemo(() => [
+    { 
+      name: 'Implementado/Aprovado', 
+      dev: stats.implementados, 
+      qaDev: stats.aprovadosQADev, 
+      qaHomolog: stats.aprovadosQA 
+    },
+    { 
+      name: 'Para Teste', 
+      dev: 0, 
+      qaDev: stats.paraTesteQADev, 
+      qaHomolog: stats.paraTesteQA 
+    },
+    { 
+      name: 'Em Teste', 
+      dev: 0, 
+      qaDev: stats.emTesteQADev, 
+      qaHomolog: stats.emTesteQA 
+    },
+    { 
+      name: 'Reprovado', 
+      dev: 0, 
+      qaDev: stats.reprovadosQADev, 
+      qaHomolog: stats.reprovadosQA 
+    }
   ], [stats])
 
   // Dados por módulo (usando Status Homologação)
@@ -604,6 +646,39 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                     <Bar dataKey="reprovado" name="Reprovado" stackId="a" fill="#ef4444" />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Gráfico Comparativo Dev vs QA Dev vs QA Homolog */}
+          <div className="card">
+            <h3 className="font-semibold text-gray-900 mb-4">📈 Comparativo: Dev × QA Dev × QA Homolog</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={comparativoData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Bar dataKey="dev" name="Implementado (Dev)" fill="#22c55e" />
+                  <Bar dataKey="qaDev" name="QA Dev" fill="#3b82f6" />
+                  <Bar dataKey="qaHomolog" name="QA Homolog" fill="#8b5cf6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4 mt-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: '#22c55e' }} />
+                <span>Implementado (Dev): {stats.implementados}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: '#3b82f6' }} />
+                <span>Aprovados QA Dev: {stats.aprovadosQADev}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }} />
+                <span>Aprovados QA Homolog: {stats.aprovadosQA}</span>
               </div>
             </div>
           </div>
