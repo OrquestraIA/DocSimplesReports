@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
@@ -14,6 +14,7 @@ import TestCasesPage from './pages/TestCasesPage'
 import TestExecutionPage from './pages/TestExecutionPage'
 import SprintsPage from './pages/SprintsPage'
 import MyTasksPage from './pages/MyTasksPage'
+import EstimativaEntregaPage from './pages/EstimativaEntregaPage'
 import WhatsNewModal from './components/WhatsNewModal'
 import NotificationsPanel from './components/NotificationsPanel'
 import Footer from './components/Footer'
@@ -87,6 +88,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
   // Itens secundários (dropdown "Mais")
   const moreNavItems = [
     { path: '/requisitos', label: 'Requisitos', icon: FileSpreadsheet, tooltip: 'Gerenciar Requisitos' },
+    { path: '/estimativa', label: 'Estimativa', icon: Calculator, tooltip: 'Estimativa de Entrega' },
     { path: '/gherkin', label: 'Gerar Gherkin', icon: Code, tooltip: 'Gerar Código Gherkin' },
     { path: '/particao', label: 'Tabela Partição', icon: Table2, tooltip: 'Tabela de Partição' },
     { path: '/relatorios', label: 'Relatórios', icon: BarChart3, tooltip: 'Relatórios e Métricas' },
@@ -631,6 +633,7 @@ function App() {
             />
             <Route path="/ajuda" element={<TutorialPage />} />
             <Route path="/relatorios" element={<ReportsPage testDocuments={testDocuments} />} />
+            <Route path="/estimativa" element={<EstimativaEntregaPage requirements={importedRequirements} />} />
             <Route 
               path="/requisitos" 
               element={
