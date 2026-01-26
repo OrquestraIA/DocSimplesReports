@@ -383,12 +383,9 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
         <div className="flex gap-2">
           {requirements.length > 0 && (
             <button
-              onClick={() => {
-                if (window.confirm('Isso removerá todos os requisitos. Deseja continuar?')) {
-                  onClear()
-                }
-              }}
-              className="btn-secondary flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
+              disabled
+              title="Botão desabilitado para evitar perda acidental de dados"
+              className="btn-secondary flex items-center gap-2 text-sm text-gray-400 cursor-not-allowed opacity-50"
             >
               <Trash2 className="w-4 h-4" />
               Limpar Dados
