@@ -1,8 +1,55 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.0.0'
+export const APP_VERSION = '2.1.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.1.0',
+    date: '2026-01-26',
+    title: 'Estimativa de Entrega e Novos Status',
+    changes: [
+      {
+        type: 'feature',
+        description: '📅 Nova página Estimativa de Entrega - calcule quantos requisitos por dia precisam ser aprovados'
+      },
+      {
+        type: 'feature',
+        description: '📊 3 cenários de estimativa: Otimista (+25%), Realista e Pessimista (-30%)'
+      },
+      {
+        type: 'feature',
+        description: '📈 Barras de progresso visuais para Obrigatórios e Não Obrigatórios'
+      },
+      {
+        type: 'feature',
+        description: '🗓️ Tabela de Metas Semanais dinâmica baseada na data de entrega'
+      },
+      {
+        type: 'feature',
+        description: '💡 Dicas inteligentes para atingir a meta de entrega'
+      },
+      {
+        type: 'feature',
+        description: '➕ Novo status "Para Reteste Homolog" em Status Homolog'
+      },
+      {
+        type: 'feature',
+        description: '➕ Novo status "Para Reteste QA" em Status QA Dev e QA Homolog'
+      },
+      {
+        type: 'feature',
+        description: '📊 Novo gráfico comparativo Dev × QA Dev × QA Homolog'
+      },
+      {
+        type: 'feature',
+        description: '📊 Novo gráfico de Status Homologação detalhado em barras'
+      },
+      {
+        type: 'improvement',
+        description: '🎯 Meta automática: 100% obrigatórios + 85% não obrigatórios'
+      }
+    ]
+  },
   {
     version: '2.0.0',
     date: '2026-01-24',

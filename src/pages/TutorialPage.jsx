@@ -24,7 +24,8 @@ import {
   Play,
   ClipboardList,
   Timer,
-  Moon
+  Moon,
+  Calculator
 } from 'lucide-react'
 
 export default function TutorialPage() {
@@ -355,6 +356,67 @@ export default function TutorialPage() {
           title: 'Navegando com Paginação',
           description: 'A tabela mostra 50 requisitos por página. Use os botões de navegação no rodapé para ver mais.',
           tip: 'O contador mostra quantos requisitos estão sendo exibidos do total filtrado.'
+        }
+      ]
+    },
+    {
+      id: 'estimativa',
+      title: 'Estimativa de Entrega',
+      icon: Calculator,
+      color: 'bg-teal-500',
+      steps: [
+        {
+          title: 'Acessando a Estimativa de Entrega',
+          description: 'No menu "Mais", clique em "Estimativa" para acessar a calculadora de prazo de entrega.',
+          tip: 'Esta página ajuda a planejar quantos requisitos você precisa aprovar por dia.'
+        },
+        {
+          title: 'Entendendo os Cards de Status',
+          description: 'No topo, você vê: Obrigatórios Aprovados, Não Obrigatórios (Meta 85%), Obrigatórios Faltam e Total a Aprovar.',
+          important: true,
+          tip: 'A meta é aprovar 100% dos obrigatórios + 85% dos não obrigatórios.'
+        },
+        {
+          title: 'Configurando a Data de Entrega',
+          description: 'Selecione a data desejada para entrega e quantos dias você trabalha por semana (5, 6 ou 7 dias).',
+          tip: 'O sistema calcula automaticamente os dias úteis até a data selecionada.'
+        },
+        {
+          title: 'Cenário Otimista 🚀',
+          description: 'Mostra o resultado se você aprovar 25% a mais por dia do que o necessário. Termina antes do prazo.',
+          tip: 'Use este cenário como meta para ter folga no cronograma.'
+        },
+        {
+          title: 'Cenário Realista 📊',
+          description: 'Mostra exatamente quantos requisitos por dia você precisa aprovar para entregar na data selecionada.',
+          important: true,
+          tip: 'Este é o ritmo mínimo necessário para cumprir o prazo.'
+        },
+        {
+          title: 'Cenário Pessimista ⚠️',
+          description: 'Mostra o resultado se você aprovar 30% a menos por dia. Indica quanto tempo a mais seria necessário.',
+          tip: 'Use para planejar contingências e comunicar riscos.'
+        },
+        {
+          title: 'Barras de Progresso',
+          description: 'Visualize o progresso atual de Obrigatórios e Não Obrigatórios com barras coloridas e percentuais.',
+          tip: 'As barras atualizam em tempo real conforme você aprova requisitos na tabela.'
+        },
+        {
+          title: 'Dicas para Atingir a Meta',
+          description: 'O sistema mostra dicas personalizadas baseadas no seu cenário: ritmo necessário, prioridades e alertas.',
+          tip: 'Preste atenção nos alertas vermelhos se a meta diária for muito alta.'
+        },
+        {
+          title: 'Tabela de Metas Semanais',
+          description: 'Veja um cronograma semanal com: Meta (requisitos por semana), Acumulado e Restante.',
+          important: true,
+          tip: 'Use esta tabela para acompanhar se você está no ritmo certo semana a semana.'
+        },
+        {
+          title: 'Integração com Requisitos',
+          description: 'Tudo é dinâmico! Quando você aprova um requisito na tabela de Requisitos, as estimativas atualizam automaticamente.',
+          tip: 'Não precisa reimportar a planilha - os dados são sincronizados em tempo real.'
         }
       ]
     },
