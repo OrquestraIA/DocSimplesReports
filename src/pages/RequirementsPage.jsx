@@ -32,6 +32,7 @@ const STATUS_HOMOLOG_OPTIONS = [
   { value: 'Aprovado', label: 'Aprovado', color: 'bg-green-100 text-green-700' },
   { value: 'Reprovado', label: 'Reprovado', color: 'bg-red-100 text-red-700' },
   { value: 'Em-reteste-homolog', label: 'Em Reteste', color: 'bg-orange-100 text-orange-700' },
+  { value: 'Para_Reteste_Homolog', label: 'Para Reteste Homolog', color: 'bg-purple-100 text-purple-700' },
   { value: 'Bloqueado', label: 'Bloqueado', color: 'bg-gray-100 text-gray-700' }
 ]
 
@@ -48,6 +49,7 @@ const STATUS_QA_OPTIONS = [
   { value: 'Em Teste', label: 'Em Teste' },
   { value: 'Aprovado', label: 'Aprovado' },
   { value: 'Reprovado', label: 'Reprovado' },
+  { value: 'Para_Reteste_QA', label: 'Para Reteste QA' },
   { value: 'Aguardando_Dev', label: 'Aguardando Dev' },
   { value: '', label: '-' }
 ]
@@ -776,6 +778,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             req.statusQADev === 'Em Teste' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                             req.statusQADev === 'Para_Teste_QA' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusQADev === 'Pendente' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                            req.statusQADev === 'Para_Reteste_QA' ? 'bg-purple-100 text-purple-700 border-purple-300' :
                             req.statusQADev === 'Aguardando_Dev' ? 'bg-gray-100 text-gray-700 border-gray-300' :
                             'bg-gray-50 text-gray-500 border-gray-200'
                           } ${!req.firebaseId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
@@ -797,6 +800,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             req.statusQAHomolog === 'Em Teste' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                             req.statusQAHomolog === 'Para_Teste_QA' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusQAHomolog === 'Pendente' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                            req.statusQAHomolog === 'Para_Reteste_QA' ? 'bg-purple-100 text-purple-700 border-purple-300' :
                             req.statusQAHomolog === 'Aguardando_Dev' ? 'bg-gray-100 text-gray-700 border-gray-300' :
                             'bg-gray-50 text-gray-500 border-gray-200'
                           } ${!req.firebaseId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
@@ -819,6 +823,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             req.statusHomolog === 'Em Teste' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                             req.statusHomolog === 'Para_Teste_Homolog' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusHomolog === 'Em-reteste-homolog' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                            req.statusHomolog === 'Para_Reteste_Homolog' ? 'bg-purple-100 text-purple-700 border-purple-300' :
                             req.statusHomolog === 'Bloqueado' ? 'bg-gray-100 text-gray-700 border-gray-300' :
                             'bg-yellow-100 text-yellow-700 border-yellow-300'
                           } ${!req.firebaseId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${updatingId === req.firebaseId ? 'opacity-50' : ''}`}
