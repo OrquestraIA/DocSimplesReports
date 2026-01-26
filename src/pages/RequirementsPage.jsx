@@ -174,6 +174,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     const reprovadosHomolog = requirements.filter(r => r.statusHomolog === 'Reprovado').length
     const pendentesHomolog = requirements.filter(r => !r.statusHomolog || r.statusHomolog === 'Pendente' || r.statusHomolog === '').length
     const emTesteHomolog = requirements.filter(r => r.statusHomolog === 'Em Teste' || r.statusHomolog === 'Em-reteste-homolog').length
+    const paraTesteHomolog = requirements.filter(r => r.statusHomolog === 'Para_Teste_Homolog').length
     const bloqueadosHomolog = requirements.filter(r => r.statusHomolog === 'Bloqueado').length
 
     // Requisitos Obrigatórios
@@ -199,6 +200,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       reprovadosHomolog,
       pendentesHomolog,
       emTesteHomolog,
+      paraTesteHomolog,
       bloqueadosHomolog,
       totalObrigatorios,
       obrigatoriosAprovados,
@@ -275,6 +277,16 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       qaDev: stats.reprovadosQADev, 
       qaHomolog: stats.reprovadosQA 
     }
+  ], [stats])
+
+  // Dados para gráfico de Status Homolog em barras
+  const statusHomologBarData = useMemo(() => [
+    { name: 'Aprovado', value: stats.aprovadosHomolog, color: '#22c55e' },
+    { name: 'Para Teste', value: stats.paraTesteHomolog, color: '#06b6d4' },
+    { name: 'Em Teste', value: stats.emTesteHomolog, color: '#3b82f6' },
+    { name: 'Pendente', value: stats.pendentesHomolog, color: '#eab308' },
+    { name: 'Reprovado', value: stats.reprovadosHomolog, color: '#ef4444' },
+    { name: 'Bloqueado', value: stats.bloqueadosHomolog, color: '#6b7280' }
   ], [stats])
 
   // Dados por módulo (usando Status Homologação)
@@ -680,6 +692,34 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                 <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }} />
                 <span>Aprovados QA Homolog: {stats.aprovadosQA}</span>
               </div>
+            </div>
+          </div>
+
+          {/* Gráfico Status Homolog em Barras */}
+          <div className="card">
+            <h3 className="font-semibold text-indigo-900 mb-4">📊 Status Homologação (Detalhado)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusHomologBarData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="value" name="Quantidade">
+                    {statusHomologBarData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap justify-center gap-3 mt-3 text-xs">
+              {statusHomologBarData.map((entry) => (
+                <div key={entry.name} className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded" style={{ backgroundColor: entry.color }} />
+                  <span>{entry.name}: {entry.value}</span>
+                </div>
+              ))}
             </div>
           </div>
 
