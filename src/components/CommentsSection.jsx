@@ -40,7 +40,9 @@ export default function CommentsSection({
   currentUser,
   onAddNotification,
   onUpdateStatus,
-  onCommentAdded
+  onCommentAdded,
+  onCommentEdited,
+  onReactionToggled
 }) {
   const [newComment, setNewComment] = useState('')
   const [commentScreenshots, setCommentScreenshots] = useState([])
@@ -257,11 +259,17 @@ export default function CommentsSection({
   const saveEditComment = async (commentId) => {
     setSavingComment(true)
     try {
-      await updateCommentInTestDocument(documentId, commentId, {
+      const updatedData = {
         text: editingCommentText,
         screenshots: editingCommentScreenshots,
         editedAt: new Date().toISOString()
-      })
+      }
+      await updateCommentInTestDocument(documentId, commentId, updatedData)
+      
+      if (onCommentEdited) {
+        onCommentEdited(commentId, updatedData)
+      }
+      
       cancelEditComment()
     } catch (error) {
       console.error('Erro ao salvar comentário:', error)
@@ -274,7 +282,12 @@ export default function CommentsSection({
   // Reações
   const handleReaction = async (commentId, reaction) => {
     try {
-      await toggleReactionOnComment(documentId, commentId, reaction, currentUser?.uid)
+      await toggleReactionOnComment(documentId, commentId, reaction, currentUser?.uid, currentUser?.name || currentUser?.email)
+      
+      if (onReactionToggled) {
+        onReactionToggled(commentId, reaction, currentUser?.uid, currentUser?.name || currentUser?.email)
+      }
+      
       setOpenReactionPicker(null)
     } catch (error) {
       console.error('Erro ao reagir:', error)

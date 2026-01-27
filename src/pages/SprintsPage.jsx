@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { 
   Plus, Search, Filter, Calendar, Clock, CheckCircle, XCircle, 
   AlertTriangle, Bug, Lightbulb, FileText, ChevronDown, ChevronRight,
@@ -1281,6 +1281,13 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [localSourceComments, setLocalSourceComments] = useState(task.sourceData?.comments || [])
+  const [localDocumentStatus, setLocalDocumentStatus] = useState(task.sourceData?.status || 'pendente')
+  
+  useEffect(() => {
+    setLocalSourceComments(task.sourceData?.comments || [])
+    setLocalDocumentStatus(task.sourceData?.status || 'pendente')
+  }, [task.sourceData?.comments, task.sourceData?.status])
   
   const typeStyle = TASK_TYPES[task.type] || TASK_TYPES.bug
   const statusStyle = TASK_STATUS[task.status] || TASK_STATUS.pending
@@ -1508,13 +1515,41 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
               </label>
               <CommentsSection
                 documentId={task.sourceId}
-                comments={sourceData.comments || []}
-                status={sourceData.status || 'pendente'}
+                comments={localSourceComments}
+                status={localDocumentStatus}
                 users={users}
                 currentUser={currentUser}
                 onAddNotification={onAddNotification}
-                onUpdateStatus={onUpdateDocumentStatus}
-                onCommentAdded={() => {}}
+                onUpdateStatus={async (newStatus) => {
+                  if (onUpdateDocumentStatus) {
+                    await onUpdateDocumentStatus(task.sourceId, newStatus)
+                    setLocalDocumentStatus(newStatus)
+                  }
+                }}
+                onCommentAdded={(comment) => {
+                  setLocalSourceComments(prev => [...prev, comment])
+                }}
+                onCommentEdited={(commentId, updatedData) => {
+                  setLocalSourceComments(prev => prev.map(c => 
+                    c.id === commentId ? { ...c, ...updatedData } : c
+                  ))
+                }}
+                onReactionToggled={(commentId, reaction, userId, userName) => {
+                  setLocalSourceComments(prev => prev.map(c => {
+                    if (c.id !== commentId) return c
+                    const reactions = c.reactions || []
+                    const existingIndex = reactions.findIndex(
+                      r => r.type === reaction.type && r.value === reaction.value && r.userId === userId
+                    )
+                    let newReactions
+                    if (existingIndex >= 0) {
+                      newReactions = reactions.filter((_, idx) => idx !== existingIndex)
+                    } else {
+                      newReactions = [...reactions, { ...reaction, userId, userName, createdAt: new Date().toISOString() }]
+                    }
+                    return { ...c, reactions: newReactions }
+                  }))
+                }}
               />
             </div>
           )}
