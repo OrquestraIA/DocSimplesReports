@@ -78,15 +78,36 @@ export default function SprintsPage({
     )
   }, [testDocuments, tasks])
 
+  // Enriquecer tasks com sourceData atualizado dos testDocuments
+  const enrichedTasks = useMemo(() => {
+    return tasks.map(task => {
+      if (task.sourceType === 'test_document' && task.sourceId) {
+        const testDoc = testDocuments.find(d => d.id === task.sourceId)
+        if (testDoc) {
+          return {
+            ...task,
+            sourceData: {
+              ...task.sourceData,
+              comments: testDoc.comments || [],
+              status: testDoc.status,
+              screenshots: testDoc.screenshots || []
+            }
+          }
+        }
+      }
+      return task
+    })
+  }, [tasks, testDocuments])
+
   // Tarefas do backlog (sem sprint)
   const backlogTasks = useMemo(() => {
-    return tasks.filter(t => !t.sprintId)
-  }, [tasks])
+    return enrichedTasks.filter(t => !t.sprintId)
+  }, [enrichedTasks])
 
   // Tarefas filtradas
   const filteredTasks = useMemo(() => {
     let filtered = activeTab === 'backlog' ? backlogTasks : 
-                   selectedSprint ? tasks.filter(t => t.sprintId === selectedSprint.id) : tasks
+                   selectedSprint ? enrichedTasks.filter(t => t.sprintId === selectedSprint.id) : enrichedTasks
     
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
@@ -100,7 +121,7 @@ export default function SprintsPage({
     if (filterPriority) filtered = filtered.filter(t => t.priority === filterPriority)
     
     return filtered
-  }, [tasks, backlogTasks, activeTab, selectedSprint, searchTerm, filterType, filterStatus, filterPriority])
+  }, [enrichedTasks, backlogTasks, activeTab, selectedSprint, searchTerm, filterType, filterStatus, filterPriority])
 
   // Estatísticas - mostrar apenas tarefas relevantes para a aba/sprint atual
   const stats = useMemo(() => {
@@ -111,10 +132,10 @@ export default function SprintsPage({
       targetTasks = backlogTasks
     } else if (selectedSprint) {
       // Na aba sprints com sprint selecionada, mostrar tarefas da sprint
-      targetTasks = tasks.filter(t => t.sprintId === selectedSprint.id)
+      targetTasks = enrichedTasks.filter(t => t.sprintId === selectedSprint.id)
     } else {
       // Na aba sprints sem sprint selecionada, mostrar tarefas que estão em alguma sprint
-      targetTasks = tasks.filter(t => t.sprintId)
+      targetTasks = enrichedTasks.filter(t => t.sprintId)
     }
     
     return {
@@ -126,7 +147,7 @@ export default function SprintsPage({
       inProgress: targetTasks.filter(t => t.status === 'in_progress').length,
       done: targetTasks.filter(t => t.status === 'done').length
     }
-  }, [tasks, backlogTasks, activeTab, selectedSprint])
+  }, [enrichedTasks, backlogTasks, activeTab, selectedSprint])
 
   // Sprint ativa
   const activeSprint = useMemo(() => {

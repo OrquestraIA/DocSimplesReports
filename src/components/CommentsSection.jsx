@@ -177,7 +177,7 @@ export default function CommentsSection({
         screenshots: commentScreenshots
       }
       
-      await addCommentToTestDocument(documentId, comment)
+      const savedComment = await addCommentToTestDocument(documentId, comment)
       
       // Criar notificação
       const getTargetRole = (actionType) => {
@@ -233,7 +233,7 @@ export default function CommentsSection({
       setCommentScreenshots([])
       
       if (onCommentAdded) {
-        onCommentAdded(comment)
+        onCommentAdded(savedComment)
       }
     } catch (error) {
       console.error('Erro ao enviar comentário:', error)
