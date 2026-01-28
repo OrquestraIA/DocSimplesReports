@@ -33,7 +33,8 @@ const STATUS_HOMOLOG_OPTIONS = [
   { value: 'Reprovado', label: 'Reprovado', color: 'bg-red-100 text-red-700' },
   { value: 'Em-reteste-homolog', label: 'Em Reteste', color: 'bg-orange-100 text-orange-700' },
   { value: 'Para_Reteste_Homolog', label: 'Para Reteste Homolog', color: 'bg-purple-100 text-purple-700' },
-  { value: 'Bloqueado', label: 'Bloqueado', color: 'bg-gray-100 text-gray-700' }
+  { value: 'Bloqueado', label: 'Bloqueado', color: 'bg-gray-100 text-gray-700' },
+  { value: 'Aguardando_Deploy', label: 'Aguardando Deploy', color: 'bg-indigo-100 text-indigo-700' }
 ]
 
 const STATUS_DEV_OPTIONS = [
