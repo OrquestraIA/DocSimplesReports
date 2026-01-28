@@ -52,6 +52,7 @@ const STATUS_QA_OPTIONS = [
   { value: 'Reprovado', label: 'Reprovado' },
   { value: 'Para_Reteste_QA', label: 'Para Reteste QA' },
   { value: 'Aguardando_Dev', label: 'Aguardando Dev' },
+  { value: 'Aguardando_Deploy', label: 'Aguardando Deploy' },
   { value: '', label: '-' }
 ]
 
