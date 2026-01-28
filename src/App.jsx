@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
@@ -15,6 +15,7 @@ import TestExecutionPage from './pages/TestExecutionPage'
 import SprintsPage from './pages/SprintsPage'
 import MyTasksPage from './pages/MyTasksPage'
 import EstimativaEntregaPage from './pages/EstimativaEntregaPage'
+import WorkspacesPage from './pages/WorkspacesPage'
 import WhatsNewModal from './components/WhatsNewModal'
 import NotificationsPanel from './components/NotificationsPanel'
 import Footer from './components/Footer'
@@ -83,6 +84,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
     { path: '/casos-de-teste', label: 'Casos', icon: ClipboardList, tooltip: 'Casos de Teste' },
     { path: '/minhas-tarefas', label: 'Tarefas', icon: CheckSquare, badge: myTasksCount, tooltip: 'Minhas Tarefas' },
     { path: '/sprints', label: 'Sprints', icon: Calendar, tooltip: 'Gestão de Sprints' },
+    { path: '/espacos', label: 'Espaços', icon: LayoutGrid, tooltip: 'Espaços de Trabalho' },
   ]
 
   // Itens secundários (dropdown "Mais")
@@ -863,6 +865,20 @@ function App() {
                     await updateTestDocumentDB(docId, { status })
                   }}
                   currentUser={user}
+                />
+              } 
+            />
+            <Route 
+              path="/espacos" 
+              element={
+                <WorkspacesPage 
+                  requirements={importedRequirements}
+                  onUpdateRequirement={updateImportedRequirement}
+                  users={users}
+                  currentUser={user}
+                  onAddNotification={addNotification}
+                  sprints={sprints}
+                  tasks={tasks}
                 />
               } 
             />
