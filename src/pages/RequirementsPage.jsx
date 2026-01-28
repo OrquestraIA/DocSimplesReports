@@ -769,6 +769,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                 <option value="Pendente">Pendente</option>
                 <option value="Em Teste">Em Teste</option>
                 <option value="Em-reteste-homolog">Em Reteste</option>
+                <option value="Para_Reteste_Homolog">Para Reteste Homolog</option>
                 <option value="Bloqueado">Bloqueado</option>
               </select>
               <select
