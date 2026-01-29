@@ -2,19 +2,27 @@ import { Link } from 'react-router-dom'
 import { FileText, FlaskConical, Code, Table2, ArrowRight, CheckCircle2, Clock, XCircle, AlertTriangle, TrendingUp, Lightbulb } from 'lucide-react'
 
 export default function HomePage({ testDocuments, requirements }) {
-  const pendingTests = testDocuments.filter(d => d.status === 'pendente').length
-  const approvedTests = testDocuments.filter(d => d.status === 'aprovado').length
-  const failedTests = testDocuments.filter(d => d.status === 'reprovado').length
-  const improvementTests = testDocuments.filter(d => d.status === 'melhoria').length
-  const bugTests = testDocuments.filter(d => d.category === 'bug').length
-  const totalTests = testDocuments.length
+  // Dados da tabela de REQUISITOS (importedRequirements)
+  const totalRequirements = requirements?.length || 0
+  const approvedReqs = requirements?.filter(r => r.statusHomolog === 'Aprovado').length || 0
+  const failedReqs = requirements?.filter(r => r.statusHomolog === 'Reprovado').length || 0
+  const pendingDevReqs = requirements?.filter(r => r.statusHomolog === 'Pendente' || !r.statusHomolog).length || 0
+  const inTestReqs = requirements?.filter(r => 
+    r.statusHomolog === 'Para_Teste_Homolog' || 
+    r.statusHomolog === 'Em Teste' ||
+    r.statusHomolog === 'Para_Reteste_Homolog' ||
+    r.statusHomolog === 'Em-reteste-homolog'
+  ).length || 0
   
-  // Calcular progresso
-  const progressPercent = totalTests > 0 ? Math.round(((approvedTests + failedTests) / totalTests) * 100) : 0
-  const approvalRate = totalTests > 0 ? Math.round((approvedTests / totalTests) * 100) : 0
+  // Requisitos testados = aprovados + reprovados + em teste/reteste
+  const testedReqs = approvedReqs + failedReqs + inTestReqs
+  
+  // Calcular progresso: requisitos testados / total de requisitos
+  const progressPercent = totalRequirements > 0 ? Math.round((testedReqs / totalRequirements) * 100) : 0
+  const approvalRate = testedReqs > 0 ? Math.round((approvedReqs / testedReqs) * 100) : 0
 
   // Agrupar por módulo/feature
-  const testsByModule = testDocuments.reduce((acc, doc) => {
+  const testsByModule = (testDocuments || []).reduce((acc, doc) => {
     const module = doc.module || doc.feature || 'Sem módulo'
     if (!acc[module]) {
       acc[module] = { total: 0, approved: 0, failed: 0, pending: 0 }
@@ -27,10 +35,10 @@ export default function HomePage({ testDocuments, requirements }) {
   }, {})
 
   // Testes reprovados
-  const failedTestsList = testDocuments.filter(d => d.status === 'reprovado')
+  const failedTestsList = (testDocuments || []).filter(d => d.status === 'reprovado')
 
   // Timeline - ordenar por data
-  const sortedTests = [...testDocuments].sort((a, b) => 
+  const sortedTests = [...(testDocuments || [])].sort((a, b) => 
     new Date(b.createdAt) - new Date(a.createdAt)
   ).slice(0, 8)
 
@@ -55,12 +63,11 @@ export default function HomePage({ testDocuments, requirements }) {
   const timelineGroups = groupByDate(sortedTests)
 
   const stats = [
-    { label: 'Total de Testes', value: testDocuments.length, color: 'bg-blue-500' },
-    { label: 'Aprovados', value: approvedTests, color: 'bg-green-500' },
-    { label: 'Reprovados', value: failedTests, color: 'bg-red-500' },
-    { label: 'Pendentes', value: pendingTests, color: 'bg-yellow-500' },
-    { label: 'Melhorias', value: improvementTests, color: 'bg-cyan-500' },
-    { label: 'Bugs', value: bugTests, color: 'bg-orange-500' },
+    { label: 'Total de Requisitos', value: totalRequirements, color: 'bg-blue-500' },
+    { label: 'Aprovados', value: approvedReqs, color: 'bg-green-500' },
+    { label: 'Reprovados', value: failedReqs, color: 'bg-red-500' },
+    { label: 'Em Teste', value: inTestReqs, color: 'bg-cyan-500' },
+    { label: 'Aguardando Teste', value: pendingDevReqs, color: 'bg-yellow-500' },
   ]
 
   const quickActions = [
@@ -94,7 +101,7 @@ export default function HomePage({ testDocuments, requirements }) {
     },
   ]
 
-  const recentTests = testDocuments.slice(-5).reverse()
+  const recentTests = (testDocuments || []).slice(-5).reverse()
 
   return (
     <div className="space-y-8">
@@ -118,7 +125,7 @@ export default function HomePage({ testDocuments, requirements }) {
       </div>
 
       {/* Dashboard de Progresso */}
-      {totalTests > 0 && (
+      {totalRequirements > 0 && (
         <div className="grid md:grid-cols-2 gap-6">
           {/* Progresso Geral */}
           <div className="card">
@@ -135,11 +142,15 @@ export default function HomePage({ testDocuments, requirements }) {
               <div className="h-full flex">
                 <div 
                   className="bg-green-500 transition-all duration-500" 
-                  style={{ width: `${totalTests > 0 ? (approvedTests / totalTests) * 100 : 0}%` }}
+                  style={{ width: `${totalRequirements > 0 ? (approvedReqs / totalRequirements) * 100 : 0}%` }}
                 />
                 <div 
                   className="bg-red-500 transition-all duration-500" 
-                  style={{ width: `${totalTests > 0 ? (failedTests / totalTests) * 100 : 0}%` }}
+                  style={{ width: `${totalRequirements > 0 ? (failedReqs / totalRequirements) * 100 : 0}%` }}
+                />
+                <div 
+                  className="bg-cyan-500 transition-all duration-500" 
+                  style={{ width: `${totalRequirements > 0 ? (inTestReqs / totalRequirements) * 100 : 0}%` }}
                 />
               </div>
             </div>
@@ -147,23 +158,23 @@ export default function HomePage({ testDocuments, requirements }) {
             <div className="grid grid-cols-4 gap-4 text-center">
               <div className="p-2 bg-green-50 rounded-lg">
                 <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                <p className="text-lg font-bold text-green-700">{approvedTests}</p>
+                <p className="text-lg font-bold text-green-700">{approvedReqs}</p>
                 <p className="text-xs text-green-600">Aprovados</p>
               </div>
               <div className="p-2 bg-red-50 rounded-lg">
                 <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                <p className="text-lg font-bold text-red-700">{failedTests}</p>
+                <p className="text-lg font-bold text-red-700">{failedReqs}</p>
                 <p className="text-xs text-red-600">Reprovados</p>
               </div>
-              <div className="p-2 bg-yellow-50 rounded-lg">
-                <Clock className="w-5 h-5 text-yellow-600 mx-auto mb-1" />
-                <p className="text-lg font-bold text-yellow-700">{pendingTests}</p>
-                <p className="text-xs text-yellow-600">Pendentes</p>
-              </div>
               <div className="p-2 bg-cyan-50 rounded-lg">
-                <Lightbulb className="w-5 h-5 text-cyan-600 mx-auto mb-1" />
-                <p className="text-lg font-bold text-cyan-700">{improvementTests}</p>
-                <p className="text-xs text-cyan-600">Melhorias</p>
+                <Clock className="w-5 h-5 text-cyan-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-cyan-700">{inTestReqs}</p>
+                <p className="text-xs text-cyan-600">Em Teste</p>
+              </div>
+              <div className="p-2 bg-yellow-50 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-yellow-700">{pendingDevReqs}</p>
+                <p className="text-xs text-yellow-600">Aguardando</p>
               </div>
             </div>
 
@@ -357,7 +368,7 @@ export default function HomePage({ testDocuments, requirements }) {
       )}
 
       {/* Empty State */}
-      {testDocuments.length === 0 && (
+      {(testDocuments || []).length === 0 && (
         <div className="card text-center py-12">
           <FlaskConical className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900">Nenhum teste registrado</h3>
