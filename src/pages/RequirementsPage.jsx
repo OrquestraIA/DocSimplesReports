@@ -177,6 +177,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     const pendentesHomolog = requirements.filter(r => !r.statusHomolog || r.statusHomolog === 'Pendente' || r.statusHomolog === '').length
     const emTesteHomolog = requirements.filter(r => r.statusHomolog === 'Em Teste' || r.statusHomolog === 'Em-reteste-homolog').length
     const paraTesteHomolog = requirements.filter(r => r.statusHomolog === 'Para_Teste_Homolog').length
+    const paraRetesteHomolog = requirements.filter(r => r.statusHomolog === 'Para_Reteste_Homolog').length
     const bloqueadosHomolog = requirements.filter(r => r.statusHomolog === 'Bloqueado').length
 
     // Requisitos Obrigatórios
@@ -203,6 +204,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       pendentesHomolog,
       emTesteHomolog,
       paraTesteHomolog,
+      paraRetesteHomolog,
       bloqueadosHomolog,
       totalObrigatorios,
       obrigatoriosAprovados,
@@ -284,8 +286,9 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
   // Dados para gráfico de Status Homolog em barras
   const statusHomologBarData = useMemo(() => [
     { name: 'Aprovado', value: stats.aprovadosHomolog, color: '#22c55e' },
-    { name: 'Para Teste', value: stats.paraTesteHomolog, color: '#06b6d4' },
+    { name: 'Para Teste Homolog', value: stats.paraTesteHomolog, color: '#06b6d4' },
     { name: 'Em Teste', value: stats.emTesteHomolog, color: '#3b82f6' },
+    { name: 'Para Reteste Homolog', value: stats.paraRetesteHomolog, color: '#a855f7' },
     { name: 'Pendente', value: stats.pendentesHomolog, color: '#eab308' },
     { name: 'Reprovado', value: stats.reprovadosHomolog, color: '#ef4444' },
     { name: 'Bloqueado', value: stats.bloqueadosHomolog, color: '#6b7280' }
