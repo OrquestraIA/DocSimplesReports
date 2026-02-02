@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { 
   Upload, FileSpreadsheet, Search, Filter, CheckCircle2, XCircle, Clock, 
-  AlertTriangle, BarChart3, RefreshCw, Trash2, Download, ChevronDown, X
+  AlertTriangle, BarChart3, RefreshCw, Trash2, Download, ChevronDown, X,
+  TrendingUp, Calendar
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
@@ -142,7 +143,18 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     if (!onUpdateRequirement || !req.firebaseId) return
     setUpdatingId(req.firebaseId)
     try {
-      await onUpdateRequirement(req.firebaseId, { [field]: newValue })
+      const updateData = { [field]: newValue }
+      
+      // Se o campo for statusHomolog e o novo valor for Aprovado, salvar a data de aprovação
+      if (field === 'statusHomolog' && newValue === 'Aprovado' && !req.dataAprovacaoHomolog) {
+        updateData.dataAprovacaoHomolog = new Date().toISOString()
+      }
+      // Se mudar de Aprovado para outro status, limpar a data
+      if (field === 'statusHomolog' && newValue !== 'Aprovado' && req.dataAprovacaoHomolog) {
+        updateData.dataAprovacaoHomolog = null
+      }
+      
+      await onUpdateRequirement(req.firebaseId, updateData)
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
       alert('Erro ao atualizar status. Tente novamente.')
@@ -309,6 +321,62 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     }, {})
     return Object.values(byModule).sort((a, b) => b.total - a.total).slice(0, 10)
   }, [requirements])
+
+  // Estatísticas de aprovações por semana
+  const aprovacoesPorSemana = useMemo(() => {
+    const reqsComData = requirements.filter(r => r.dataAprovacaoHomolog && r.statusHomolog === 'Aprovado')
+    
+    if (reqsComData.length === 0) return { semanas: [], mediaAprovacoesSemana: 0, totalComData: 0 }
+    
+    // Agrupar por semana (segunda a domingo)
+    const porSemana = reqsComData.reduce((acc, req) => {
+      const data = new Date(req.dataAprovacaoHomolog)
+      // Pegar início da semana (segunda-feira)
+      const diaSemana = data.getDay()
+      const diff = diaSemana === 0 ? -6 : 1 - diaSemana // Ajustar para segunda
+      const inicioSemana = new Date(data)
+      inicioSemana.setDate(data.getDate() + diff)
+      inicioSemana.setHours(0, 0, 0, 0)
+      
+      const chave = inicioSemana.toISOString().split('T')[0]
+      if (!acc[chave]) {
+        acc[chave] = { 
+          semana: chave, 
+          inicio: inicioSemana,
+          quantidade: 0,
+          requisitos: []
+        }
+      }
+      acc[chave].quantidade++
+      acc[chave].requisitos.push(req.id)
+      return acc
+    }, {})
+    
+    const semanas = Object.values(porSemana)
+      .sort((a, b) => new Date(b.semana) - new Date(a.semana))
+      .slice(0, 8) // Últimas 8 semanas
+      .reverse()
+    
+    const totalSemanas = semanas.length
+    const totalAprovacoes = semanas.reduce((sum, s) => sum + s.quantidade, 0)
+    const mediaAprovacoesSemana = totalSemanas > 0 ? (totalAprovacoes / totalSemanas).toFixed(1) : 0
+    
+    return { 
+      semanas, 
+      mediaAprovacoesSemana, 
+      totalComData: reqsComData.length 
+    }
+  }, [requirements])
+
+  // Formatar data da semana para exibição
+  const formatarSemana = (dataStr) => {
+    const data = new Date(dataStr)
+    const fimSemana = new Date(data)
+    fimSemana.setDate(data.getDate() + 6)
+    
+    const formatarDia = (d) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`
+    return `${formatarDia(data)} - ${formatarDia(fimSemana)}`
+  }
 
   // Handler para importar arquivo Excel
   const handleFileUpload = async (e) => {
@@ -728,6 +796,67 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
             </div>
           </div>
 
+          {/* Estatísticas de Aprovações por Semana */}
+          {aprovacoesPorSemana.semanas.length > 0 && (
+            <div className="card border-2 border-emerald-200 bg-emerald-50/30">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-emerald-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Aprovações por Semana
+                </h3>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="bg-emerald-100 px-3 py-1 rounded-lg">
+                    <span className="text-emerald-600">Média:</span>
+                    <span className="font-bold text-emerald-700 ml-1">{aprovacoesPorSemana.mediaAprovacoesSemana}/semana</span>
+                  </div>
+                  <div className="bg-blue-100 px-3 py-1 rounded-lg">
+                    <span className="text-blue-600">Total c/ data:</span>
+                    <span className="font-bold text-blue-700 ml-1">{aprovacoesPorSemana.totalComData}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={aprovacoesPorSemana.semanas}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="semana" 
+                      tick={{ fontSize: 10 }} 
+                      tickFormatter={formatarSemana}
+                    />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload
+                          return (
+                            <div className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 shadow-lg">
+                              <p className="text-gray-200 font-medium mb-1">
+                                <Calendar className="w-3 h-3 inline mr-1" />
+                                {formatarSemana(data.semana)}
+                              </p>
+                              <p className="text-emerald-400 font-bold">{data.quantidade} aprovações</p>
+                              {data.requisitos.length <= 5 && (
+                                <p className="text-gray-400 text-xs mt-1">
+                                  {data.requisitos.join(', ')}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                    <Bar dataKey="quantidade" name="Aprovações" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-emerald-600 mt-2 text-center">
+                Últimas {aprovacoesPorSemana.semanas.length} semanas com aprovações registradas
+              </p>
+            </div>
+          )}
+
           {/* Filters */}
           <div className="card">
             <div className="flex flex-col md:flex-row gap-4 flex-wrap">
@@ -847,6 +976,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                     <th className="px-2 py-2 text-center font-medium text-gray-700 text-xs border-r border-gray-200">QA Dev</th>
                     <th className="px-2 py-2 text-center font-medium text-gray-700 text-xs border-r border-gray-200">QA Homolog</th>
                     <th className="px-2 py-2 text-center font-medium text-indigo-700 bg-indigo-50 text-xs border-r border-gray-200">Status Homolog</th>
+                    <th className="px-2 py-2 text-center font-medium text-emerald-700 bg-emerald-50 text-xs border-r border-gray-200">Data Aprov.</th>
                     <th className="px-2 py-2 text-center font-medium text-gray-700 text-xs border-r border-gray-200">V. Dev</th>
                     <th className="px-2 py-2 text-center font-medium text-gray-700 text-xs border-r border-gray-200">V. Homolog</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-700 text-xs">Observação</th>
@@ -953,6 +1083,16 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
+                      </td>
+                      {/* Data Aprovação Homolog */}
+                      <td className="px-2 py-2 text-center bg-emerald-50/50 border-r border-gray-100">
+                        {req.dataAprovacaoHomolog ? (
+                          <span className="text-xs text-emerald-700 font-medium">
+                            {new Date(req.dataAprovacaoHomolog).toLocaleDateString('pt-BR')}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                       {/* Versão Dev */}
                       <td className="px-2 py-2 text-center border-r border-gray-100">
