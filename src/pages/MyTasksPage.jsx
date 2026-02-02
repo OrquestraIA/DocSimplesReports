@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { 
   CheckCircle, Clock, AlertTriangle, Bug, Lightbulb, FileText, 
-  Filter, Search, Eye, Play, ChevronDown, ExternalLink, User
+  Filter, Search, Eye, Play, ChevronDown, ExternalLink, User,
+  Send, Image, Video, Loader2, X, Upload, MessageSquare, Paperclip
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import MediaViewer from '../components/MediaViewer'
 import CommentsSection from '../components/CommentsSection'
+import { uploadScreenshot } from '../firebase'
 
 const TASK_TYPES = {
   'bug': { bg: 'bg-red-100', text: 'text-red-700', label: 'Bug', icon: Bug },
@@ -34,7 +36,8 @@ export default function MyTasksPage({
   currentUser,
   onUpdateTask,
   onAddNotification,
-  onUpdateDocumentStatus
+  onUpdateDocumentStatus,
+  onAddTaskComment
 }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -252,6 +255,7 @@ export default function MyTasksPage({
           onViewMedia={(media, index) => setViewingMedia({ media, index })}
           onAddNotification={onAddNotification}
           onUpdateDocumentStatus={onUpdateDocumentStatus}
+          onAddComment={onAddTaskComment}
         />
       )}
 
@@ -370,19 +374,144 @@ function TaskRow({ task, sprints, onView, onUpdateStatus }) {
   )
 }
 
-// Modal de visualização de tarefa
-function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateStatus, onViewMedia, onAddNotification, onUpdateDocumentStatus }) {
+// Modal de visualização de tarefa com interação completa
+function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateStatus, onViewMedia, onAddNotification, onUpdateDocumentStatus, onAddComment, onUpdateTask }) {
+  const [activeTab, setActiveTab] = useState('detalhes')
+  const [newComment, setNewComment] = useState('')
+  const [commentMedia, setCommentMedia] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [showMentions, setShowMentions] = useState(false)
+  const [mentionFilter, setMentionFilter] = useState('')
+  const fileInputRef = useRef(null)
+  const textareaRef = useRef(null)
+
   const typeStyle = TASK_TYPES[task.type] || TASK_TYPES.bug
   const statusStyle = TASK_STATUS[task.status] || TASK_STATUS.pending
   const priorityStyle = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
   const TypeIcon = typeStyle.icon
-  const screenshots = task.sourceData?.screenshots || []
+  const screenshots = task.screenshots || task.sourceData?.screenshots || []
+  const comments = task.comments || []
   const sprint = sprints.find(s => s.id === task.sprintId)
+
+  // Filtrar usuários para menções
+  const filteredUsers = users.filter(u => 
+    u.name?.toLowerCase().includes(mentionFilter.toLowerCase()) ||
+    u.email?.toLowerCase().includes(mentionFilter.toLowerCase())
+  ).slice(0, 5)
+
+  // Detectar @ no texto
+  const handleCommentChange = (e) => {
+    const text = e.target.value
+    setNewComment(text)
+    
+    const cursorPos = e.target.selectionStart
+    const textBeforeCursor = text.slice(0, cursorPos)
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1)
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        setMentionFilter(textAfterAt)
+        setShowMentions(true)
+        return
+      }
+    }
+    setShowMentions(false)
+    setMentionFilter('')
+  }
+
+  // Inserir menção
+  const insertMention = (user) => {
+    const cursorPos = textareaRef.current?.selectionStart || newComment.length
+    const textBeforeCursor = newComment.slice(0, cursorPos)
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    
+    if (lastAtIndex !== -1) {
+      const beforeAt = newComment.slice(0, lastAtIndex)
+      const afterCursor = newComment.slice(cursorPos)
+      const mentionName = user.name || user.email.split('@')[0]
+      setNewComment(`${beforeAt}@${mentionName} ${afterCursor}`)
+    }
+    setShowMentions(false)
+    setMentionFilter('')
+    textareaRef.current?.focus()
+  }
+
+  // Upload de arquivos
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    setUploading(true)
+    try {
+      const tempId = `task_${task.id}_${Date.now()}`
+      const uploadedFiles = []
+      
+      for (const file of files) {
+        const isVideoFile = file.type.startsWith('video/')
+        const uploaded = await uploadScreenshot(file, tempId)
+        uploadedFiles.push({
+          url: uploaded.url,
+          name: file.name,
+          type: isVideoFile ? 'video' : 'image',
+          uploadedAt: new Date().toISOString()
+        })
+      }
+      setCommentMedia(prev => [...prev, ...uploadedFiles])
+    } catch (error) {
+      console.error('Erro no upload:', error)
+      alert('Erro ao fazer upload do arquivo. Tente novamente.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  // Enviar comentário
+  const handleSendComment = async () => {
+    if (!newComment.trim() && commentMedia.length === 0) return
+
+    setSending(true)
+    try {
+      const comment = {
+        id: `comment_${Date.now()}`,
+        text: newComment.trim(),
+        media: commentMedia,
+        author: currentUser?.name || currentUser?.email || 'Anônimo',
+        authorId: currentUser?.uid || currentUser?.id,
+        createdAt: new Date().toISOString()
+      }
+
+      if (onAddComment) {
+        await onAddComment(task.id, comment)
+      }
+
+      setNewComment('')
+      setCommentMedia([])
+    } catch (error) {
+      console.error('Erro ao enviar comentário:', error)
+      alert('Erro ao enviar comentário. Tente novamente.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const removeMedia = (index) => {
+    setCommentMedia(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const tabs = [
+    { id: 'detalhes', label: 'Detalhes' },
+    { id: 'comentarios', label: `Comentários (${comments.length})` },
+    { id: 'evidencias', label: `Evidências (${screenshots.length})` },
+  ]
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-3xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b">
+      <div className="bg-white dark:bg-slate-800 rounded-xl max-w-4xl w-full shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="p-6 border-b dark:border-slate-700 shrink-0">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
               <div className={`p-2 rounded-lg ${typeStyle.bg}`}>
@@ -401,124 +530,317 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
                       {sprint.name}
                     </span>
                   )}
-                  {task.sourceData?.jiraKey && (
-                    <a 
-                      href={task.sourceData.jiraUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 flex items-center gap-1"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      {task.sourceData.jiraKey}
-                    </a>
+                  {task.relatedRequirementCode && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                      Req: {task.relatedRequirementCode}
+                    </span>
                   )}
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">{task.title}</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{task.title}</h2>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
-              ✕
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-gray-500">
+              <X className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 mt-4 border-b dark:border-slate-700 -mb-6 pb-0">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 border-t border-x dark:border-slate-700 -mb-px'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Status Selector */}
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-2 block">Atualizar Status</label>
-            <div className="flex gap-2 flex-wrap">
-              {Object.entries(TASK_STATUS).map(([key, val]) => {
-                const Icon = val.icon
-                const isActive = task.status === key
-                return (
-                  <button
-                    key={key}
-                    onClick={() => onUpdateStatus(task.id, key)}
-                    className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                      isActive 
-                        ? `${val.bg} ${val.text} ring-2 ring-offset-2 ring-current` 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {val.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'detalhes' && (
+            <div className="space-y-6">
+              {/* Status Selector */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">Atualizar Status</label>
+                <div className="flex gap-2 flex-wrap">
+                  {Object.entries(TASK_STATUS).map(([key, val]) => {
+                    const Icon = val.icon
+                    const isActive = task.status === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => onUpdateStatus(task.id, key)}
+                        className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                          isActive 
+                            ? `${val.bg} ${val.text} ring-2 ring-offset-2 ring-current` 
+                            : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {val.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-          {/* Description */}
-          {task.description && (
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Descrição</label>
-              <div className="text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg text-sm max-h-64 overflow-y-auto">
-                {task.description}
+              {/* Description */}
+              {task.description && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Descrição</label>
+                  <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap bg-gray-50 dark:bg-slate-700 p-4 rounded-lg text-sm max-h-64 overflow-y-auto">
+                    {task.description}
+                  </div>
+                </div>
+              )}
+
+              {/* Passos para reproduzir (bugs) */}
+              {task.steps && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Passos para Reproduzir</label>
+                  <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap bg-gray-50 dark:bg-slate-700 p-4 rounded-lg text-sm">
+                    {task.steps}
+                  </div>
+                </div>
+              )}
+
+              {/* Resultado esperado vs atual */}
+              {(task.expectedResult || task.actualResult) && (
+                <div className="grid grid-cols-2 gap-4">
+                  {task.expectedResult && (
+                    <div>
+                      <label className="text-xs font-medium text-green-600 mb-1 block">Resultado Esperado</label>
+                      <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-sm border border-green-200 dark:border-green-800">
+                        {task.expectedResult}
+                      </div>
+                    </div>
+                  )}
+                  {task.actualResult && (
+                    <div>
+                      <label className="text-xs font-medium text-red-600 mb-1 block">Resultado Atual</label>
+                      <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-sm border border-red-200 dark:border-red-800">
+                        {task.actualResult}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Meta */}
+              <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 pt-4 border-t dark:border-slate-700">
+                {task.createdBy && <span>Criado por: <strong>{task.createdBy}</strong></span>}
+                {task.createdAt && <span>Em: {new Date(task.createdAt).toLocaleDateString('pt-BR')}</span>}
+                {task.workspace && <span>Espaço: {task.workspace}</span>}
               </div>
             </div>
           )}
 
-          {/* Evidences */}
-          {screenshots.length > 0 && (
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-2 block">
-                📸 Evidências ({screenshots.length})
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {screenshots.map((ss, index) => (
-                  <button
-                    key={index}
-                    onClick={() => onViewMedia(screenshots.map(s => ({ 
-                      url: s.url, 
-                      type: s.type || (s.url?.includes('.mp4') || s.url?.includes('.webm') || s.url?.includes('.mov') ? 'video' : 'image'), 
-                      name: s.name 
-                    })), index)}
-                    className="relative group cursor-pointer"
-                  >
-                    {ss.type === 'video' || ss.url?.includes('.mp4') || ss.url?.includes('.webm') ? (
-                      <div className="relative w-24 h-24">
-                        <video src={ss.url} className="w-24 h-24 object-cover rounded-lg border" />
-                        <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
-                          <Play className="w-8 h-8 text-white" />
+          {activeTab === 'comentarios' && (
+            <div className="space-y-4">
+              {/* Lista de comentários */}
+              <div className="space-y-4 max-h-80 overflow-y-auto">
+                {comments.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum comentário ainda</p>
+                    <p className="text-sm">Seja o primeiro a comentar!</p>
+                  </div>
+                ) : (
+                  comments.map(comment => (
+                    <div key={comment.id} className="bg-gray-50 dark:bg-slate-700 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {(comment.author || 'A')[0].toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-white">{comment.author}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(comment.createdAt).toLocaleString('pt-BR')}
+                          </p>
                         </div>
                       </div>
-                    ) : (
-                      <img src={ss.url} alt="" className="w-24 h-24 object-cover rounded-lg border" />
-                    )}
+                      <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap">{comment.text}</p>
+                      {comment.media?.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {comment.media.map((m, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => onViewMedia(comment.media, idx)}
+                              className="relative"
+                            >
+                              {m.type === 'video' ? (
+                                <div className="relative w-20 h-20">
+                                  <video src={m.url} className="w-20 h-20 object-cover rounded-lg border" />
+                                  <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
+                                    <Play className="w-6 h-6 text-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <img src={m.url} alt="" className="w-20 h-20 object-cover rounded-lg border" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Input de novo comentário */}
+              <div className="border-t dark:border-slate-700 pt-4">
+                <div className="relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={newComment}
+                    onChange={handleCommentChange}
+                    placeholder="Digite seu comentário... Use @ para mencionar alguém"
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white placeholder-gray-400 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  
+                  {/* Dropdown de menções */}
+                  {showMentions && filteredUsers.length > 0 && (
+                    <div className="absolute bottom-full left-0 mb-1 w-64 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-50 max-h-48 overflow-y-auto">
+                      <div className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-700">
+                        Mencionar usuário
+                      </div>
+                      {filteredUsers.map(user => (
+                        <button
+                          key={user.id || user.email}
+                          onClick={() => insertMention(user)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                              {(user.name || user.email)[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
+                              {user.name || user.email.split('@')[0]}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {user.email}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Preview de mídia */}
+                {commentMedia.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {commentMedia.map((m, idx) => (
+                      <div key={idx} className="relative group">
+                        {m.type === 'video' ? (
+                          <div className="relative w-16 h-16">
+                            <video src={m.url} className="w-16 h-16 object-cover rounded-lg border" />
+                            <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
+                              <Video className="w-5 h-5 text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <img src={m.url} alt="" className="w-16 h-16 object-cover rounded-lg border" />
+                        )}
+                        <button
+                          onClick={() => removeMedia(idx)}
+                          className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Botões de ação */}
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                      title="Anexar imagem ou vídeo"
+                    >
+                      {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleSendComment}
+                    disabled={sending || (!newComment.trim() && commentMedia.length === 0)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    Enviar
                   </button>
-                ))}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Meta */}
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            {task.createdBy && <span>Criado por: {task.createdBy}</span>}
-            {task.createdAt && <span>Em: {new Date(task.createdAt).toLocaleDateString('pt-BR')}</span>}
-          </div>
-
-          {/* Seção de Comentários Completa */}
-          {task.sourceType === 'test_document' && task.sourceId && (
+          {activeTab === 'evidencias' && (
             <div>
-              <label className="text-xs font-medium text-gray-500 mb-2 block">
-                💬 Interações e Comentários
-              </label>
-              <CommentsSection
-                documentId={task.sourceId}
-                comments={task.sourceData?.comments || []}
-                status={task.sourceData?.status || 'pendente'}
-                users={users}
-                currentUser={currentUser}
-                onAddNotification={onAddNotification}
-                onUpdateStatus={onUpdateDocumentStatus}
-                onCommentAdded={() => {}}
-              />
+              {screenshots.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Nenhuma evidência anexada</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  {screenshots.map((ss, index) => (
+                    <button
+                      key={index}
+                      onClick={() => onViewMedia(screenshots.map(s => ({ 
+                        url: s.url, 
+                        type: s.type || (s.url?.includes('.mp4') || s.url?.includes('.webm') || s.url?.includes('.mov') ? 'video' : 'image'), 
+                        name: s.name 
+                      })), index)}
+                      className="relative group cursor-pointer aspect-video bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden"
+                    >
+                      {ss.type === 'video' || ss.url?.includes('.mp4') || ss.url?.includes('.webm') ? (
+                        <>
+                          <video src={ss.url} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <Play className="w-10 h-10 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={ss.url} alt="" className="w-full h-full object-cover" />
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        <div className="p-6 border-t bg-gray-50 flex justify-end">
-          <button onClick={onClose} className="btn-primary">Fechar</button>
+        {/* Footer */}
+        <div className="p-4 border-t dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-end shrink-0">
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">
+            Fechar
+          </button>
         </div>
       </div>
     </div>

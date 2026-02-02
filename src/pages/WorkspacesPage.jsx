@@ -9,7 +9,8 @@ export default function WorkspacesPage({
   currentUser,
   onAddNotification,
   sprints = [],
-  tasks = []
+  tasks = [],
+  onCreateTask
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedWorkspace, setSelectedWorkspace] = useState('operacao')
@@ -35,6 +36,7 @@ export default function WorkspacesPage({
         currentUser={currentUser}
         onAddNotification={onAddNotification}
         sprints={sprints}
+        onCreateTask={onCreateTask}
       />
     </div>
   )

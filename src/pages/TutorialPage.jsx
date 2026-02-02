@@ -25,7 +25,10 @@ import {
   ClipboardList,
   Timer,
   Moon,
-  Calculator
+  Calculator,
+  LayoutGrid,
+  Plus,
+  Bug
 } from 'lucide-react'
 
 export default function TutorialPage() {
@@ -574,6 +577,56 @@ export default function TutorialPage() {
           title: 'Benefícios do Dark Mode',
           description: 'O tema escuro reduz a fadiga ocular em ambientes com pouca luz e pode economizar bateria em telas OLED.',
           tip: 'Experimente usar o Dark Mode à noite!'
+        }
+      ]
+    },
+    {
+      id: 'espacos',
+      title: 'Espaços de Trabalho (Kanban)',
+      icon: LayoutGrid,
+      color: 'bg-emerald-500',
+      steps: [
+        {
+          title: 'Acessando os Espaços',
+          description: 'No menu superior, clique em "Espaços" para acessar a área de trabalho com Kanban para Operação, Devs e QA.',
+          tip: 'Cada espaço tem suas próprias listas e fluxo de trabalho.'
+        },
+        {
+          title: 'Espaço Operação',
+          description: 'Visualize requisitos por status de homologação: Para Teste, Em Teste, Para Reteste, Aprovado, Reprovado.',
+          tip: 'Clique em um card para ver detalhes, comentar e atualizar status.'
+        },
+        {
+          title: 'Espaço Devs',
+          description: 'Visualize requisitos por status de desenvolvimento: Para Desenvolver, Em Desenvolvimento, Implementado.',
+          tip: 'Desenvolvedores acompanham aqui o que precisa ser feito.'
+        },
+        {
+          title: 'Espaço QA',
+          description: 'Visualize requisitos por status de QA Dev: Para Teste, Em Teste, Para Reteste, Aprovado, Aguardando Dev.',
+          tip: 'QA acompanha aqui os testes de desenvolvimento.'
+        },
+        {
+          title: 'Abrindo Novas Tarefas',
+          description: 'Nos espaços Operação e QA, clique em "Nova Tarefa" para criar bugs, melhorias ou regras de negócio.',
+          important: true,
+          tip: 'Anexe prints e vídeos como evidência diretamente na tarefa.'
+        },
+        {
+          title: 'Tipos de Tarefa',
+          description: 'Escolha entre: Bug (erro encontrado), Melhoria (sugestão) ou Regra de Negócio (ajuste em requisito).',
+          tip: 'Para bugs, informe os passos para reproduzir e resultado esperado vs atual.'
+        },
+        {
+          title: 'Visualização Kanban vs Lista',
+          description: 'Use os botões no canto superior direito para alternar entre visualização Kanban (colunas) e Lista (tabela).',
+          tip: 'A visualização em lista é melhor para ver muitos itens de uma vez.'
+        },
+        {
+          title: 'Fluxo Automático',
+          description: 'Quando um dev marca como "Implementado", o requisito vai automaticamente para QA testar. Quando QA aprova, vai para Operação validar.',
+          important: true,
+          tip: 'O fluxo Dev → QA → Operação é automático!'
         }
       ]
     },

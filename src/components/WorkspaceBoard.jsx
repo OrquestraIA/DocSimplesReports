@@ -19,10 +19,13 @@ import {
   ArrowRight,
   GripVertical,
   MessageSquare,
-  Paperclip
+  Paperclip,
+  Plus,
+  Bug
 } from 'lucide-react'
 import { WORKSPACES, colorClasses } from './WorkspaceSidebar'
 import TaskDetailModal from './TaskDetailModal'
+import CreateTaskModal from './CreateTaskModal'
 
 // Status options para cada campo
 const STATUS_OPTIONS = {
@@ -354,13 +357,15 @@ export default function WorkspaceBoard({
   users = [],
   currentUser,
   onAddNotification,
-  sprints = []
+  sprints = [],
+  onCreateTask
 }) {
   const [viewMode, setViewMode] = useState('kanban') // 'kanban' ou 'list'
   const [searchTerm, setSearchTerm] = useState('')
   const [filterModule, setFilterModule] = useState('all')
   const [selectedRequirementId, setSelectedRequirementId] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false)
 
   const workspace = WORKSPACES.find(w => w.id === selectedWorkspace)
   
@@ -429,30 +434,43 @@ export default function WorkspaceBoard({
             </div>
           </div>
 
-          {/* View Toggle */}
-          <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-700 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'kanban' 
-                  ? 'bg-white dark:bg-slate-600 text-gray-800 dark:text-white shadow-sm' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-              title="Visualização Kanban"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'list' 
-                  ? 'bg-white dark:bg-slate-600 text-gray-800 dark:text-white shadow-sm' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-              title="Visualização em Lista"
-            >
-              <ListIcon className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-3">
+            {/* Botão Nova Tarefa - apenas para Operação e QA */}
+            {(selectedWorkspace === 'operacao' || selectedWorkspace === 'qa') && onCreateTask && (
+              <button
+                onClick={() => setIsCreateTaskModalOpen(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${colors.bg} text-white hover:opacity-90 transition-opacity`}
+              >
+                <Plus className="w-4 h-4" />
+                <span className="font-medium">Nova Tarefa</span>
+              </button>
+            )}
+
+            {/* View Toggle */}
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-700 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('kanban')}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === 'kanban' 
+                    ? 'bg-white dark:bg-slate-600 text-gray-800 dark:text-white shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+                title="Visualização Kanban"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === 'list' 
+                    ? 'bg-white dark:bg-slate-600 text-gray-800 dark:text-white shadow-sm' 
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+                title="Visualização em Lista"
+              >
+                <ListIcon className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -520,6 +538,16 @@ export default function WorkspaceBoard({
         onUpdateRequirement={onUpdateRequirement}
         onAddNotification={onAddNotification}
         sprints={sprints}
+      />
+
+      {/* Create Task Modal */}
+      <CreateTaskModal
+        isOpen={isCreateTaskModalOpen}
+        onClose={() => setIsCreateTaskModalOpen(false)}
+        onSave={onCreateTask}
+        users={users}
+        currentUser={currentUser}
+        workspace={workspace}
       />
     </div>
   )

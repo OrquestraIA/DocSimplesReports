@@ -1,8 +1,47 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.1.0'
+export const APP_VERSION = '2.2.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.2.0',
+    date: '2026-02-02',
+    title: 'Espaços de Trabalho e Abertura de Tarefas',
+    changes: [
+      {
+        type: 'feature',
+        description: '🏢 Espaços de Trabalho - Nova área com Kanban para Operação, Devs e QA'
+      },
+      {
+        type: 'feature',
+        description: '➕ Abertura de Tarefas - Crie bugs, melhorias e regras de negócio diretamente dos espaços Operação e QA'
+      },
+      {
+        type: 'feature',
+        description: '📎 Upload de evidências nas tarefas - Anexe prints e vídeos com drag & drop'
+      },
+      {
+        type: 'feature',
+        description: '💬 Comentários completos em Minhas Tarefas - Menções (@usuario), anexos e histórico'
+      },
+      {
+        type: 'feature',
+        description: '📋 Modal de detalhes com abas: Detalhes, Comentários e Evidências'
+      },
+      {
+        type: 'feature',
+        description: '🔄 Fluxo automático: Dev corrige → QA testa → Operação valida'
+      },
+      {
+        type: 'improvement',
+        description: '📊 Dashboard da Home agora usa dados da tabela de Requisitos'
+      },
+      {
+        type: 'improvement',
+        description: '🏷️ Novos labels: "Em Teste", "Aguardando", "Sugestões"'
+      }
+    ]
+  },
   {
     version: '2.1.0',
     date: '2026-01-26',

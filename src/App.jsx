@@ -732,6 +732,13 @@ function App() {
                   onUpdateDocumentStatus={async (docId, status) => {
                     await updateTestDocumentDB(docId, { status })
                   }}
+                  onAddTaskComment={async (taskId, comment) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    const existingComments = task?.comments || []
+                    await updateTask(taskId, { 
+                      comments: [...existingComments, comment] 
+                    })
+                  }}
                 />
               } 
             />
@@ -882,6 +889,7 @@ function App() {
                   onAddNotification={addNotification}
                   sprints={sprints}
                   tasks={tasks}
+                  onCreateTask={createTask}
                 />
               } 
             />
