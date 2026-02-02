@@ -70,7 +70,18 @@ function RequirementCard({ requirement, onUpdateStatus, statusField, workspace, 
     e.stopPropagation()
     setIsChangingStatus(true)
     try {
-      await onUpdateStatus(requirement.firebaseId, { [statusField]: newStatus })
+      const updateData = { [statusField]: newStatus }
+      
+      // Se o status mudar para Aprovado, salvar a data de aprovação
+      if (statusField === 'statusHomolog' && newStatus === 'Aprovado' && !requirement.dataAprovacaoHomolog) {
+        updateData.dataAprovacaoHomolog = new Date().toISOString()
+      }
+      // Se mudar de Aprovado para outro status, limpar a data
+      if (statusField === 'statusHomolog' && newStatus !== 'Aprovado' && requirement.dataAprovacaoHomolog) {
+        updateData.dataAprovacaoHomolog = null
+      }
+      
+      await onUpdateStatus(requirement.firebaseId, updateData)
     } finally {
       setIsChangingStatus(false)
       setShowActions(false)
@@ -250,6 +261,21 @@ function ListView({ requirements, workspace, selectedList, onUpdateStatus, onOpe
   if (!list) return null
 
   const filteredReqs = requirements.filter(req => req[list.statusField] === list.statusValue)
+
+  const handleStatusChange = async (req, newStatus) => {
+    const updateData = { [list.statusField]: newStatus }
+    
+    // Se o status mudar para Aprovado, salvar a data de aprovação
+    if (list.statusField === 'statusHomolog' && newStatus === 'Aprovado' && !req.dataAprovacaoHomolog) {
+      updateData.dataAprovacaoHomolog = new Date().toISOString()
+    }
+    // Se mudar de Aprovado para outro status, limpar a data
+    if (list.statusField === 'statusHomolog' && newStatus !== 'Aprovado' && req.dataAprovacaoHomolog) {
+      updateData.dataAprovacaoHomolog = null
+    }
+    
+    await onUpdateStatus(req.firebaseId, updateData)
+  }
   const colors = colorClasses[list.color]
   const ListIcon = list.icon
 
@@ -330,7 +356,7 @@ function ListView({ requirements, workspace, selectedList, onUpdateStatus, onOpe
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={req[list.statusField] || ''}
-                        onChange={(e) => onUpdateStatus(req.firebaseId, { [list.statusField]: e.target.value })}
+                        onChange={(e) => handleStatusChange(req, e.target.value)}
                         className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-300"
                       >
                         {STATUS_OPTIONS[list.statusField]?.map(opt => (

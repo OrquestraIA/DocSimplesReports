@@ -261,6 +261,15 @@ export default function TaskDetailModal({
     try {
       const updateData = { ...action.nextStatus }
       
+      // Se o status mudar para Aprovado, salvar a data de aprovação
+      if (updateData.statusHomolog === 'Aprovado' && !requirement.dataAprovacaoHomolog) {
+        updateData.dataAprovacaoHomolog = new Date().toISOString()
+      }
+      // Se mudar de Aprovado para outro status, limpar a data
+      if (updateData.statusHomolog && updateData.statusHomolog !== 'Aprovado' && requirement.dataAprovacaoHomolog) {
+        updateData.dataAprovacaoHomolog = null
+      }
+      
       const historyEntry = {
         action: actionKey,
         from: workspace,
