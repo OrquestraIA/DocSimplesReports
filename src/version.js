@@ -1,8 +1,47 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.2.0'
+export const APP_VERSION = '2.3.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.3.0',
+    date: '2026-02-03',
+    title: 'Perfil de Usuário e Boas-vindas Personalizadas',
+    changes: [
+      {
+        type: 'feature',
+        description: '👤 Página de Perfil - Edite seu nome, foto, telefone, departamento e localização'
+      },
+      {
+        type: 'feature',
+        description: '📸 Upload de foto de perfil - Personalize seu avatar com uma foto sua'
+      },
+      {
+        type: 'feature',
+        description: '👋 Modal de Boas-vindas - Ao fazer login, veja suas tarefas prioritárias e estatísticas'
+      },
+      {
+        type: 'feature',
+        description: '😀 Reações em comentários - Reaja com emojis (👍❤️🎉😄🤔👀🚀) em Minhas Tarefas'
+      },
+      {
+        type: 'feature',
+        description: '🎨 Departamento personalizado - Seu departamento aparece na navbar com cores (QA=roxo, Op=verde, Dev=azul)'
+      },
+      {
+        type: 'improvement',
+        description: '💾 Persistência de perfil - Suas alterações de perfil são salvas e mantidas entre sessões'
+      },
+      {
+        type: 'improvement',
+        description: '🖱️ Drag-and-drop e Ctrl+V - Anexe evidências arrastando ou colando em Minhas Tarefas'
+      },
+      {
+        type: 'bugfix',
+        description: '🔧 Correção do erro de permissão ao fazer logout'
+      }
+    ]
+  },
   {
     version: '2.2.0',
     date: '2026-02-02',

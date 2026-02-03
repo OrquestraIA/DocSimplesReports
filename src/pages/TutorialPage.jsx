@@ -28,7 +28,9 @@ import {
   Calculator,
   LayoutGrid,
   Plus,
-  Bug
+  Bug,
+  Camera,
+  UserCircle
 } from 'lucide-react'
 
 export default function TutorialPage() {
@@ -577,6 +579,69 @@ export default function TutorialPage() {
           title: 'Benefícios do Dark Mode',
           description: 'O tema escuro reduz a fadiga ocular em ambientes com pouca luz e pode economizar bateria em telas OLED.',
           tip: 'Experimente usar o Dark Mode à noite!'
+        }
+      ]
+    },
+    {
+      id: 'perfil',
+      title: 'Perfil de Usuário',
+      icon: UserCircle,
+      color: 'bg-blue-500',
+      steps: [
+        {
+          title: 'Acessando seu Perfil',
+          description: 'Clique no seu nome/avatar no canto superior direito da tela para ir para a página de perfil.',
+          tip: 'Seu avatar mostra sua foto ou a inicial do seu nome.'
+        },
+        {
+          title: 'Editando suas Informações',
+          description: 'Na página de perfil, você pode editar: Nome completo, Telefone, Departamento, Localização e uma breve descrição sobre você.',
+          tip: 'Todas as alterações são salvas no banco de dados e mantidas entre sessões.'
+        },
+        {
+          title: 'Upload de Foto de Perfil',
+          description: 'Clique no ícone de câmera sobre seu avatar para fazer upload de uma foto. Formatos aceitos: PNG, JPG, GIF (máx. 5MB).',
+          important: true,
+          tip: 'Sua foto aparecerá na navbar, nos comentários e no modal de boas-vindas.'
+        },
+        {
+          title: 'Departamento Personalizado',
+          description: 'O campo "Departamento" define a badge que aparece ao lado do seu nome na navbar. Ex: QA (roxo), Operação (verde), Dev (azul).',
+          tip: 'Use este campo para indicar sua área de atuação atual.'
+        },
+        {
+          title: 'Salvando Alterações',
+          description: 'Clique em "Salvar alterações" para persistir suas informações. O botão fica verde quando salvo com sucesso.',
+          tip: 'Suas alterações são mantidas mesmo após fazer logout e login novamente.'
+        }
+      ]
+    },
+    {
+      id: 'boas-vindas',
+      title: 'Modal de Boas-vindas',
+      icon: Users,
+      color: 'bg-purple-500',
+      steps: [
+        {
+          title: 'O que é o Modal de Boas-vindas',
+          description: 'Ao fazer login, você verá um modal personalizado com saudação (Bom dia/Boa tarde/Boa noite) e seu nome.',
+          tip: 'O modal mostra uma visão rápida das suas tarefas prioritárias.'
+        },
+        {
+          title: 'Estatísticas Rápidas',
+          description: 'O modal exibe 3 cards com: Tarefas em andamento, Em revisão e Pendentes - todas atribuídas a você.',
+          important: true,
+          tip: 'Use essas métricas para planejar seu dia de trabalho.'
+        },
+        {
+          title: 'Lista de Tarefas Prioritárias',
+          description: 'Veja suas 5 tarefas mais urgentes, ordenadas por status (em andamento primeiro) e prioridade (críticas primeiro).',
+          tip: 'Clique em uma tarefa para ir direto para ela.'
+        },
+        {
+          title: 'Navegação Rápida',
+          description: 'Clique em "Ver todas as tarefas" para ir para a página Minhas Tarefas, ou feche o modal para continuar navegando.',
+          tip: 'O modal só aparece uma vez por sessão de login.'
         }
       ]
     },
