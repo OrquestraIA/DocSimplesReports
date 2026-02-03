@@ -15,6 +15,8 @@ import {
   Flag
 } from 'lucide-react'
 import { uploadScreenshot } from '../firebase'
+import UploadLoading from './UploadLoading'
+import MediaViewer from './MediaViewer'
 
 const TASK_TYPES = [
   { value: 'bug', label: 'Bug', icon: Bug, color: 'red', description: 'Erro encontrado durante os testes' },
@@ -52,6 +54,7 @@ export default function CreateTaskModal({
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [viewingMedia, setViewingMedia] = useState(null)
   const fileInputRef = useRef(null)
 
   if (!isOpen) return null
@@ -284,53 +287,52 @@ export default function CreateTaskModal({
             />
           </div>
 
-          {/* Passos para Reproduzir (apenas para bugs) */}
-          {formData.type === 'bug' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Passos para Reproduzir
-                </label>
-                <textarea
-                  name="steps"
-                  value={formData.steps}
-                  onChange={handleChange}
-                  placeholder="1. Acesse a tela X&#10;2. Clique no botão Y&#10;3. Observe o erro Z"
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none"
-                />
-              </div>
+          {/* Passos para Reproduzir (para todos os tipos de tarefa) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Passos para Reproduzir {formData.type === 'bug' ? 'o Erro' : 'o Cenário'}
+            </label>
+            <textarea
+              name="steps"
+              value={formData.steps}
+              onChange={handleChange}
+              placeholder={formData.type === 'bug' 
+                ? "1. Acesse a tela X\n2. Clique no botão Y\n3. Observe o erro Z"
+                : "1. Acesse a tela X\n2. Execute a ação Y\n3. Observe o comportamento Z"
+              }
+              rows={4}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Resultado Esperado
-                  </label>
-                  <textarea
-                    name="expectedResult"
-                    value={formData.expectedResult}
-                    onChange={handleChange}
-                    placeholder="O que deveria acontecer..."
-                    rows={3}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Resultado Atual
-                  </label>
-                  <textarea
-                    name="actualResult"
-                    value={formData.actualResult}
-                    onChange={handleChange}
-                    placeholder="O que está acontecendo..."
-                    rows={3}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-              </div>
-            </>
-          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {formData.type === 'bug' ? 'Resultado Esperado' : 'Comportamento Esperado'}
+              </label>
+              <textarea
+                name="expectedResult"
+                value={formData.expectedResult}
+                onChange={handleChange}
+                placeholder="O que deveria acontecer..."
+                rows={3}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {formData.type === 'bug' ? 'Resultado Atual' : 'Comportamento Atual'}
+              </label>
+              <textarea
+                name="actualResult"
+                value={formData.actualResult}
+                onChange={handleChange}
+                placeholder="O que está acontecendo..."
+                rows={3}
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+            </div>
+          </div>
 
           {/* Upload de Evidências */}
           <div>
@@ -350,10 +352,7 @@ export default function CreateTaskModal({
               }`}
             >
               {uploading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                  <span className="text-gray-600 dark:text-gray-400">Enviando...</span>
-                </div>
+                <UploadLoading message="Enviando evidência" />
               ) : (
                 <>
                   <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
@@ -385,20 +384,31 @@ export default function CreateTaskModal({
               <div className="flex flex-wrap gap-3 mt-4">
                 {media.map((item, index) => (
                   <div key={index} className="relative group">
-                    {item.type === 'video' ? (
-                      <div className="relative w-24 h-24">
-                        <video src={item.url} className="w-24 h-24 object-cover rounded-lg border" />
-                        <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
-                          <Video className="w-8 h-8 text-white" />
+                    <button
+                      type="button"
+                      onClick={() => setViewingMedia({ media, index })}
+                      className="block focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
+                      title="Clique para visualizar"
+                    >
+                      {item.type === 'video' ? (
+                        <div className="relative w-24 h-24">
+                          <video src={item.url} className="w-24 h-24 object-cover rounded-lg border" />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center hover:bg-black/50 transition-colors">
+                            <Video className="w-8 h-8 text-white" />
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <img src={item.url} alt="" className="w-24 h-24 object-cover rounded-lg border" />
-                    )}
+                      ) : (
+                        <img 
+                          src={item.url} 
+                          alt="" 
+                          className="w-24 h-24 object-cover rounded-lg border hover:opacity-90 transition-opacity" 
+                        />
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => removeMedia(index)}
-                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -437,6 +447,15 @@ export default function CreateTaskModal({
           </button>
         </div>
       </div>
+
+      {/* Media Viewer */}
+      {viewingMedia && (
+        <MediaViewer
+          media={viewingMedia.media}
+          initialIndex={viewingMedia.index}
+          onClose={() => setViewingMedia(null)}
+        />
+      )}
     </div>
   )
 }

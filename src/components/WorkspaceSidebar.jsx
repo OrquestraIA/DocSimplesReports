@@ -30,13 +30,14 @@ const WORKSPACES = [
     color: 'indigo',
     description: 'Homologação e validação',
     lists: [
-      { id: 'para_teste_homolog', name: 'Para Teste', statusField: 'statusHomolog', statusValue: 'Para_Teste_Homolog', icon: Clock, color: 'cyan' },
-      { id: 'em_teste_homolog', name: 'Em Teste', statusField: 'statusHomolog', statusValue: 'Em Teste', icon: Play, color: 'blue' },
-      { id: 'para_reteste_homolog', name: 'Para Reteste', statusField: 'statusHomolog', statusValue: 'Para_Reteste_Homolog', icon: RotateCcw, color: 'purple' },
-      { id: 'em_reteste_homolog', name: 'Em Reteste', statusField: 'statusHomolog', statusValue: 'Em-reteste-homolog', icon: RotateCcw, color: 'orange' },
-      { id: 'aprovado_homolog', name: 'Aprovados', statusField: 'statusHomolog', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
-      { id: 'reprovado_homolog', name: 'Reprovados', statusField: 'statusHomolog', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
-      { id: 'bloqueado_homolog', name: 'Bloqueados', statusField: 'statusHomolog', statusValue: 'Bloqueado', icon: Pause, color: 'gray' },
+      { id: 'tarefas_pendentes', name: 'Tarefas Pendentes', type: 'tasks', statusField: 'status', statusValue: 'pending', icon: Clock, color: 'yellow' },
+      { id: 'para_teste_homolog', name: 'Para Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Para_Teste_Homolog', icon: Clock, color: 'cyan' },
+      { id: 'em_teste_homolog', name: 'Em Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Em Teste', icon: Play, color: 'blue' },
+      { id: 'para_reteste_homolog', name: 'Para Reteste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Para_Reteste_Homolog', icon: RotateCcw, color: 'purple' },
+      { id: 'em_reteste_homolog', name: 'Em Reteste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Em-reteste-homolog', icon: RotateCcw, color: 'orange' },
+      { id: 'aprovado_homolog', name: 'Aprovados', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
+      { id: 'reprovado_homolog', name: 'Reprovados', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
+      { id: 'bloqueado_homolog', name: 'Bloqueados', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Bloqueado', icon: Pause, color: 'gray' },
     ]
   },
   {
@@ -46,9 +47,13 @@ const WORKSPACES = [
     color: 'blue',
     description: 'Tarefas de desenvolvimento',
     lists: [
-      { id: 'nao_implementado', name: 'Para Desenvolver', statusField: 'statusDev', statusValue: 'NAO_IMPLEMENTADO', icon: Circle, color: 'gray' },
-      { id: 'parcial', name: 'Em Desenvolvimento', statusField: 'statusDev', statusValue: 'PARCIAL', icon: Play, color: 'orange' },
-      { id: 'implementado', name: 'Implementado', statusField: 'statusDev', statusValue: 'IMPLEMENTADO', icon: CheckCircle2, color: 'green' },
+      { id: 'tarefas_dev_pendentes', name: 'Tarefas Pendentes', type: 'tasks', statusField: 'status', statusValue: 'pending', icon: Clock, color: 'yellow' },
+      { id: 'tarefas_dev_andamento', name: 'Em Andamento', type: 'tasks', statusField: 'status', statusValue: 'in_progress', icon: Play, color: 'blue' },
+      { id: 'tarefas_dev_revisao', name: 'Em Revisão', type: 'tasks', statusField: 'status', statusValue: 'in_review', icon: AlertCircle, color: 'orange' },
+      { id: 'tarefas_dev_concluidas', name: 'Concluídas', type: 'tasks', statusField: 'status', statusValue: 'done', icon: CheckCircle2, color: 'green' },
+      { id: 'nao_implementado', name: 'Requisitos - Para Desenvolver', type: 'requirements', statusField: 'statusDev', statusValue: 'NAO_IMPLEMENTADO', icon: Circle, color: 'gray' },
+      { id: 'parcial', name: 'Requisitos - Em Desenvolvimento', type: 'requirements', statusField: 'statusDev', statusValue: 'PARCIAL', icon: Play, color: 'orange' },
+      { id: 'implementado', name: 'Requisitos - Implementado', type: 'requirements', statusField: 'statusDev', statusValue: 'IMPLEMENTADO', icon: CheckCircle2, color: 'green' },
     ]
   },
   {
@@ -58,12 +63,13 @@ const WORKSPACES = [
     color: 'green',
     description: 'Testes e qualidade',
     lists: [
-      { id: 'para_teste_qa', name: 'Para Teste', statusField: 'statusQADev', statusValue: 'Para_Teste_QA', icon: Clock, color: 'cyan' },
-      { id: 'em_teste_qa', name: 'Em Teste', statusField: 'statusQADev', statusValue: 'Em Teste', icon: Play, color: 'blue' },
-      { id: 'para_reteste_qa', name: 'Para Reteste', statusField: 'statusQADev', statusValue: 'Para_Reteste_QA', icon: RotateCcw, color: 'purple' },
-      { id: 'aprovado_qa', name: 'Aprovados', statusField: 'statusQADev', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
-      { id: 'reprovado_qa', name: 'Reprovados', statusField: 'statusQADev', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
-      { id: 'pendente_qa', name: 'Pendentes', statusField: 'statusQADev', statusValue: 'Pendente', icon: Circle, color: 'yellow' },
+      { id: 'docs_pendentes', name: 'Docs Pendentes', type: 'testDocuments', statusField: 'status', statusValue: 'pendente', icon: Clock, color: 'yellow' },
+      { id: 'docs_em_reteste', name: 'Docs Em Reteste', type: 'testDocuments', statusField: 'status', statusValues: ['em_reteste', 'em-reteste'], icon: RotateCcw, color: 'orange' },
+      { id: 'para_teste_qa', name: 'Para Teste', type: 'requirements', statusField: 'statusQADev', statusValue: 'Para_Teste_QA', icon: Clock, color: 'cyan' },
+      { id: 'em_teste_qa', name: 'Em Teste', type: 'requirements', statusField: 'statusQADev', statusValue: 'Em Teste', icon: Play, color: 'blue' },
+      { id: 'para_reteste_qa', name: 'Para Reteste', type: 'requirements', statusField: 'statusQADev', statusValue: 'Para_Reteste_QA', icon: RotateCcw, color: 'purple' },
+      { id: 'aprovado_qa', name: 'Aprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
+      { id: 'reprovado_qa', name: 'Reprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
     ]
   }
 ]
@@ -138,6 +144,8 @@ export default function WorkspaceSidebar({
   isOpen, 
   onToggle, 
   requirements = [],
+  tasks = [],
+  testDocuments = [],
   selectedWorkspace,
   onSelectWorkspace,
   selectedList,
@@ -153,9 +161,19 @@ export default function WorkspaceSidebar({
     )
   }
 
-  // Contar itens por lista
+  // Contar itens por lista (suporta requirements, tasks e testDocuments)
   const getListCount = (list) => {
-    return requirements.filter(req => req[list.statusField] === list.statusValue).length
+    if (list.type === 'tasks') {
+      return tasks.filter(task => task[list.statusField] === list.statusValue).length
+    } else if (list.type === 'testDocuments') {
+      if (list.statusValues) {
+        return testDocuments.filter(doc => list.statusValues.includes(doc[list.statusField])).length
+      }
+      return testDocuments.filter(doc => doc[list.statusField] === list.statusValue).length
+    } else {
+      // requirements (default)
+      return requirements.filter(req => req[list.statusField] === list.statusValue).length
+    }
   }
 
   // Contar total de itens por workspace

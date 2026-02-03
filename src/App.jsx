@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid, User } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
@@ -17,9 +17,12 @@ import MyTasksPage from './pages/MyTasksPage'
 import EstimativaEntregaPage from './pages/EstimativaEntregaPage'
 import RequirementsReportsPage from './pages/RequirementsReportsPage'
 import WorkspacesPage from './pages/WorkspacesPage'
+import ProfilePage from './pages/ProfilePage'
 import WhatsNewModal from './components/WhatsNewModal'
+import WelcomeModal from './components/WelcomeModal'
 import NotificationsPanel from './components/NotificationsPanel'
 import Footer from './components/Footer'
+import { ToastProvider, useToast } from './components/Toast'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { APP_VERSION } from './version'
 import { sendTaskAssignmentEmail } from './emailService'
@@ -61,7 +64,8 @@ import {
   deleteTask,
   subscribeToTasks,
   createTaskFromFailedTest,
-  createTaskFromFailedExecution
+  createTaskFromFailedExecution,
+  migrateRetestStatusToRequirements
 } from './firebase'
 
 function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
@@ -202,17 +206,34 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
             
-            <div className="flex items-center space-x-2 pl-2 border-l dark:border-gray-700">
-              <div className="flex flex-col items-end">
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[120px]">{user?.email?.split('@')[0]}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  getUserRole(user?.email) === 'desenvolvedor' 
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' 
-                    : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                }`}>
-                  {getUserRole(user?.email) === 'desenvolvedor' ? 'Dev' : 'Op'}
-                </span>
-              </div>
+            <div className="relative flex items-center space-x-2 pl-2 border-l dark:border-gray-700 group">
+              <Link 
+                to="/perfil"
+                className="flex items-center space-x-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg px-2 py-1 transition-colors"
+                title="Meu Perfil"
+              >
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      {user?.email?.[0]?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-col items-start">
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[120px]">{user?.name || user?.email?.split('@')[0]}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    (user?.department || '').toLowerCase().includes('qa') 
+                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                      : (user?.department || '').toLowerCase().includes('op') 
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                  }`}>
+                    {user?.department || (getUserRole(user?.email) === 'desenvolvedor' ? 'Dev' : 'Op')}
+                  </span>
+                </div>
+              </Link>
               <button
                 onClick={onLogout}
                 className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-red-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
@@ -273,6 +294,14 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
                   {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </button>
               </div>
+              <Link
+                to="/perfil"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 w-full"
+              >
+                <User className="w-4 h-4" />
+                <span>Meu Perfil</span>
+              </Link>
               <button
                 onClick={onLogout}
                 className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 w-full"
@@ -308,6 +337,7 @@ function App() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   
   // Refs para controle de sessão
   const lastActivityRef = useRef(Date.now())
@@ -371,21 +401,27 @@ function App() {
 
   useEffect(() => {
     const unsubscribeAuth = onAuthChange(async (currentUser) => {
-      setUser(currentUser)
       // Sincronizar usuário com Firestore no login
       if (currentUser) {
-        await syncUserToFirestore(currentUser)
+        const firestoreUser = await syncUserToFirestore(currentUser)
+        // Usar dados do Firestore (que incluem perfil editado) junto com dados do Auth
+        setUser({ ...currentUser, ...firestoreUser })
         // Registrar tempo de login se for novo login
         if (!localStorage.getItem('loginTime')) {
           const now = Date.now()
           localStorage.setItem('loginTime', now.toString())
           localStorage.setItem('lastActivity', now.toString())
           loginTimeRef.current = now
+          // Mostrar modal de boas-vindas após um pequeno delay para carregar as tarefas
+          setTimeout(() => setShowWelcomeModal(true), 1500)
         }
       } else {
         // Limpar dados de sessão no logout
         localStorage.removeItem('lastActivity')
         localStorage.removeItem('loginTime')
+        setShowWelcomeModal(false)
+        setUser(null)
+        setError(null)
       }
       setAuthLoading(false)
     })
@@ -433,6 +469,15 @@ function App() {
       }, (err) => {
         console.error('[App] Erro Firebase importedRequirements:', err)
       })
+
+      // Migração: Atualizar statusHomolog dos requisitos cujos documentos estão em reteste
+      migrateRetestStatusToRequirements()
+        .then(result => {
+          if (result.updatedRequirements > 0) {
+            console.log(`[Migração] ${result.updatedRequirements} requisitos atualizados para "Para_Reteste_Homolog" (${result.docsInRetest} docs em reteste)`)
+          }
+        })
+        .catch(err => console.error('[Migração] Erro:', err))
 
       // Casos de Teste
       const unsubscribeTestCases = subscribeToTestCases((cases) => {
@@ -585,7 +630,7 @@ function App() {
     )
   }
 
-  if (error) {
+  if (error && user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="card max-w-md text-center">
@@ -617,6 +662,8 @@ function App() {
                   onDelete={deleteTestDocument}
                   users={users}
                   currentUser={user}
+                  requirements={importedRequirements}
+                  onUpdateRequirement={updateImportedRequirement}
                 />
               } 
             />
@@ -739,6 +786,37 @@ function App() {
                       comments: [...existingComments, comment] 
                     })
                   }}
+                  onToggleTaskReaction={async (taskId, commentIndex, reaction, userId, userName) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    if (!task) return
+                    const comments = task.comments || []
+                    const comment = comments[commentIndex]
+                    if (!comment) return
+                    
+                    const reactions = comment.reactions || {}
+                    const emoji = reaction.value
+                    const users = reactions[emoji] || []
+                    const userIndex = users.indexOf(userId)
+                    
+                    let newUsers
+                    if (userIndex >= 0) {
+                      newUsers = users.filter(u => u !== userId)
+                    } else {
+                      newUsers = [...users, userId]
+                    }
+                    
+                    const newReactions = { ...reactions }
+                    if (newUsers.length === 0) {
+                      delete newReactions[emoji]
+                    } else {
+                      newReactions[emoji] = newUsers
+                    }
+                    
+                    const newComments = comments.map((c, idx) => 
+                      idx === commentIndex ? { ...c, reactions: newReactions } : c
+                    )
+                    await updateTask(taskId, { comments: newComments })
+                  }}
                 />
               } 
             />
@@ -750,6 +828,8 @@ function App() {
                   tasks={tasks}
                   users={users}
                   testDocuments={testDocuments}
+                  requirements={importedRequirements}
+                  onUpdateRequirement={updateImportedRequirement}
                   onCreateSprint={createSprint}
                   onUpdateSprint={updateSprint}
                   onDeleteSprint={deleteSprint}
@@ -818,6 +898,15 @@ function App() {
                       
                       await updateTestDocumentDB(task.sourceId, updateData)
                       
+                      // Atualizar statusHomolog do requisito associado para 'Para_Reteste_Homolog'
+                      const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                      if (testDoc?.requirement && importedRequirements.length > 0) {
+                        const relatedReq = importedRequirements.find(r => r.id === testDoc.requirement)
+                        if (relatedReq?.firebaseId) {
+                          await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+                        }
+                      }
+                      
                       // Atualizar status da tarefa para "Em Revisão"
                       await updateTask(task.id, { 
                         status: 'in_review',
@@ -825,7 +914,6 @@ function App() {
                       })
                       
                       // Notificar o testador original
-                      const testDoc = testDocuments.find(d => d.id === task.sourceId)
                       if (testDoc?.tester) {
                         const testerUser = users.find(u => u.email === testDoc.tester || u.name === testDoc.tester)
                         if (testerUser) {
@@ -858,17 +946,52 @@ function App() {
                     await uploadBytes(storageRef, file)
                     const url = await getDownloadURL(storageRef)
                     
+                    const newEvidence = {
+                      url,
+                      name: file.name,
+                      type: file.type.startsWith('video') ? 'video' : 'image',
+                      uploadedAt: new Date().toISOString(),
+                      uploadedBy: user?.email || user?.name || 'Dev'
+                    }
+                    
                     const task = tasks.find(t => t.id === taskId)
                     const existingEvidences = task?.devEvidences || []
                     await updateTask(taskId, { 
-                      devEvidences: [...existingEvidences, {
-                        url,
-                        name: file.name,
-                        type: file.type.startsWith('video') ? 'video' : 'image',
-                        uploadedAt: new Date().toISOString(),
-                        uploadedBy: user?.email || user?.name || 'Dev'
-                      }]
+                      devEvidences: [...existingEvidences, newEvidence]
                     })
+                    
+                    return newEvidence
+                  }}
+                  onDeleteTaskEvidence={async (taskId, evidenceIndex) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    if (!task) return
+                    const existingEvidences = task.devEvidences || []
+                    const newEvidences = existingEvidences.filter((_, idx) => idx !== evidenceIndex)
+                    await updateTask(taskId, { devEvidences: newEvidences })
+                  }}
+                  onToggleTaskReaction={async (taskId, commentIndex, reaction, userId, userName) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    if (!task) return
+                    const comments = task.comments || []
+                    const comment = comments[commentIndex]
+                    if (!comment) return
+                    
+                    const reactions = comment.reactions || []
+                    const existingIndex = reactions.findIndex(
+                      r => r.type === reaction.type && r.value === reaction.value && r.userId === userId
+                    )
+                    
+                    let newReactions
+                    if (existingIndex >= 0) {
+                      newReactions = reactions.filter((_, idx) => idx !== existingIndex)
+                    } else {
+                      newReactions = [...reactions, { ...reaction, userId, userName, createdAt: new Date().toISOString() }]
+                    }
+                    
+                    const newComments = comments.map((c, idx) => 
+                      idx === commentIndex ? { ...c, reactions: newReactions } : c
+                    )
+                    await updateTask(taskId, { comments: newComments })
                   }}
                   onAddNotification={addNotification}
                   onUpdateDocumentStatus={async (docId, status) => {
@@ -890,22 +1013,48 @@ function App() {
                   sprints={sprints}
                   tasks={tasks}
                   onCreateTask={createTask}
+                  onUpdateTask={updateTask}
+                  onDeleteTask={deleteTask}
+                  testDocuments={testDocuments}
+                  onUpdateTestDocument={updateTestDocument}
+                />
+              } 
+            />
+            <Route 
+              path="/perfil" 
+              element={
+                <ProfilePage 
+                  currentUser={user}
+                  onUpdateUser={(updatedUser) => setUser(prev => ({ ...prev, ...updatedUser }))}
                 />
               } 
             />
           </Routes>
         </main>
         <Footer />
+        
+        {/* Modal de Boas-vindas */}
+        <WelcomeModal
+          isOpen={showWelcomeModal}
+          onClose={() => setShowWelcomeModal(false)}
+          currentUser={user}
+          tasks={tasks}
+          onNavigateToTask={(task) => {
+            window.location.href = '#/minhas-tarefas'
+          }}
+        />
       </div>
     </Router>
   )
 }
 
-// Wrapper com ThemeProvider
+// Wrapper com ThemeProvider e ToastProvider
 function AppWithTheme() {
   return (
     <ThemeProvider>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </ThemeProvider>
   )
 }

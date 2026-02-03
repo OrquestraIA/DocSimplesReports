@@ -299,6 +299,50 @@ export const updateImportedRequirement = async (firebaseId, data) => {
   })
 }
 
+// Migração: Atualizar statusHomolog dos requisitos cujos documentos de teste estão em reteste
+export const migrateRetestStatusToRequirements = async () => {
+  const { getDocs } = await import('firebase/firestore')
+  
+  // Buscar todos os documentos de teste com status em reteste
+  const testDocsSnapshot = await getDocs(testDocumentsCollection)
+  const testDocs = testDocsSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }))
+  
+  // Filtrar documentos em reteste (pode ser 'em_reteste', 'em-reteste' ou 'em reteste')
+  const docsInRetest = testDocs.filter(doc => 
+    doc.status === 'em_reteste' || 
+    doc.status === 'em-reteste' || 
+    doc.status === 'em reteste'
+  )
+  
+  // Buscar todos os requisitos importados
+  const reqsSnapshot = await getDocs(importedRequirementsCollection)
+  const requirements = reqsSnapshot.docs.map(doc => ({
+    firebaseId: doc.id,
+    ...doc.data()
+  }))
+  
+  let updatedCount = 0
+  
+  // Para cada documento em reteste, atualizar o statusHomolog do requisito associado
+  for (const testDoc of docsInRetest) {
+    if (testDoc.requirement) {
+      const relatedReq = requirements.find(r => r.id === testDoc.requirement)
+      if (relatedReq?.firebaseId && relatedReq.statusHomolog !== 'Para_Reteste_Homolog') {
+        await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+        updatedCount++
+      }
+    }
+  }
+  
+  return { 
+    docsInRetest: docsInRetest.length, 
+    updatedRequirements: updatedCount 
+  }
+}
+
 export const subscribeToNotifications = (callback, onError, currentUser = null) => {
   const q = query(notificationsCollection, orderBy('createdAt', 'desc'))
   return onSnapshot(q, (snapshot) => {
@@ -360,6 +404,7 @@ export const syncUserToFirestore = async (authUser) => {
     const userData = {
       uid: authUser.uid,
       email: authUser.email,
+      name: displayName,
       displayName: displayName,
       mentionName: mentionName, // nome para @menção
       role: getUserRole(authUser.email),
@@ -369,9 +414,15 @@ export const syncUserToFirestore = async (authUser) => {
     await setDoc(userRef, userData)
     return userData
   } else {
-    // Atualizar último login
+    // Atualizar apenas último login, preservando dados do perfil
     await updateDoc(userRef, { lastLogin: new Date().toISOString() })
-    return { id: userSnap.id, ...userSnap.data() }
+    const existingData = userSnap.data()
+    return { 
+      id: userSnap.id, 
+      uid: authUser.uid,
+      ...existingData,
+      lastLogin: new Date().toISOString()
+    }
   }
 }
 

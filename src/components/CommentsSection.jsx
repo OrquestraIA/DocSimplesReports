@@ -3,6 +3,7 @@ import { Send, RefreshCw, ThumbsUp, ThumbsDown, Image, X, Loader2, Edit3, Save, 
 import { addCommentToTestDocument, uploadScreenshot, updateCommentInTestDocument, toggleReactionOnComment } from '../firebase'
 import ReactionPicker, { ReactionDisplay } from './ReactionPicker'
 import MentionInput, { renderTextWithMentions, extractMentions } from './MentionInput'
+import UploadLoading from './UploadLoading'
 
 // Funções auxiliares
 const getCommentTypeLabel = (type) => {
@@ -42,7 +43,8 @@ export default function CommentsSection({
   onUpdateStatus,
   onCommentAdded,
   onCommentEdited,
-  onReactionToggled
+  onReactionToggled,
+  onUpdateRequirementStatus
 }) {
   const [newComment, setNewComment] = useState('')
   const [commentScreenshots, setCommentScreenshots] = useState([])
@@ -227,6 +229,11 @@ export default function CommentsSection({
       }
       if (type === 'solicitar_reteste' && onUpdateStatus) {
         await onUpdateStatus('em_reteste')
+        
+        // Atualizar statusHomolog do requisito associado para 'Para_Reteste_Homolog'
+        if (onUpdateRequirementStatus) {
+          await onUpdateRequirementStatus('Para_Reteste_Homolog')
+        }
       }
       
       setNewComment('')
@@ -461,10 +468,7 @@ export default function CommentsSection({
           
           <div className="flex flex-col items-center gap-2 text-center">
             {uploadingScreenshot ? (
-              <div className="flex items-center gap-2 text-primary-600">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm font-medium">Enviando arquivo...</span>
-              </div>
+              <UploadLoading message="Enviando evidência" />
             ) : (
               <>
                 <Image className={`w-8 h-8 ${isDragging ? 'text-primary-500' : 'text-gray-400'}`} />

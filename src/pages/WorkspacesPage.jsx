@@ -10,7 +10,11 @@ export default function WorkspacesPage({
   onAddNotification,
   sprints = [],
   tasks = [],
-  onCreateTask
+  onCreateTask,
+  onUpdateTask,
+  onDeleteTask,
+  testDocuments = [],
+  onUpdateTestDocument
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedWorkspace, setSelectedWorkspace] = useState('operacao')
@@ -22,6 +26,8 @@ export default function WorkspacesPage({
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         requirements={requirements}
+        tasks={tasks}
+        testDocuments={testDocuments}
         selectedWorkspace={selectedWorkspace}
         onSelectWorkspace={setSelectedWorkspace}
         selectedList={selectedList}
@@ -29,9 +35,14 @@ export default function WorkspacesPage({
       />
       <WorkspaceBoard
         requirements={requirements}
+        tasks={tasks}
+        testDocuments={testDocuments}
         selectedWorkspace={selectedWorkspace}
         selectedList={selectedList}
         onUpdateRequirement={onUpdateRequirement}
+        onUpdateTask={onUpdateTask}
+        onDeleteTask={onDeleteTask}
+        onUpdateTestDocument={onUpdateTestDocument}
         users={users}
         currentUser={currentUser}
         onAddNotification={onAddNotification}

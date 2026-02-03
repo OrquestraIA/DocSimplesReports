@@ -1,13 +1,18 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { 
   Plus, Search, Filter, Calendar, Clock, CheckCircle, XCircle, 
   AlertTriangle, Bug, Lightbulb, FileText, ChevronDown, ChevronRight,
   Edit2, Trash2, User, Tag, MoreVertical, Play, Pause, Target,
-  ArrowRight, Link2, Eye, Download, Image, Video, ExternalLink, Upload
+  ArrowRight, Link2, Eye, Download, Image, Video, ExternalLink, Upload, Loader2,
+  Smile, AtSign
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import MediaViewer from '../components/MediaViewer'
 import CommentsSection from '../components/CommentsSection'
+import UploadLoading from '../components/UploadLoading'
+import { useToast } from '../components/Toast'
+import ReactionPicker, { ReactionDisplay } from '../components/ReactionPicker'
+import { renderTextWithMentions } from '../components/MentionInput'
 
 const TASK_TYPES = {
   'bug': { bg: 'bg-red-100', text: 'text-red-700', label: 'Bug', icon: Bug },
@@ -40,6 +45,7 @@ export default function SprintsPage({
   tasks = [],
   users = [],
   testDocuments = [],
+  requirements = [],
   onCreateSprint,
   onUpdateSprint,
   onDeleteSprint,
@@ -49,9 +55,12 @@ export default function SprintsPage({
   onImportFromTestDocument,
   onRequestRetest,
   onAddTaskComment,
+  onToggleTaskReaction,
   onUploadTaskEvidence,
+  onDeleteTaskEvidence,
   onAddNotification,
   onUpdateDocumentStatus,
+  onUpdateRequirement,
   currentUser
 }) {
   const [activeTab, setActiveTab] = useState('backlog') // 'backlog', 'sprints', 'board'
@@ -552,10 +561,15 @@ export default function SprintsPage({
           onEdit={() => { setEditingTask(viewingTask); setShowTaskModal(true); setViewingTask(null) }}
           onViewMedia={(media, index) => setViewingMedia({ media, index })}
           onAddComment={onAddTaskComment}
+          onToggleReaction={onToggleTaskReaction}
           onUploadEvidence={onUploadTaskEvidence}
+          onDeleteEvidence={onDeleteTaskEvidence}
           onRequestRetest={onRequestRetest}
           onAddNotification={onAddNotification}
           onUpdateDocumentStatus={onUpdateDocumentStatus}
+          requirements={requirements}
+          testDocuments={testDocuments}
+          onUpdateRequirement={onUpdateRequirement}
         />
       )}
 
@@ -1298,17 +1312,62 @@ function ImportTestDocsModal({ testDocs, users, onImport, onClose, loading }) {
 }
 
 // Modal para visualizar detalhes da tarefa
-function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment, onRequestRetest, onUploadEvidence, currentUser, onAddNotification, onUpdateDocumentStatus }) {
+function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment, onToggleReaction, onRequestRetest, onUploadEvidence, onDeleteEvidence, currentUser, onAddNotification, onUpdateDocumentStatus, requirements = [], testDocuments = [], onUpdateRequirement }) {
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [localSourceComments, setLocalSourceComments] = useState(task.sourceData?.comments || [])
   const [localDocumentStatus, setLocalDocumentStatus] = useState(task.sourceData?.status || 'pendente')
+  const [localDevEvidences, setLocalDevEvidences] = useState(task.devEvidences || [])
+  const [localComments, setLocalComments] = useState(task.comments || [])
+  const [isDragging, setIsDragging] = useState(false)
+  const [showMentions, setShowMentions] = useState(false)
+  const [mentionFilter, setMentionFilter] = useState('')
+  const [openReactionPicker, setOpenReactionPicker] = useState(null)
+  const textareaRef = useRef(null)
+  const toast = useToast()
   
   useEffect(() => {
     setLocalSourceComments(task.sourceData?.comments || [])
     setLocalDocumentStatus(task.sourceData?.status || 'pendente')
-  }, [task.sourceData?.comments, task.sourceData?.status])
+    setLocalDevEvidences(task.devEvidences || [])
+    setLocalComments(task.comments || [])
+  }, [task.sourceData?.comments, task.sourceData?.status, task.devEvidences, task.comments])
+  
+  // Handler para Ctrl+V (colar imagem)
+  useEffect(() => {
+    const handlePaste = async (e) => {
+      if (!onUploadEvidence) return
+      const items = e.clipboardData?.items
+      if (!items) return
+      
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          const file = item.getAsFile()
+          if (file) {
+            setUploading(true)
+            try {
+              const newEvidence = await onUploadEvidence(task.id, file)
+              if (newEvidence) {
+                setLocalDevEvidences(prev => [...prev, newEvidence])
+              }
+              toast.success('Evidência anexada com sucesso!')
+            } catch (error) {
+              console.error('Erro ao colar imagem:', error)
+              toast.error('Erro ao colar imagem. Tente novamente.')
+            } finally {
+              setUploading(false)
+            }
+          }
+          break
+        }
+      }
+    }
+    
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [task.id, onUploadEvidence])
   
   const typeStyle = TASK_TYPES[task.type] || TASK_TYPES.bug
   const statusStyle = TASK_STATUS[task.status] || TASK_STATUS.pending
@@ -1316,40 +1375,132 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
   const TypeIcon = typeStyle.icon
   
   const assigneeUser = users.find(u => u.id === task.assignee)
-  const screenshots = task.sourceData?.screenshots || []
-  const devEvidences = task.devEvidences || []
-  const comments = task.comments || []
+  const screenshots = task.screenshots || task.sourceData?.screenshots || []
   const sourceData = task.sourceData || {}
+
+  // Filtrar usuários para menções
+  const filteredUsers = users.filter(u => 
+    u.name?.toLowerCase().includes(mentionFilter.toLowerCase()) ||
+    u.email?.toLowerCase().includes(mentionFilter.toLowerCase())
+  ).slice(0, 5)
+
+  // Handler para mudança no textarea de comentário
+  const handleCommentChange = (e) => {
+    const text = e.target.value
+    setNewComment(text)
+    
+    // Detectar @ para mostrar menções
+    const lastAtIndex = text.lastIndexOf('@')
+    if (lastAtIndex !== -1) {
+      const textAfterAt = text.slice(lastAtIndex + 1)
+      if (!textAfterAt.includes(' ')) {
+        setMentionFilter(textAfterAt)
+        setShowMentions(true)
+      } else {
+        setShowMentions(false)
+      }
+    } else {
+      setShowMentions(false)
+    }
+  }
+
+  // Inserir menção no texto
+  const insertMention = (user) => {
+    const lastAtIndex = newComment.lastIndexOf('@')
+    const textBefore = newComment.slice(0, lastAtIndex)
+    const userName = user.name || user.email.split('@')[0]
+    setNewComment(`${textBefore}@${userName} `)
+    setShowMentions(false)
+    textareaRef.current?.focus()
+  }
+
+  // Handler para reações
+  const handleReaction = async (commentIndex, reaction) => {
+    if (!onToggleReaction || !currentUser) return
+    try {
+      await onToggleReaction(task.id, commentIndex, reaction, currentUser.id || currentUser.uid, currentUser.name || currentUser.email)
+      // Atualizar estado local
+      setLocalComments(prev => prev.map((c, idx) => {
+        if (idx !== commentIndex) return c
+        const reactions = c.reactions || []
+        const existingIndex = reactions.findIndex(
+          r => r.type === reaction.type && r.value === reaction.value && r.userId === (currentUser.id || currentUser.uid)
+        )
+        let newReactions
+        if (existingIndex >= 0) {
+          newReactions = reactions.filter((_, i) => i !== existingIndex)
+        } else {
+          newReactions = [...reactions, { 
+            ...reaction, 
+            userId: currentUser.id || currentUser.uid, 
+            userName: currentUser.name || currentUser.email,
+            createdAt: new Date().toISOString() 
+          }]
+        }
+        return { ...c, reactions: newReactions }
+      }))
+    } catch (error) {
+      console.error('Erro ao reagir:', error)
+      toast.error('Erro ao adicionar reação.')
+    }
+    setOpenReactionPicker(null)
+  }
 
   const handleAddComment = async () => {
     if (!newComment.trim() || !onAddComment) return
     setSubmitting(true)
     try {
-      await onAddComment(task.id, {
+      const newCommentData = {
+        id: `comment_${Date.now()}`,
         text: newComment.trim(),
         author: currentUser?.name || currentUser?.email || 'Dev',
         authorId: currentUser?.id || currentUser?.uid,
-        createdAt: new Date().toISOString()
-      })
+        createdAt: new Date().toISOString(),
+        reactions: []
+      }
+      await onAddComment(task.id, newCommentData)
+      setLocalComments(prev => [...prev, newCommentData])
       setNewComment('')
+      toast.success('Comentário adicionado!')
     } catch (error) {
       console.error('Erro ao adicionar comentário:', error)
-      alert('Erro ao adicionar comentário')
+      toast.error('Erro ao adicionar comentário. Tente novamente.')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleUploadEvidence = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !onUploadEvidence) return
+    const files = Array.from(e.target.files || []).filter(f => {
+      const isImage = f.type.startsWith('image/')
+      const isVideo = f.type.startsWith('video/') || 
+        f.name.endsWith('.mp4') || f.name.endsWith('.webm') || 
+        f.name.endsWith('.mov') || f.name.endsWith('.avi')
+      return isImage || isVideo
+    })
+    if (files.length === 0 || !onUploadEvidence) {
+      if (e.target.files?.length > 0) {
+        toast.warning('Formato de arquivo não suportado. Use imagens ou vídeos.')
+      }
+      return
+    }
     
     setUploading(true)
     try {
-      await onUploadEvidence(task.id, file)
+      const newEvidences = []
+      for (const file of files) {
+        const newEvidence = await onUploadEvidence(task.id, file)
+        if (newEvidence) {
+          newEvidences.push(newEvidence)
+        }
+      }
+      if (newEvidences.length > 0) {
+        setLocalDevEvidences(prev => [...prev, ...newEvidences])
+      }
+      toast.success(`${files.length} evidência(s) anexada(s) com sucesso!`)
     } catch (error) {
       console.error('Erro ao enviar evidência:', error)
-      alert('Erro ao enviar evidência')
+      toast.error('Erro ao enviar evidência. Tente novamente.')
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -1363,11 +1514,11 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
     setSubmitting(true)
     try {
       await onRequestRetest(task)
-      alert('Reteste solicitado com sucesso!')
+      toast.success('Reteste solicitado com sucesso! O QA será notificado.')
       onClose()
     } catch (error) {
       console.error('Erro ao solicitar reteste:', error)
-      alert('Erro ao solicitar reteste')
+      toast.error('Erro ao solicitar reteste. Tente novamente.')
     } finally {
       setSubmitting(false)
     }
@@ -1425,30 +1576,74 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
             </div>
           )}
 
+          {/* Passos para Reproduzir */}
+          {task.steps && (
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                📋 Passos para Reproduzir
+              </label>
+              <div className="text-gray-700 whitespace-pre-wrap bg-amber-50 p-4 rounded-lg text-sm border border-amber-200">
+                {task.steps}
+              </div>
+            </div>
+          )}
+
+          {/* Resultado Esperado e Atual */}
+          {(task.expectedResult || task.actualResult) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {task.expectedResult && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">
+                    ✅ {task.type === 'bug' ? 'Resultado Esperado' : 'Comportamento Esperado'}
+                  </label>
+                  <div className="text-gray-700 whitespace-pre-wrap bg-green-50 p-3 rounded-lg text-sm border border-green-200">
+                    {task.expectedResult}
+                  </div>
+                </div>
+              )}
+              {task.actualResult && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">
+                    ❌ {task.type === 'bug' ? 'Resultado Atual' : 'Comportamento Atual'}
+                  </label>
+                  <div className="text-gray-700 whitespace-pre-wrap bg-red-50 p-3 rounded-lg text-sm border border-red-200">
+                    {task.actualResult}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Meta info */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
             {assigneeUser && (
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block">Responsável</label>
-                <p className="text-gray-900 flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  {assigneeUser.displayName || assigneeUser.name || assigneeUser.email}
+                <p className="text-gray-900 flex items-center gap-2 text-sm">
+                  <User className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span className="truncate">{assigneeUser.displayName || assigneeUser.name || assigneeUser.email}</span>
                 </p>
               </div>
             )}
             {task.createdBy && (
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block">Criado por</label>
-                <p className="text-gray-900">{task.createdBy}</p>
+                <p className="text-gray-900 text-sm truncate">{task.createdBy}</p>
               </div>
             )}
             {task.createdAt && (
               <div>
                 <label className="text-xs font-medium text-gray-500 mb-1 block">Criado em</label>
-                <p className="text-gray-900 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-gray-400" />
+                <p className="text-gray-900 flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-gray-400 shrink-0" />
                   {new Date(task.createdAt).toLocaleDateString('pt-BR')}
                 </p>
+              </div>
+            )}
+            {task.module && (
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Módulo</label>
+                <p className="text-gray-900 text-sm truncate">{task.module}</p>
               </div>
             )}
           </div>
@@ -1491,43 +1686,6 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
             </div>
           )}
 
-          {/* Evidências do Dev */}
-          {devEvidences.length > 0 && (
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-2 block">
-                🔧 Evidências da Correção ({devEvidences.length})
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {devEvidences.map((ev, index) => (
-                  <button
-                    key={index}
-                    onClick={() => onViewMedia(devEvidences.map(e => ({ 
-                      url: e.url, 
-                      type: e.type || 'image', 
-                      name: e.name 
-                    })), index)}
-                    className="relative group cursor-pointer"
-                  >
-                    {ev.type === 'video' ? (
-                      <div className="relative w-24 h-24">
-                        <video src={ev.url} className="w-24 h-24 object-cover rounded-lg border" />
-                        <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
-                          <Play className="w-8 h-8 text-white" />
-                        </div>
-                      </div>
-                    ) : (
-                      <img 
-                        src={ev.url} 
-                        alt={ev.name || `Evidência ${index + 1}`} 
-                        className="w-24 h-24 object-cover rounded-lg border hover:opacity-80 transition-opacity" 
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Seção de Comentários Completa */}
           {task.sourceType === 'test_document' && task.sourceId && (
             <div>
@@ -1545,6 +1703,16 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
                   if (onUpdateDocumentStatus) {
                     await onUpdateDocumentStatus(task.sourceId, newStatus)
                     setLocalDocumentStatus(newStatus)
+                  }
+                }}
+                onUpdateRequirementStatus={async (newStatusHomolog) => {
+                  // Encontrar o documento de teste e atualizar o statusHomolog do requisito associado
+                  const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                  if (testDoc?.requirement && onUpdateRequirement && requirements.length > 0) {
+                    const relatedReq = requirements.find(r => r.id === testDoc.requirement)
+                    if (relatedReq?.firebaseId) {
+                      await onUpdateRequirement(relatedReq.firebaseId, { statusHomolog: newStatusHomolog })
+                    }
                   }
                 }}
                 onCommentAdded={(comment) => {
@@ -1579,46 +1747,238 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
           {(!task.sourceType || task.sourceType !== 'test_document') && (
             <div>
               <label className="text-xs font-medium text-gray-500 mb-2 block">
-                💬 Comentários ({comments.length})
+                💬 Comentários ({localComments.length})
               </label>
               
-              {comments.length > 0 && (
-                <div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
-                  {comments.map((comment, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-3">
+              {localComments.length > 0 && (
+                <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                  {localComments.map((comment, index) => (
+                    <div key={comment.id || index} className="bg-gray-50 dark:bg-slate-700 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-900">{comment.author}</span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{comment.author}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {new Date(comment.createdAt).toLocaleString('pt-BR')}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700">{comment.text}</p>
+                      <div className="text-sm text-gray-700 dark:text-gray-300">
+                        {renderTextWithMentions(comment.text, users)}
+                      </div>
+                      
+                      {/* Reações */}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {comment.reactions?.length > 0 && (
+                          <ReactionDisplay 
+                            reactions={comment.reactions} 
+                            currentUserId={currentUser?.id || currentUser?.uid}
+                            onToggle={(reaction) => handleReaction(index, reaction)}
+                          />
+                        )}
+                        
+                        {/* Botão para adicionar reação */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenReactionPicker(openReactionPicker === index ? null : index)}
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                            title="Adicionar reação"
+                          >
+                            <Smile className="w-4 h-4" />
+                          </button>
+                          {openReactionPicker === index && (
+                            <div className="absolute bottom-full left-0 mb-1 z-50">
+                              <ReactionPicker 
+                                onSelect={(reaction) => handleReaction(index, reaction)}
+                                onClose={() => setOpenReactionPicker(null)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
 
               {onAddComment && task.status !== 'done' && (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Adicionar comentário..."
-                    className="flex-1 input-field text-sm"
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
-                  />
-                  <button
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim() || submitting}
-                    className="btn-secondary px-4"
-                  >
-                    {submitting ? '...' : 'Enviar'}
-                  </button>
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={textareaRef}
+                        value={newComment}
+                        onChange={handleCommentChange}
+                        placeholder="Adicionar comentário... Use @ para mencionar"
+                        className="w-full input-field text-sm resize-none"
+                        rows={2}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
+                            e.preventDefault()
+                            handleAddComment()
+                          }
+                        }}
+                      />
+                      
+                      {/* Lista de menções */}
+                      {showMentions && filteredUsers.length > 0 && (
+                        <div className="absolute bottom-full left-0 mb-1 w-full bg-white dark:bg-slate-800 border dark:border-slate-600 rounded-lg shadow-lg max-h-40 overflow-y-auto z-50">
+                          {filteredUsers.map(user => (
+                            <button
+                              key={user.id}
+                              onClick={() => insertMention(user)}
+                              className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                            >
+                              <User className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-900 dark:text-white">{user.name || user.email}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim() || submitting}
+                      className="btn-secondary px-4 self-end"
+                    >
+                      {submitting ? '...' : 'Enviar'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           )}
+
+          {/* Evidências da Correção (após comentários) */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={async (e) => {
+              e.preventDefault()
+              setIsDragging(false)
+              if (!onUploadEvidence) return
+              const files = Array.from(e.dataTransfer.files).filter(f => {
+                const isImage = f.type.startsWith('image/')
+                const isVideo = f.type.startsWith('video/') || 
+                  f.name.endsWith('.mp4') || f.name.endsWith('.webm') || 
+                  f.name.endsWith('.mov') || f.name.endsWith('.avi')
+                return isImage || isVideo
+              })
+              if (files.length === 0) {
+                toast.warning('Formato de arquivo não suportado. Use imagens ou vídeos.')
+                return
+              }
+              setUploading(true)
+              try {
+                const newEvidences = []
+                for (const file of files) {
+                  const newEvidence = await onUploadEvidence(task.id, file)
+                  if (newEvidence) {
+                    newEvidences.push(newEvidence)
+                  }
+                }
+                if (newEvidences.length > 0) {
+                  setLocalDevEvidences(prev => [...prev, ...newEvidences])
+                }
+                toast.success(`${files.length} evidência(s) anexada(s) com sucesso!`)
+              } catch (error) {
+                console.error('Erro ao enviar evidência:', error)
+                toast.error('Erro ao enviar evidência. Tente novamente.')
+              } finally {
+                setUploading(false)
+              }
+            }}
+            className={`p-4 rounded-lg border-2 border-dashed transition-colors ${
+              isDragging 
+                ? 'border-blue-400 bg-blue-50' 
+                : 'border-gray-200 bg-gray-50'
+            }`}
+          >
+            <label className="text-xs font-medium text-gray-500 mb-2 block">
+              🔧 Evidências da Correção ({localDevEvidences.length})
+            </label>
+            
+            {localDevEvidences.length > 0 && (
+              <div className="flex flex-wrap gap-3 mb-3">
+                {localDevEvidences.map((ev, index) => (
+                  <div key={index} className="relative group">
+                    <button
+                      onClick={() => onViewMedia(localDevEvidences.map(e => ({ 
+                        url: e.url, 
+                        type: e.type || 'image', 
+                        name: e.name 
+                      })), index)}
+                      className="cursor-pointer"
+                    >
+                      {ev.type === 'video' ? (
+                        <div className="relative w-24 h-24">
+                          <video src={ev.url} className="w-24 h-24 object-cover rounded-lg border" />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
+                            <Play className="w-8 h-8 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img 
+                          src={ev.url} 
+                          alt={ev.name || `Evidência ${index + 1}`} 
+                          className="w-24 h-24 object-cover rounded-lg border hover:opacity-80 transition-opacity" 
+                        />
+                      )}
+                    </button>
+                    {/* Botão de excluir */}
+                    {onDeleteEvidence && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (!window.confirm('Deseja excluir esta evidência?')) return
+                          try {
+                            await onDeleteEvidence(task.id, index)
+                            setLocalDevEvidences(prev => prev.filter((_, idx) => idx !== index))
+                            toast.success('Evidência excluída com sucesso!')
+                          } catch (error) {
+                            console.error('Erro ao excluir evidência:', error)
+                            toast.error('Erro ao excluir evidência.')
+                          }
+                        }}
+                        className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600"
+                        title="Excluir evidência"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Upload de evidência com drag-and-drop */}
+            {onUploadEvidence && (
+              <div className="flex flex-col items-center gap-2">
+                <input
+                  type="file"
+                  id="evidence-upload"
+                  accept="image/*,video/*"
+                  multiple
+                  onChange={handleUploadEvidence}
+                  className="hidden"
+                  disabled={uploading}
+                />
+                {uploading ? (
+                  <UploadLoading message="Enviando evidência" />
+                ) : (
+                  <label
+                    htmlFor="evidence-upload"
+                    className="flex flex-col items-center gap-1 cursor-pointer text-center"
+                  >
+                    <Upload className="w-6 h-6 text-gray-400" />
+                    <span className="text-sm text-gray-600">
+                      Arraste arquivos aqui ou <span className="text-blue-500 hover:underline">clique para selecionar</span>
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      Ctrl+V para colar print da área de transferência
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="p-6 border-t bg-gray-50 flex justify-between">

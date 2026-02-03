@@ -1,12 +1,13 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { 
   CheckCircle, Clock, AlertTriangle, Bug, Lightbulb, FileText, 
   Filter, Search, Eye, Play, ChevronDown, ExternalLink, User,
-  Send, Image, Video, Loader2, X, Upload, MessageSquare, Paperclip
+  Send, Image, Video, Loader2, X, Upload, MessageSquare, Paperclip, Smile
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import MediaViewer from '../components/MediaViewer'
 import CommentsSection from '../components/CommentsSection'
+import UploadLoading from '../components/UploadLoading'
 import { uploadScreenshot } from '../firebase'
 
 const TASK_TYPES = {
@@ -37,7 +38,8 @@ export default function MyTasksPage({
   onUpdateTask,
   onAddNotification,
   onUpdateDocumentStatus,
-  onAddTaskComment
+  onAddTaskComment,
+  onToggleTaskReaction
 }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -256,6 +258,7 @@ export default function MyTasksPage({
           onAddNotification={onAddNotification}
           onUpdateDocumentStatus={onUpdateDocumentStatus}
           onAddComment={onAddTaskComment}
+          onToggleReaction={onToggleTaskReaction}
         />
       )}
 
@@ -375,7 +378,7 @@ function TaskRow({ task, sprints, onView, onUpdateStatus }) {
 }
 
 // Modal de visualização de tarefa com interação completa
-function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateStatus, onViewMedia, onAddNotification, onUpdateDocumentStatus, onAddComment, onUpdateTask }) {
+function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateStatus, onViewMedia, onAddNotification, onUpdateDocumentStatus, onAddComment, onToggleReaction, onUpdateTask }) {
   const [activeTab, setActiveTab] = useState('detalhes')
   const [newComment, setNewComment] = useState('')
   const [commentMedia, setCommentMedia] = useState([])
@@ -383,15 +386,100 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
   const [sending, setSending] = useState(false)
   const [showMentions, setShowMentions] = useState(false)
   const [mentionFilter, setMentionFilter] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
+  const [localComments, setLocalComments] = useState(task.comments || [])
+  const [openReactionPicker, setOpenReactionPicker] = useState(null)
   const fileInputRef = useRef(null)
   const textareaRef = useRef(null)
+
+  // Sincronizar comentários locais quando a tarefa mudar
+  useEffect(() => {
+    setLocalComments(task.comments || [])
+  }, [task.comments])
+
+  // Handler para Ctrl+V (colar imagem)
+  useEffect(() => {
+    const handlePaste = async (e) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          const file = item.getAsFile()
+          if (file) {
+            await handleFilesUpload([file])
+          }
+          break
+        }
+      }
+    }
+    
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [])
+
+  // Função centralizada para upload de arquivos
+  const handleFilesUpload = async (files) => {
+    if (files.length === 0) return
+
+    setUploading(true)
+    try {
+      const tempId = `task_${task.id}_${Date.now()}`
+      const uploadedFiles = []
+      
+      for (const file of files) {
+        const isVideoFile = file.type.startsWith('video/') || 
+          file.name.endsWith('.mp4') || file.name.endsWith('.webm') || 
+          file.name.endsWith('.mov') || file.name.endsWith('.avi')
+        const uploaded = await uploadScreenshot(file, tempId)
+        uploadedFiles.push({
+          url: uploaded.url,
+          name: file.name,
+          type: isVideoFile ? 'video' : 'image',
+          uploadedAt: new Date().toISOString()
+        })
+      }
+      setCommentMedia(prev => [...prev, ...uploadedFiles])
+    } catch (error) {
+      console.error('Erro no upload:', error)
+      alert('Erro ao fazer upload do arquivo. Tente novamente.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Handler para drag-and-drop
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    const files = Array.from(e.dataTransfer.files).filter(f => 
+      f.type.startsWith('image/') || f.type.startsWith('video/') ||
+      f.name.endsWith('.mp4') || f.name.endsWith('.webm') || 
+      f.name.endsWith('.mov') || f.name.endsWith('.avi')
+    )
+    
+    if (files.length > 0) {
+      await handleFilesUpload(files)
+    }
+  }
 
   const typeStyle = TASK_TYPES[task.type] || TASK_TYPES.bug
   const statusStyle = TASK_STATUS[task.status] || TASK_STATUS.pending
   const priorityStyle = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
   const TypeIcon = typeStyle.icon
   const screenshots = task.screenshots || task.sourceData?.screenshots || []
-  const comments = task.comments || []
   const sprint = sprints.find(s => s.id === task.sprintId)
 
   // Filtrar usuários para menções
@@ -442,30 +530,8 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
-
-    setUploading(true)
-    try {
-      const tempId = `task_${task.id}_${Date.now()}`
-      const uploadedFiles = []
-      
-      for (const file of files) {
-        const isVideoFile = file.type.startsWith('video/')
-        const uploaded = await uploadScreenshot(file, tempId)
-        uploadedFiles.push({
-          url: uploaded.url,
-          name: file.name,
-          type: isVideoFile ? 'video' : 'image',
-          uploadedAt: new Date().toISOString()
-        })
-      }
-      setCommentMedia(prev => [...prev, ...uploadedFiles])
-    } catch (error) {
-      console.error('Erro no upload:', error)
-      alert('Erro ao fazer upload do arquivo. Tente novamente.')
-    } finally {
-      setUploading(false)
-      e.target.value = ''
-    }
+    await handleFilesUpload(files)
+    e.target.value = ''
   }
 
   // Enviar comentário
@@ -485,6 +551,8 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
 
       if (onAddComment) {
         await onAddComment(task.id, comment)
+        // Atualizar estado local imediatamente
+        setLocalComments(prev => [...prev, comment])
       }
 
       setNewComment('')
@@ -501,9 +569,46 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
     setCommentMedia(prev => prev.filter((_, i) => i !== index))
   }
 
+  // Handler para reações
+  const handleReaction = async (commentIndex, emoji) => {
+    if (!onToggleReaction || !currentUser) return
+    const userId = currentUser.id || currentUser.uid
+    const userName = currentUser.name || currentUser.email
+    
+    try {
+      await onToggleReaction(task.id, commentIndex, { type: 'emoji', value: emoji }, userId, userName)
+      // Atualizar estado local
+      setLocalComments(prev => prev.map((c, idx) => {
+        if (idx !== commentIndex) return c
+        const reactions = c.reactions || {}
+        const users = reactions[emoji] || []
+        const userIndex = users.indexOf(userId)
+        
+        let newUsers
+        if (userIndex >= 0) {
+          newUsers = users.filter(u => u !== userId)
+        } else {
+          newUsers = [...users, userId]
+        }
+        
+        const newReactions = { ...reactions }
+        if (newUsers.length === 0) {
+          delete newReactions[emoji]
+        } else {
+          newReactions[emoji] = newUsers
+        }
+        
+        return { ...c, reactions: newReactions }
+      }))
+    } catch (error) {
+      console.error('Erro ao reagir:', error)
+    }
+    setOpenReactionPicker(null)
+  }
+
   const tabs = [
     { id: 'detalhes', label: 'Detalhes' },
-    { id: 'comentarios', label: `Comentários (${comments.length})` },
+    { id: 'comentarios', label: `Comentários (${localComments.length})` },
     { id: 'evidencias', label: `Evidências (${screenshots.length})` },
   ]
 
@@ -646,14 +751,14 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
             <div className="space-y-4">
               {/* Lista de comentários */}
               <div className="space-y-4 max-h-80 overflow-y-auto">
-                {comments.length === 0 ? (
+                {localComments.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p>Nenhum comentário ainda</p>
                     <p className="text-sm">Seja o primeiro a comentar!</p>
                   </div>
                 ) : (
-                  comments.map(comment => (
+                  localComments.map((comment, commentIndex) => (
                     <div key={comment.id} className="bg-gray-50 dark:bg-slate-700 rounded-lg p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
@@ -691,6 +796,49 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
                           ))}
                         </div>
                       )}
+                      
+                      {/* Reações */}
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {comment.reactions && Object.entries(comment.reactions).map(([emoji, users]) => (
+                          users.length > 0 && (
+                            <button
+                              key={emoji}
+                              onClick={() => handleReaction(commentIndex, emoji)}
+                              className={`px-2 py-1 rounded-full text-xs flex items-center gap-1 ${
+                                users.includes(currentUser?.uid || currentUser?.id)
+                                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                                  : 'bg-gray-100 dark:bg-slate-600 text-gray-600 dark:text-gray-300'
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              <span>{users.length}</span>
+                            </button>
+                          )
+                        ))}
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenReactionPicker(openReactionPicker === commentIndex ? null : commentIndex)}
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-400"
+                          >
+                            <Smile className="w-4 h-4" />
+                          </button>
+                          {openReactionPicker === commentIndex && (
+                            <div className="absolute bottom-full left-0 mb-1 z-10">
+                              <div className="bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 p-2 flex gap-1">
+                                {['👍', '👎', '❤️', '🎉', '😄', '🤔', '👀', '🚀'].map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => handleReaction(commentIndex, emoji)}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-slate-600 rounded text-lg"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -739,31 +887,60 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
                   )}
                 </div>
 
-                {/* Preview de mídia */}
-                {commentMedia.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {commentMedia.map((m, idx) => (
-                      <div key={idx} className="relative group">
-                        {m.type === 'video' ? (
-                          <div className="relative w-16 h-16">
-                            <video src={m.url} className="w-16 h-16 object-cover rounded-lg border" />
-                            <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
-                              <Video className="w-5 h-5 text-white" />
+                {/* Área de drag-and-drop */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`mt-3 p-4 border-2 border-dashed rounded-lg transition-colors ${
+                    isDragging 
+                      ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                      : 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50'
+                  }`}
+                >
+                  {/* Upload Loading */}
+                  {uploading ? (
+                    <UploadLoading message="Enviando evidência" />
+                  ) : (
+                    <>
+                      {/* Preview de mídia */}
+                      {commentMedia.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {commentMedia.map((m, idx) => (
+                            <div key={idx} className="relative group">
+                              <button
+                                onClick={() => onViewMedia(commentMedia, idx)}
+                                className="focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                              >
+                                {m.type === 'video' ? (
+                                  <div className="relative w-20 h-16">
+                                    <video src={m.url} className="w-20 h-16 object-cover rounded-lg border" />
+                                    <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
+                                      <Play className="w-5 h-5 text-white" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <img src={m.url} alt="" className="w-20 h-16 object-cover rounded-lg border hover:opacity-90" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => removeMedia(idx)}
+                                className="absolute -top-2 -right-2 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
                             </div>
-                          </div>
-                        ) : (
-                          <img src={m.url} alt="" className="w-16 h-16 object-cover rounded-lg border" />
-                        )}
-                        <button
-                          onClick={() => removeMedia(idx)}
-                          className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                        <p>Arraste arquivos aqui ou clique para selecionar</p>
+                        <p className="text-xs mt-1">Ctrl+V para colar print da área de transferência</p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
 
                 {/* Botões de ação */}
                 <div className="flex items-center justify-between mt-3">

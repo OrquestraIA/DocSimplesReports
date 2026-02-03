@@ -3,11 +3,12 @@ import { FileText, Trash2, Eye, Download, Search, Filter, CheckCircle2, XCircle,
 import { addCommentToTestDocument, uploadScreenshot, updateCommentInTestDocument, addNotification, toggleReactionOnComment, migrateMelhoriaStatus } from '../firebase'
 import ReactionPicker, { ReactionButton, ReactionDisplay } from '../components/ReactionPicker'
 import MentionInput, { renderTextWithMentions, extractMentions } from '../components/MentionInput'
+import UploadLoading from '../components/UploadLoading'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 import jsPDF from 'jspdf'
 
-export default function DocumentViewerPage({ documents, onUpdate, onDelete, users = [], currentUser = null }) {
+export default function DocumentViewerPage({ documents, onUpdate, onDelete, users = [], currentUser = null, requirements = [], onUpdateRequirement }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
@@ -218,6 +219,14 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
       // Se for solicitação de reteste, mudar status para 'em_reteste'
       if (type === 'solicitar_reteste') {
         await onUpdate(selectedDoc.id, { status: 'em_reteste' })
+        
+        // Atualizar statusHomolog do requisito associado para 'Para_Reteste_Homolog'
+        if (selectedDoc.requirement && onUpdateRequirement && requirements.length > 0) {
+          const relatedReq = requirements.find(r => r.id === selectedDoc.requirement)
+          if (relatedReq?.firebaseId) {
+            await onUpdateRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+          }
+        }
       }
       
       setNewComment('')
@@ -1741,10 +1750,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
                     
                     <div className="flex flex-col items-center gap-2 text-center">
                       {uploadingScreenshot ? (
-                        <div className="flex items-center gap-2 text-primary-600">
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span className="text-sm font-medium">Enviando arquivo...</span>
-                        </div>
+                        <UploadLoading message="Enviando evidência" />
                       ) : (
                         <>
                           <Image className={`w-8 h-8 ${isDragging ? 'text-primary-500' : 'text-gray-400'}`} />

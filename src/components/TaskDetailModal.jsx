@@ -28,6 +28,8 @@ import {
   AtSign
 } from 'lucide-react'
 import { uploadScreenshot } from '../firebase'
+import UploadLoading from './UploadLoading'
+import MediaViewer from './MediaViewer'
 
 const WORKFLOW_ACTIONS = {
   devs: {
@@ -135,8 +137,91 @@ export default function TaskDetailModal({
   const [openReactionPicker, setOpenReactionPicker] = useState(null)
   const [showMentions, setShowMentions] = useState(false)
   const [mentionFilter, setMentionFilter] = useState('')
+  const [viewingMedia, setViewingMedia] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef(null)
   const textareaRef = useRef(null)
+  const dropZoneRef = useRef(null)
+
+  // Handler para Ctrl+V (colar imagem)
+  useEffect(() => {
+    if (!isOpen) return
+    
+    const handlePaste = async (e) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault()
+          const file = item.getAsFile()
+          if (file) {
+            await handleFilesUpload([file])
+          }
+          break
+        }
+      }
+    }
+    
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [isOpen])
+
+  // Handler para drag-and-drop
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = async (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    const files = Array.from(e.dataTransfer.files).filter(f => 
+      f.type.startsWith('image/') || f.type.startsWith('video/') ||
+      f.name.endsWith('.mp4') || f.name.endsWith('.webm') || 
+      f.name.endsWith('.mov') || f.name.endsWith('.avi')
+    )
+    
+    if (files.length > 0) {
+      await handleFilesUpload(files)
+    }
+  }
+
+  // Função centralizada para upload de arquivos
+  const handleFilesUpload = async (files) => {
+    if (files.length === 0) return
+
+    setUploading(true)
+    try {
+      const tempId = `req_${requirement.firebaseId}_${Date.now()}`
+      const uploadedFiles = []
+      
+      for (const file of files) {
+        const isVideoFile = file.type.startsWith('video/') || 
+          file.name.endsWith('.mp4') || file.name.endsWith('.webm') || 
+          file.name.endsWith('.mov') || file.name.endsWith('.avi')
+        const uploaded = await uploadScreenshot(file, tempId)
+        uploadedFiles.push({
+          url: uploaded.url,
+          name: file.name,
+          type: isVideoFile ? 'video' : 'image',
+          uploadedAt: new Date().toISOString()
+        })
+      }
+      setCommentMedia(prev => [...prev, ...uploadedFiles])
+    } catch (error) {
+      console.error('Erro no upload:', error)
+      alert('Erro ao fazer upload do arquivo. Tente novamente.')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   if (!isOpen || !requirement) return null
 
@@ -191,31 +276,8 @@ export default function TaskDetailModal({
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
-
-    setUploading(true)
-    try {
-      const tempId = `req_${requirement.firebaseId}_${Date.now()}`
-      const uploadedFiles = []
-      
-      for (const file of files) {
-        const isVideoFile = file.type.startsWith('video/')
-        // Usar Firebase Storage para upload real
-        const uploaded = await uploadScreenshot(file, tempId)
-        uploadedFiles.push({
-          url: uploaded.url,
-          name: file.name,
-          type: isVideoFile ? 'video' : 'image',
-          uploadedAt: new Date().toISOString()
-        })
-      }
-      setCommentMedia(prev => [...prev, ...uploadedFiles])
-    } catch (error) {
-      console.error('Erro no upload:', error)
-      alert('Erro ao fazer upload do arquivo. Tente novamente.')
-    } finally {
-      setUploading(false)
-      e.target.value = ''
-    }
+    await handleFilesUpload(files)
+    e.target.value = ''
   }
 
   const removeMedia = (index) => {
@@ -673,26 +735,61 @@ export default function TaskDetailModal({
                   )}
                 </div>
 
-                {/* Media preview */}
-                {commentMedia.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {commentMedia.map((media, index) => (
-                      <div key={index} className="relative">
-                        {isVideo(media) ? (
-                          <video src={media.url} className="w-20 h-16 object-cover rounded" />
-                        ) : (
-                          <img src={media.url} alt="" className="w-20 h-16 object-cover rounded" />
-                        )}
-                        <button
-                          onClick={() => removeMedia(index)}
-                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                {/* Área de drag-and-drop */}
+                <div
+                  ref={dropZoneRef}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`mt-3 p-4 border-2 border-dashed rounded-lg transition-colors ${
+                    isDragging 
+                      ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                      : 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50'
+                  }`}
+                >
+                  {/* Upload Loading */}
+                  {uploading ? (
+                    <UploadLoading message="Enviando evidência" />
+                  ) : (
+                    <>
+                      {/* Media preview */}
+                      {commentMedia.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {commentMedia.map((media, index) => (
+                            <div key={index} className="relative group">
+                              <button
+                                onClick={() => setViewingMedia({ media: commentMedia, index })}
+                                className="focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                              >
+                                {isVideo(media) ? (
+                                  <div className="relative w-24 h-20">
+                                    <video src={media.url} className="w-24 h-20 object-cover rounded" />
+                                    <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
+                                      <Play className="w-6 h-6 text-white" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <img src={media.url} alt="" className="w-24 h-20 object-cover rounded hover:opacity-90" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => removeMedia(index)}
+                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                        <p>Arraste arquivos aqui ou clique para selecionar</p>
+                        <p className="text-xs mt-1">Ctrl+V para colar print da área de transferência</p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
 
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center gap-2">
@@ -736,25 +833,33 @@ export default function TaskDetailModal({
               ) : (
                 <div className="grid grid-cols-3 gap-4">
                   {evidences.map((evidence, index) => (
-                    <div key={index} className="relative group">
+                    <button
+                      key={index}
+                      onClick={() => setViewingMedia({ media: evidences, index })}
+                      className="relative group focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
+                      title="Clique para visualizar"
+                    >
                       {isVideo(evidence) ? (
-                        <video
-                          src={evidence.url}
-                          className="w-full h-32 object-cover rounded-lg"
-                          controls
-                        />
+                        <div className="relative w-full h-32">
+                          <video
+                            src={evidence.url}
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center hover:bg-black/50 transition-colors">
+                            <Play className="w-10 h-10 text-white" />
+                          </div>
+                        </div>
                       ) : (
                         <img
                           src={evidence.url}
                           alt={evidence.name}
-                          className="w-full h-32 object-cover rounded-lg cursor-pointer"
-                          onClick={() => window.open(evidence.url, '_blank')}
+                          className="w-full h-32 object-cover rounded-lg hover:opacity-90 transition-opacity"
                         />
                       )}
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 rounded-b-lg truncate">
                         {evidence.name || 'Evidência'}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -826,6 +931,15 @@ export default function TaskDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Media Viewer */}
+      {viewingMedia && (
+        <MediaViewer
+          media={viewingMedia.media}
+          initialIndex={viewingMedia.index}
+          onClose={() => setViewingMedia(null)}
+        />
+      )}
     </div>
   )
 }

@@ -21,11 +21,30 @@ import {
   MessageSquare,
   Paperclip,
   Plus,
-  Bug
+  Bug,
+  Lightbulb,
+  FileText,
+  User,
+  Image
 } from 'lucide-react'
 import { WORKSPACES, colorClasses } from './WorkspaceSidebar'
 import TaskDetailModal from './TaskDetailModal'
 import CreateTaskModal from './CreateTaskModal'
+
+// Tipos de tarefas
+const TASK_TYPES = {
+  'bug': { bg: 'bg-red-100', text: 'text-red-700', label: 'Bug', icon: Bug },
+  'business_rule': { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Regra de Negócio', icon: FileText },
+  'improvement': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Melhoria', icon: Lightbulb }
+}
+
+// Status de tarefas
+const TASK_STATUS = {
+  'pending': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pendente' },
+  'in_progress': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Em Andamento' },
+  'in_review': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Em Revisão' },
+  'done': { bg: 'bg-green-100', text: 'text-green-700', label: 'Concluído' }
+}
 
 // Status options para cada campo
 const STATUS_OPTIONS = {
@@ -54,6 +73,12 @@ const STATUS_OPTIONS = {
     { value: 'Aprovado', label: 'Aprovado' },
     { value: 'Reprovado', label: 'Reprovado' },
     { value: 'Aguardando_Dev', label: 'Aguardando Dev' },
+  ],
+  status: [
+    { value: 'pending', label: 'Pendente' },
+    { value: 'in_progress', label: 'Em Andamento' },
+    { value: 'in_review', label: 'Em Revisão' },
+    { value: 'done', label: 'Concluído' },
   ]
 }
 
@@ -210,10 +235,261 @@ function RequirementCard({ requirement, onUpdateStatus, statusField, workspace, 
   )
 }
 
-function KanbanColumn({ list, requirements, workspace, onUpdateStatus, onOpenDetail }) {
+// Card para Tarefas (bugs, melhorias, regras de negócio)
+function TaskCard({ task, onUpdateStatus, workspace, onOpenDetail, users = [] }) {
+  const [showActions, setShowActions] = useState(false)
+  const [isChangingStatus, setIsChangingStatus] = useState(false)
+  
+  const typeStyle = TASK_TYPES[task.type] || TASK_TYPES.bug
+  const statusStyle = TASK_STATUS[task.status] || TASK_STATUS.pending
+  const TypeIcon = typeStyle.icon
+  const commentsCount = task.comments?.length || 0
+  const evidencesCount = (task.screenshots?.length || 0) + (task.devEvidences?.length || 0)
+  const assignee = users.find(u => u.id === task.assignee)
+
+  const handleStatusChange = async (e, newStatus) => {
+    e.stopPropagation()
+    setIsChangingStatus(true)
+    try {
+      await onUpdateStatus(task.id, { status: newStatus })
+    } finally {
+      setIsChangingStatus(false)
+      setShowActions(false)
+    }
+  }
+
+  const handleCardClick = (e) => {
+    if (showActions) {
+      setShowActions(false)
+      return
+    }
+    onOpenDetail(task, 'task')
+  }
+
+  return (
+    <div 
+      onClick={handleCardClick}
+      className={`bg-white dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer`}
+    >
+      <div className="p-3">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`p-1 rounded ${typeStyle.bg}`}>
+              <TypeIcon className={`w-3 h-3 ${typeStyle.text}`} />
+            </div>
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${typeStyle.bg} ${typeStyle.text}`}>
+              {typeStyle.label}
+            </span>
+          </div>
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowActions(!showActions) }}
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            
+            {showActions && (
+              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-600 py-1 z-20 min-w-[150px]">
+                <div className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-700">
+                  Mover para
+                </div>
+                {STATUS_OPTIONS.status?.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={(e) => handleStatusChange(e, option.value)}
+                    disabled={isChangingStatus || task.status === option.value}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 ${
+                      task.status === option.value 
+                        ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
+                        : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <ArrowRight className="w-3 h-3" />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Título */}
+        <p className="text-sm font-medium text-gray-800 dark:text-white line-clamp-2 mb-2">
+          {task.title}
+        </p>
+
+        {/* Descrição */}
+        {task.description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
+            {task.description}
+          </p>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-600">
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-1.5 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}>
+              {statusStyle.label}
+            </span>
+            {commentsCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-gray-400">
+                <MessageSquare className="w-3 h-3" />
+                {commentsCount}
+              </span>
+            )}
+            {evidencesCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-gray-400">
+                <Image className="w-3 h-3" />
+                {evidencesCount}
+              </span>
+            )}
+          </div>
+          {assignee && (
+            <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400" title={assignee.name || assignee.email}>
+              <User className="w-3 h-3" />
+              <span className="truncate max-w-[60px]">{assignee.name?.split(' ')[0] || assignee.email?.split('@')[0]}</span>
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Card para Documentos de Teste
+function TestDocCard({ doc, onUpdateStatus, workspace, onOpenDetail }) {
+  const [showActions, setShowActions] = useState(false)
+  const [isChangingStatus, setIsChangingStatus] = useState(false)
+  
+  const commentsCount = doc.comments?.length || 0
+  const screenshotsCount = doc.screenshots?.length || 0
+
+  const getStatusStyle = (status) => {
+    switch(status) {
+      case 'aprovado': return { bg: 'bg-green-100', text: 'text-green-700', label: 'Aprovado' }
+      case 'reprovado': return { bg: 'bg-red-100', text: 'text-red-700', label: 'Reprovado' }
+      case 'em_reteste': 
+      case 'em-reteste': return { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Em Reteste' }
+      case 'melhoria': return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Melhoria' }
+      default: return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pendente' }
+    }
+  }
+
+  const statusStyle = getStatusStyle(doc.status)
+
+  const handleCardClick = (e) => {
+    if (showActions) {
+      setShowActions(false)
+      return
+    }
+    onOpenDetail(doc, 'testDocument')
+  }
+
+  return (
+    <div 
+      onClick={handleCardClick}
+      className="bg-white dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600 shadow-sm hover:shadow-md transition-all duration-200 group cursor-pointer"
+    >
+      <div className="p-3">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-gray-500" />
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${statusStyle.bg} ${statusStyle.text}`}>
+              {statusStyle.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Título/Feature */}
+        <p className="text-sm font-medium text-gray-800 dark:text-white line-clamp-2 mb-1">
+          {doc.title || doc.feature || 'Documento de Teste'}
+        </p>
+
+        {/* Requisito */}
+        {doc.requirement && (
+          <span className="inline-block text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded mb-2">
+            {doc.requirement}
+          </span>
+        )}
+
+        {/* Módulo */}
+        {doc.module && (
+          <span className="inline-block text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-600 px-2 py-0.5 rounded ml-1 mb-2">
+            {doc.module}
+          </span>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-600">
+          <div className="flex items-center gap-2">
+            {commentsCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-gray-400">
+                <MessageSquare className="w-3 h-3" />
+                {commentsCount}
+              </span>
+            )}
+            {screenshotsCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-gray-400">
+                <Image className="w-3 h-3" />
+                {screenshotsCount}
+              </span>
+            )}
+          </div>
+          {doc.tester && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[80px]" title={doc.tester}>
+              {doc.tester}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function KanbanColumn({ list, items, workspace, onUpdateStatus, onOpenDetail, users = [] }) {
   const colors = colorClasses[list.color]
-  const ListIcon = list.icon
-  const filteredReqs = requirements.filter(req => req[list.statusField] === list.statusValue)
+  const ColumnIcon = list.icon
+
+  // Renderizar o card correto baseado no tipo da lista
+  const renderCard = (item) => {
+    if (list.type === 'tasks') {
+      return (
+        <TaskCard
+          key={item.id}
+          task={item}
+          onUpdateStatus={onUpdateStatus}
+          workspace={workspace}
+          onOpenDetail={onOpenDetail}
+          users={users}
+        />
+      )
+    } else if (list.type === 'testDocuments') {
+      return (
+        <TestDocCard
+          key={item.id}
+          doc={item}
+          onUpdateStatus={onUpdateStatus}
+          workspace={workspace}
+          onOpenDetail={onOpenDetail}
+        />
+      )
+    } else {
+      // requirements (default)
+      return (
+        <RequirementCard
+          key={item.firebaseId || item.id}
+          requirement={item}
+          onUpdateStatus={onUpdateStatus}
+          statusField={list.statusField}
+          workspace={workspace}
+          onOpenDetail={(req) => onOpenDetail(req, 'requirement')}
+        />
+      )
+    }
+  }
 
   return (
     <div className="flex-shrink-0 w-80 bg-gray-50 dark:bg-slate-800/50 rounded-xl flex flex-col max-h-full">
@@ -222,34 +498,25 @@ function KanbanColumn({ list, requirements, workspace, onUpdateStatus, onOpenDet
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className={`p-1.5 rounded-lg ${colors.bgLight}`}>
-              <ListIcon className={`w-4 h-4 ${colors.text}`} />
+              <ColumnIcon className={`w-4 h-4 ${colors.text}`} />
             </div>
             <span className="font-medium text-gray-800 dark:text-white">{list.name}</span>
           </div>
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors.bgLight} ${colors.text}`}>
-            {filteredReqs.length}
+            {items.length}
           </span>
         </div>
       </div>
 
       {/* Cards */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {filteredReqs.length === 0 ? (
+        {items.length === 0 ? (
           <div className="text-center py-8 text-gray-400 dark:text-gray-500">
             <Circle className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">Nenhum item</p>
           </div>
         ) : (
-          filteredReqs.map(req => (
-            <RequirementCard
-              key={req.firebaseId || req.id}
-              requirement={req}
-              onUpdateStatus={onUpdateStatus}
-              statusField={list.statusField}
-              workspace={workspace}
-              onOpenDetail={onOpenDetail}
-            />
-          ))
+          items.map(item => renderCard(item))
         )}
       </div>
     </div>
@@ -377,9 +644,14 @@ function ListView({ requirements, workspace, selectedList, onUpdateStatus, onOpe
 
 export default function WorkspaceBoard({ 
   requirements = [], 
+  tasks = [],
+  testDocuments = [],
   selectedWorkspace, 
   selectedList,
   onUpdateRequirement,
+  onUpdateTask,
+  onDeleteTask,
+  onUpdateTestDocument,
   users = [],
   currentUser,
   onAddNotification,
@@ -389,26 +661,37 @@ export default function WorkspaceBoard({
   const [viewMode, setViewMode] = useState('kanban') // 'kanban' ou 'list'
   const [searchTerm, setSearchTerm] = useState('')
   const [filterModule, setFilterModule] = useState('all')
-  const [selectedRequirementId, setSelectedRequirementId] = useState(null)
+  const [selectedItem, setSelectedItem] = useState(null)
+  const [selectedItemType, setSelectedItemType] = useState(null) // 'requirement', 'task', 'testDocument'
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false)
 
   const workspace = WORKSPACES.find(w => w.id === selectedWorkspace)
   
-  // Buscar o requirement atualizado da lista (para refletir mudanças em tempo real)
+  // Buscar o item atualizado da lista (para refletir mudanças em tempo real)
   const selectedRequirement = useMemo(() => {
-    if (!selectedRequirementId) return null
-    return requirements.find(r => r.firebaseId === selectedRequirementId) || null
-  }, [requirements, selectedRequirementId])
+    if (!selectedItem || selectedItemType !== 'requirement') return null
+    return requirements.find(r => r.firebaseId === selectedItem.firebaseId) || null
+  }, [requirements, selectedItem, selectedItemType])
 
-  const handleOpenDetail = (requirement) => {
-    setSelectedRequirementId(requirement.firebaseId)
-    setIsModalOpen(true)
+  const handleOpenDetail = (item, type = 'requirement') => {
+    setSelectedItem(item)
+    setSelectedItemType(type)
+    if (type === 'requirement') {
+      setIsModalOpen(true)
+    } else if (type === 'task') {
+      // Para tarefas, abrir em nova aba ou modal específico
+      window.open(`#/sprints?task=${item.id}`, '_blank')
+    } else if (type === 'testDocument') {
+      // Para documentos de teste, abrir na página de documentos
+      window.open(`#/documentos?id=${item.id}`, '_blank')
+    }
   }
 
   const handleCloseModal = () => {
     setIsModalOpen(false)
-    setSelectedRequirementId(null)
+    setSelectedItem(null)
+    setSelectedItemType(null)
   }
   
   // Módulos únicos
@@ -417,7 +700,42 @@ export default function WorkspaceBoard({
     return uniqueModules.sort()
   }, [requirements])
 
-  // Filtrar requisitos
+  // Função para obter itens filtrados para uma lista específica
+  const getItemsForList = (list) => {
+    if (list.type === 'tasks') {
+      return tasks.filter(task => {
+        const matchesStatus = task[list.statusField] === list.statusValue
+        const matchesSearch = !searchTerm || 
+          task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          task.description?.toLowerCase().includes(searchTerm.toLowerCase())
+        return matchesStatus && matchesSearch
+      })
+    } else if (list.type === 'testDocuments') {
+      return testDocuments.filter(doc => {
+        const matchesStatus = list.statusValues 
+          ? list.statusValues.includes(doc[list.statusField])
+          : doc[list.statusField] === list.statusValue
+        const matchesSearch = !searchTerm || 
+          doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          doc.feature?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          doc.requirement?.toLowerCase().includes(searchTerm.toLowerCase())
+        return matchesStatus && matchesSearch
+      })
+    } else {
+      // requirements (default)
+      return requirements.filter(req => {
+        const matchesStatus = req[list.statusField] === list.statusValue
+        const matchesSearch = !searchTerm ||
+          req.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          req.descricao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          req.modulo?.toLowerCase().includes(searchTerm.toLowerCase())
+        const matchesModule = filterModule === 'all' || req.modulo === filterModule
+        return matchesStatus && matchesSearch && matchesModule
+      })
+    }
+  }
+
+  // Filtrar requisitos (para ListView que ainda usa isso)
   const filteredRequirements = useMemo(() => {
     return requirements.filter(req => {
       const matchesSearch = 
@@ -429,6 +747,17 @@ export default function WorkspaceBoard({
       return matchesSearch && matchesModule
     })
   }, [requirements, searchTerm, filterModule])
+
+  // Handler para atualizar status baseado no tipo
+  const handleUpdateStatus = (itemId, updates, type) => {
+    if (type === 'tasks' || updates.status) {
+      return onUpdateTask?.(itemId, updates)
+    } else if (type === 'testDocuments') {
+      return onUpdateTestDocument?.(itemId, updates)
+    } else {
+      return onUpdateRequirement?.(itemId, updates)
+    }
+  }
 
   if (!workspace) {
     return (
@@ -533,10 +862,11 @@ export default function WorkspaceBoard({
               <KanbanColumn
                 key={list.id}
                 list={list}
-                requirements={filteredRequirements}
+                items={getItemsForList(list)}
                 workspace={workspace}
-                onUpdateStatus={onUpdateRequirement}
+                onUpdateStatus={(id, updates) => handleUpdateStatus(id, updates, list.type)}
                 onOpenDetail={handleOpenDetail}
+                users={users}
               />
             ))}
           </div>
