@@ -1,8 +1,63 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.3.0'
+export const APP_VERSION = '2.4.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.4.0',
+    date: '2026-02-06',
+    title: 'Testes Automatizados Integrados',
+    changes: [
+      {
+        type: 'feature',
+        description: '🤖 Testes Automatizados - Nova página dedicada para executar e monitorar testes Playwright'
+      },
+      {
+        type: 'feature',
+        description: '▶️ Execução de Testes - Dispare testes específicos ou suite completa direto do TestWise'
+      },
+      {
+        type: 'feature',
+        description: '🌍 Seleção de Ambiente - Escolha entre Homologação ou Produção'
+      },
+      {
+        type: 'feature',
+        description: '🤖 Status dos Runners - Veja em tempo real se os runners estão online, ocupados ou offline'
+      },
+      {
+        type: 'feature',
+        description: '📊 Histórico de Execuções - Lista completa com status, conclusão e informações detalhadas'
+      },
+      {
+        type: 'feature',
+        description: '📜 Logs Completos - Visualize logs de cada job após finalização da execução'
+      },
+      {
+        type: 'feature',
+        description: '📄 Relatório HTML Integrado - Dashboard customizado com estatísticas e documentação dos testes'
+      },
+      {
+        type: 'feature',
+        description: '🎨 Loading Personalizado - Logos OrquestraIA e OM30 durante execução'
+      },
+      {
+        type: 'feature',
+        description: '⚙️ Configuração de Token - GitHub Personal Access Token salvo localmente'
+      },
+      {
+        type: 'improvement',
+        description: '💡 Mensagens Informativas - Avisos claros sobre limitações da API e status dos testes'
+      },
+      {
+        type: 'improvement',
+        description: '🔄 Auto-refresh - Atualização automática de status durante execução'
+      },
+      {
+        type: 'improvement',
+        description: '📥 Download de Logs - Baixe logs em arquivo .txt para análise offline'
+      }
+    ]
+  },
   {
     version: '2.3.0',
     date: '2026-02-03',

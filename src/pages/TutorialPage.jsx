@@ -30,7 +30,8 @@ import {
   Plus,
   Bug,
   Camera,
-  UserCircle
+  UserCircle,
+  Workflow
 } from 'lucide-react'
 
 export default function TutorialPage() {
