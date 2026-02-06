@@ -162,9 +162,12 @@ export default function WorkspaceSidebar({
   }
 
   // Contar itens por lista (suporta requirements, tasks e testDocuments)
-  const getListCount = (list) => {
+  const getListCount = (list, workspaceId) => {
     if (list.type === 'tasks') {
-      return tasks.filter(task => task[list.statusField] === list.statusValue).length
+      return tasks.filter(task => {
+        const matchesStatus = task[list.statusField] === list.statusValue
+        return matchesStatus
+      }).length
     } else if (list.type === 'testDocuments') {
       if (list.statusValues) {
         return testDocuments.filter(doc => list.statusValues.includes(doc[list.statusField])).length
@@ -178,7 +181,7 @@ export default function WorkspaceSidebar({
 
   // Contar total de itens por workspace
   const getWorkspaceCount = (workspace) => {
-    return workspace.lists.reduce((total, list) => total + getListCount(list), 0)
+    return workspace.lists.reduce((total, list) => total + getListCount(list, workspace.id), 0)
   }
 
   if (!isOpen) {
@@ -300,7 +303,7 @@ export default function WorkspaceSidebar({
                   {workspace.lists.map(list => {
                     const ListIcon = list.icon
                     const listColors = colorClasses[list.color]
-                    const count = getListCount(list)
+                    const count = getListCount(list, workspace.id)
                     const isListSelected = selectedWorkspace === workspace.id && selectedList === list.id
 
                     return (

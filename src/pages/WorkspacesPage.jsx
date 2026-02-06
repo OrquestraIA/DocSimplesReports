@@ -14,7 +14,13 @@ export default function WorkspacesPage({
   onUpdateTask,
   onDeleteTask,
   testDocuments = [],
-  onUpdateTestDocument
+  onUpdateTestDocument,
+  onAddTaskComment,
+  onToggleTaskReaction,
+  onUploadTaskEvidence,
+  onDeleteTaskEvidence,
+  onRequestRetest,
+  onUpdateDocumentStatus
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedWorkspace, setSelectedWorkspace] = useState('operacao')
@@ -48,6 +54,12 @@ export default function WorkspacesPage({
         onAddNotification={onAddNotification}
         sprints={sprints}
         onCreateTask={onCreateTask}
+        onAddTaskComment={onAddTaskComment}
+        onToggleTaskReaction={onToggleTaskReaction}
+        onUploadTaskEvidence={onUploadTaskEvidence}
+        onDeleteTaskEvidence={onDeleteTaskEvidence}
+        onRequestRetest={onRequestRetest}
+        onUpdateDocumentStatus={onUpdateDocumentStatus}
       />
     </div>
   )
