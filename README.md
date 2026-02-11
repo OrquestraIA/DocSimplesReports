@@ -18,12 +18,20 @@ TestWise é uma plataforma integrada para equipes de QA que combina:
 - Categorização: Bug, Regra de Negócio, Melhoria
 - Upload de evidências (imagens e vídeos) com drag-and-drop e Ctrl+V
 - Integração automática com Jira
+- Geração automática com IA de título, descrição, passos e resultados esperados
 
 ### 📊 Gestão de Sprints e Backlog
 - Importe testes pendentes/reprovados como tarefas
 - Organize tarefas em sprints
 - Atribua responsáveis e acompanhe o progresso
 - Estatísticas por sprint e backlog
+- Botão "Gerar com IA" para criar tarefas com título, descrição e prioridade sugeridos
+
+### 📤 Exportação de Requisitos
+- Exporte a tabela completa em CSV, Excel ou Markdown com todos os filtros aplicados
+- Planilhas Excel já saem com largura de colunas pré-configurada para leitura imediata
+- CSV acompanha BOM e separador configurado para abrir “certinho” no Excel/Google Sheets
+- Mantém todos os campos dos requisitos (status, versões, observações, responsável, etc.)
 
 ### ✅ Casos de Teste
 - Crie casos de teste reutilizáveis

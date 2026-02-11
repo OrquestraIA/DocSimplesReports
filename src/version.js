@@ -1,8 +1,31 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.4.0'
+export const APP_VERSION = '2.5.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.5.0',
+    date: '2026-02-11',
+    title: 'Exportações e IA em Todo Lugar',
+    changes: [
+      {
+        type: 'feature',
+        description: '📤 Exportação avançada da tabela de requisitos em CSV/Excel/Markdown com todos os campos formatados automaticamente'
+      },
+      {
+        type: 'feature',
+        description: '🧠 Geração de documentos de teste com IA direto do formulário de registro'
+      },
+      {
+        type: 'feature',
+        description: '⚡ Criação de tarefas com IA no módulo de Sprints e diretamente no fluxo de registro de documentos de teste'
+      },
+      {
+        type: 'improvement',
+        description: '📘 Tutorial e README atualizados com guias completos sobre exportações e recursos de IA'
+      }
+    ]
+  },
   {
     version: '2.4.0',
     date: '2026-02-06',

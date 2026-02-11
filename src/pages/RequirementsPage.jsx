@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx'
 import { 
   Upload, FileSpreadsheet, Search, Filter, CheckCircle2, XCircle, Clock, 
   AlertTriangle, BarChart3, RefreshCw, Trash2, Download, ChevronDown, X,
-  TrendingUp, Calendar
+  TrendingUp, Calendar, FileText
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
@@ -57,6 +57,62 @@ const STATUS_QA_OPTIONS = [
   { value: '', label: '-' }
 ]
 
+const REQUIREMENT_EXPORT_HEADERS = [
+  'ID',
+  'Obrigatório',
+  'Módulo',
+  'Descrição',
+  'Responsável',
+  'Arquivo Fonte',
+  'Status Dev',
+  'Status QA Dev',
+  'Status QA Homolog',
+  'Status Homolog',
+  'Data Aprovação',
+  'Versão Dev',
+  'Versão Homolog',
+  'Observação QA',
+  'Observação'
+]
+
+const formatRequirementForExport = (req = {}) => ({
+  id: req.id || '',
+  obrigatorio: ['SIM', 'Sim', 'sim'].includes(req.obrigatorio) ? 'SIM' : 'NÃO',
+  modulo: req.modulo || '',
+  descricao: req.descricao || '',
+  responsavel: req.responsavel || '',
+  arquivoFonte: req.arquivoFonte || '',
+  statusDev: req.statusDev || '',
+  statusQADev: req.statusQADev || '',
+  statusQAHomolog: req.statusQAHomolog || '',
+  statusHomolog: req.statusHomolog || 'Pendente',
+  dataAprovacao: req.dataAprovacaoHomolog 
+    ? new Date(req.dataAprovacaoHomolog).toLocaleDateString('pt-BR') 
+    : '',
+  versaoDev: req.versaoDev || '',
+  versaoHomolog: req.versaoHomolog || '',
+  observacaoQA: req.observacaoQA || '',
+  observacao: req.observacao || ''
+})
+
+const REQUIREMENT_EXPORT_COLUMN_WIDTHS = [
+  { wch: 12 },  // ID
+  { wch: 10 },  // Obrigatório
+  { wch: 20 },  // Módulo
+  { wch: 60 },  // Descrição
+  { wch: 24 },  // Responsável
+  { wch: 24 },  // Arquivo Fonte
+  { wch: 18 },  // Status Dev
+  { wch: 18 },  // Status QA Dev
+  { wch: 20 },  // Status QA Homolog
+  { wch: 20 },  // Status Homolog
+  { wch: 16 },  // Data Aprovação
+  { wch: 12 },  // Versão Dev
+  { wch: 14 },  // Versão Homolog
+  { wch: 28 },  // Observação QA
+  { wch: 32 }   // Observação
+]
+
 // Tooltip customizado para Dark Mode
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -71,6 +127,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       </div>
     )
   }
+
   return null
 }
 
@@ -88,6 +145,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
   const [loadingMessage, setLoadingMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 50
+  const [exporting, setExporting] = useState(false)
 
   // Módulos únicos
   const modules = useMemo(() => {
@@ -131,6 +189,137 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     const startIndex = (currentPage - 1) * itemsPerPage
     return filteredRequirements.slice(startIndex, startIndex + itemsPerPage)
   }, [filteredRequirements, currentPage, itemsPerPage])
+
+  const exportableRequirements = useMemo(() => {
+    return filteredRequirements.map(formatRequirementForExport)
+  }, [filteredRequirements])
+
+  const downloadBlob = (blobContent, filename, type) => {
+    const blob = blobContent instanceof Blob ? blobContent : new Blob([blobContent], { type })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportCSV = () => {
+    if (!exportableRequirements.length) return
+    setExporting(true)
+    try {
+      const rows = exportableRequirements.map(req => [
+        req.id,
+        req.obrigatorio,
+        req.modulo,
+        (req.descricao || '').replace(/"/g, '""'),
+        req.responsavel,
+        req.arquivoFonte,
+        req.statusDev,
+        req.statusQADev,
+        req.statusQAHomolog,
+        req.statusHomolog,
+        req.dataAprovacao,
+        req.versaoDev,
+        req.versaoHomolog,
+        (req.observacaoQA || '').replace(/"/g, '""'),
+        (req.observacao || '').replace(/"/g, '""')
+      ].map(cell => `"${cell ?? ''}"`).join(';'))
+
+      const csvContent = [
+        REQUIREMENT_EXPORT_HEADERS.join(';'),
+        ...rows
+      ].join('\n')
+
+      const BOM = '\uFEFF'
+      downloadBlob(BOM + csvContent, `requisitos-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8')
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error)
+      alert('Erro ao exportar CSV. Tente novamente.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportExcel = () => {
+    if (!exportableRequirements.length) return
+    setExporting(true)
+    try {
+      const worksheetData = [
+        REQUIREMENT_EXPORT_HEADERS,
+        ...exportableRequirements.map(req => [
+          req.id,
+          req.obrigatorio,
+          req.modulo,
+          req.descricao,
+          req.responsavel,
+          req.arquivoFonte,
+          req.statusDev,
+          req.statusQADev,
+          req.statusQAHomolog,
+          req.statusHomolog,
+          req.dataAprovacao,
+          req.versaoDev,
+          req.versaoHomolog,
+          req.observacaoQA,
+          req.observacao
+        ])
+      ]
+
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
+      worksheet['!cols'] = REQUIREMENT_EXPORT_COLUMN_WIDTHS
+
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Requisitos')
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      downloadBlob(blob, `requisitos-${new Date().toISOString().split('T')[0]}.xlsx`, blob.type)
+    } catch (error) {
+      console.error('Erro ao exportar Excel:', error)
+      alert('Erro ao exportar Excel. Tente novamente.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportMarkdown = () => {
+    if (!exportableRequirements.length) return
+    setExporting(true)
+    try {
+      const headerRow = `| ${REQUIREMENT_EXPORT_HEADERS.join(' | ')} |`
+      const separatorRow = `| ${REQUIREMENT_EXPORT_HEADERS.map(() => '---').join(' | ')} |`
+      const rows = exportableRequirements.map(req => {
+        const values = [
+          req.id,
+          req.obrigatorio,
+          req.modulo,
+          (req.descricao || '').replace(/\r?\n|\r/g, ' '),
+          req.responsavel,
+          req.arquivoFonte,
+          req.statusDev,
+          req.statusQADev,
+          req.statusQAHomolog,
+          req.statusHomolog,
+          req.dataAprovacao,
+          req.versaoDev,
+          req.versaoHomolog,
+          (req.observacaoQA || '').replace(/\r?\n|\r/g, ' '),
+          (req.observacao || '').replace(/\r?\n|\r/g, ' ')
+        ]
+        return `| ${values.map(value => (value || '').toString().replace(/\|/g, '\\|')).join(' | ')} |`
+      })
+
+      const markdownContent = [headerRow, separatorRow, ...rows].join('\n')
+      downloadBlob(markdownContent, `requisitos-${new Date().toISOString().split('T')[0]}.md`, 'text/markdown;charset=utf-8')
+    } catch (error) {
+      console.error('Erro ao exportar Markdown:', error)
+      alert('Erro ao exportar Markdown. Tente novamente.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Reset página quando filtros mudam
   const handleFilterChange = (setter) => (e) => {
@@ -532,6 +721,38 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
             />
           </label>
         </div>
+
+        <div className="flex flex-wrap gap-3 items-center justify-between border-t border-gray-100 pt-4">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold">{filteredRequirements.length}</span> requisitos filtrados
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleExportCSV}
+              disabled={exporting || exportableRequirements.length === 0}
+              className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              CSV
+            </button>
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting || exportableRequirements.length === 0}
+              className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+              Excel
+            </button>
+            <button
+              onClick={handleExportMarkdown}
+              disabled={exporting || exportableRequirements.length === 0}
+              className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+              Markdown
+            </button>
+          </div>
+        </div>
       </div>
 
       {requirements.length === 0 ? (
@@ -857,8 +1078,8 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
             </div>
           )}
 
-          {/* Filters */}
-          <div className="card">
+          {/* Filters & Export */}
+          <div className="card space-y-4">
             <div className="flex flex-col md:flex-row gap-4 flex-wrap">
               <div className="flex-1 relative min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

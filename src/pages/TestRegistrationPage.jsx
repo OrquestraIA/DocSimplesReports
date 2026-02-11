@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Save, Plus, Trash2, AlertCircle, CheckCircle, Upload, Image, X, Loader2, ExternalLink } from 'lucide-react'
+import { Save, Plus, Trash2, AlertCircle, CheckCircle, Upload, Image, X, Loader2, ExternalLink, Sparkles } from 'lucide-react'
 import { uploadScreenshot } from '../firebase'
 import { createJiraIssue } from '../jiraService'
+import AIService from '../services/aiService' // Voltando para IA real
 
 export default function TestRegistrationPage({ onSave }) {
   const navigate = useNavigate()
@@ -14,6 +15,13 @@ export default function TestRegistrationPage({ onSave }) {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
+  
+  // Estados para IA
+  const [showAIModal, setShowAIModal] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiTestDescription, setAiTestDescription] = useState('')
+  const [aiTestType, setAiTestType] = useState('funcional')
+  const [aiTestPriority, setAiTestPriority] = useState('media')
   
   const [formData, setFormData] = useState({
     title: '',
@@ -85,6 +93,60 @@ export default function TestRegistrationPage({ onSave }) {
     if (formData.elements.length > 1) {
       const newElements = formData.elements.filter((_, i) => i !== index)
       setFormData({ ...formData, elements: newElements })
+    }
+  }
+
+  // Função para gerar documento de teste com IA
+  const handleAIGenerateTestDocument = async () => {
+    if (!aiTestDescription.trim()) {
+      alert('Por favor, descreva o teste que deseja gerar.')
+      return
+    }
+
+    setAiGenerating(true)
+
+    try {
+      // Gerar detalhes do documento com IA
+      const aiResponse = await AIService.generateTestDocument({
+        description: aiTestDescription,
+        testType: aiTestType,
+        priority: aiTestPriority
+      })
+
+      // Preencher formulário com dados da IA
+      setFormData({
+        title: aiResponse.title,
+        requirement: aiResponse.requirement,
+        requirementDescription: aiResponse.requirementDescription,
+        feature: aiResponse.feature,
+        module: aiResponse.module,
+        testType: aiTestType,
+        priority: aiTestPriority,
+        status: 'pendente',
+        tester: '',
+        environment: aiResponse.environment,
+        category: aiResponse.category,
+        errorType: aiResponse.errorType || '',
+        improvement: aiResponse.improvement || '',
+        improvementJustification: aiResponse.improvementJustification || '',
+        preconditions: aiResponse.preconditions,
+        steps: aiResponse.steps,
+        observations: aiResponse.observations,
+        evidences: aiResponse.evidences,
+        elements: aiResponse.elements
+      })
+
+      setShowAIModal(false)
+      setAiTestDescription('')
+      setAiTestType('funcional')
+      setAiTestPriority('media')
+      
+      alert('Documento de teste gerado com sucesso pela IA! Revise os dados antes de salvar.')
+    } catch (error) {
+      console.error('Erro ao gerar documento com IA:', error)
+      alert('Erro ao gerar documento com IA. Tente novamente.')
+    } finally {
+      setAiGenerating(false)
     }
   }
 
@@ -251,8 +313,30 @@ export default function TestRegistrationPage({ onSave }) {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Registrar Teste de Homologação</h1>
-        <p className="text-gray-600 mt-1">Preencha os dados do teste realizado</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Registrar Teste de Homologação</h1>
+            <p className="text-gray-600 mt-1">Preencha os dados do teste realizado</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAIModal(true)}
+            className="btn-secondary flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={aiGenerating}
+          >
+            {aiGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Gerando...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Gerar com IA</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -785,6 +869,123 @@ export default function TestRegistrationPage({ onSave }) {
           </button>
         </div>
       </form>
+
+      {/* AI Test Document Generation Modal */}
+      {showAIModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl my-8">
+            <div className="p-6 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Gerar Documento de Teste com IA</h2>
+                  <p className="text-sm text-gray-600">Descreva o teste e a IA criará o documento completo</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Teste
+                </label>
+                <select
+                  value={aiTestType}
+                  onChange={(e) => setAiTestType(e.target.value)}
+                  className="input-field w-full"
+                >
+                  <option value="funcional">Funcional</option>
+                  <option value="regressao">Regressão</option>
+                  <option value="performance">Performance</option>
+                  <option value="seguranca">Segurança</option>
+                  <option value="usabilidade">Usabilidade</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Prioridade
+                </label>
+                <select
+                  value={aiTestPriority}
+                  onChange={(e) => setAiTestPriority(e.target.value)}
+                  className="input-field w-full"
+                >
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Média</option>
+                  <option value="alta">Alta</option>
+                  <option value="critica">Crítica</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Descrição do Teste *
+                </label>
+                <textarea
+                  value={aiTestDescription}
+                  onChange={(e) => setAiTestDescription(e.target.value)}
+                  className="input-field w-full"
+                  rows={6}
+                  placeholder="Descreva detalhadamente o que precisa ser testado:
+
+Exemplo: Preciso testar a funcionalidade de login do sistema, validando o acesso com credenciais corretas, tratamento de erros para senhas incorretas, recuperação de senha e login com redes sociais. O teste deve cobrir também validação de campos obrigatórios e tentativas de acesso com usuários bloqueados."
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Seja específico para melhores resultados. A IA criará um documento completo com todos os campos.
+                </p>
+              </div>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="font-medium text-purple-900 mb-2">O que a IA vai gerar:</h3>
+                <ul className="text-sm text-purple-700 space-y-1">
+                  <li>• Título e requisito associado</li>
+                  <li>• Funcionalidade e módulo</li>
+                  <li>• Pré-condições detalhadas</li>
+                  <li>• Passos de teste completos</li>
+                  <li>• Resultados esperados e observações</li>
+                  <li>• Ambiente e elementos de teste</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowAIModal(false)
+                  setAiTestDescription('')
+                  setAiTestType('funcional')
+                  setAiTestPriority('media')
+                }}
+                className="btn-secondary"
+                disabled={aiGenerating}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAIGenerateTestDocument}
+                disabled={aiGenerating || !aiTestDescription.trim()}
+                className="btn-primary bg-purple-600 hover:bg-purple-700 flex items-center gap-2"
+              >
+                {aiGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Gerar Documento
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

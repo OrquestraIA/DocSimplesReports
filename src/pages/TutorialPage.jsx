@@ -75,6 +75,11 @@ export default function TutorialPage() {
           tip: 'Seja detalhista nos passos para facilitar a reprodução do cenário pelo desenvolvedor.'
         },
         {
+          title: 'Gere o documento com IA (opcional)',
+          description: 'Clique em "Gerar com IA" para que o sistema monte automaticamente título, descrição, passos e resultados esperados a partir dos requisitos informados.',
+          tip: 'Revise o conteúdo gerado e personalize antes de salvar para manter o contexto do seu projeto.'
+        },
+        {
           title: 'Anexe Evidências',
           description: 'Faça upload de imagens ou vídeos: clique para selecionar, arraste arquivos ou cole com Ctrl+V.',
           tip: 'Vídeos são ótimos para demonstrar bugs de comportamento. Veja a seção "Upload de Evidências" para mais detalhes.'
@@ -338,6 +343,11 @@ export default function TutorialPage() {
           tip: 'A planilha deve ter uma aba chamada "Requisitos" ou o sistema usará a primeira aba.'
         },
         {
+          title: 'Exportando a Tabela Completa',
+          description: 'Use os botões CSV, Excel ou Markdown para baixar todos os requisitos já filtrados com formatação pronta (colunas dimensionadas no Excel).',
+          tip: 'O Excel sai com largura configurada e o CSV já abre organizado no Excel/Google Sheets.'
+        },
+        {
           title: 'Visualizando Gráficos',
           description: 'A página exibe gráficos de: Requisitos Obrigatórios (aprovados/pendentes), Status Homologação, Status Desenvolvimento e Top Módulos.',
           tip: 'O gráfico de Obrigatórios em vermelho mostra o progresso dos requisitos críticos.'
@@ -447,6 +457,11 @@ export default function TutorialPage() {
           title: 'Criando Tarefas Manualmente',
           description: 'Clique em "Nova Tarefa" para criar uma tarefa do zero. Defina tipo (Bug, Regra de Negócio, Melhoria), prioridade e responsável.',
           tip: 'Você pode criar tarefas que não estão vinculadas a documentos de teste.'
+        },
+        {
+          title: 'Gerando tarefas com IA',
+          description: 'No botão "Gerar com IA" descreva rapidamente o problema e deixe o sistema sugerir título, descrição detalhada e prioridade para a nova tarefa.',
+          tip: 'Ideal para acelerar o backlog a partir de insights rápidos durante a triagem.'
         },
         {
           title: 'Criando Sprints',

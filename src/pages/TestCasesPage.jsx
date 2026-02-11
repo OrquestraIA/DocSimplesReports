@@ -2,10 +2,11 @@ import { useState, useMemo } from 'react'
 import { 
   Plus, Search, Filter, Play, Edit2, Trash2, Eye, CheckCircle, XCircle, 
   Clock, FileText, ChevronDown, ChevronRight, AlertTriangle, Copy,
-  MoreVertical, PlayCircle, History
+  MoreVertical, PlayCircle, History, Sparkles, Loader2
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import MediaViewer from '../components/MediaViewer'
+import AIService from '../services/aiService' // Usando IA real
 
 const STATUS_COLORS = {
   'draft': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Rascunho' },
@@ -31,6 +32,7 @@ const EXECUTION_STATUS = {
 export default function TestCasesPage({ 
   testCases = [], 
   executions = [],
+  requirements = [], // Adicionando requirements
   onCreateTestCase, 
   onUpdateTestCase, 
   onDeleteTestCase,
@@ -46,6 +48,12 @@ export default function TestCasesPage({
   const [viewingTestCase, setViewingTestCase] = useState(null)
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
+  
+  // Estados para IA
+  const [showAIModal, setShowAIModal] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [selectedModule, setSelectedModule] = useState('')
+  const [aiRequirements, setAiRequirements] = useState('')
 
   // Módulos únicos
   const modules = useMemo(() => {
@@ -121,6 +129,47 @@ export default function TestCasesPage({
     }
   }
 
+  // Função para gerar casos de teste com IA
+  const handleAIGenerate = async () => {
+    if (!aiRequirements.trim()) {
+      alert('Por favor, descreva os requisitos para geração dos casos de teste.')
+      return
+    }
+
+    setAiGenerating(true)
+    setLoadingMessage('Gerando casos de teste com IA...')
+    setLoading(true)
+
+    try {
+      const requirements = aiRequirements.split('\n').filter(r => r.trim())
+      const generatedTestCases = await AIService.generateTestCases(requirements, selectedModule)
+
+      // Criar cada caso de teste gerado
+      for (const testCase of generatedTestCases) {
+        await onCreateTestCase({
+          ...testCase,
+          status: 'draft',
+          priority: 'medium',
+          module: selectedModule || 'geral',
+          createdBy: currentUser?.id || 'system'
+        })
+      }
+
+      setShowAIModal(false)
+      setAiRequirements('')
+      setSelectedModule('')
+      
+      alert(`${generatedTestCases.length} casos de teste gerados com sucesso!`)
+    } catch (error) {
+      console.error('Erro ao gerar casos de teste:', error)
+      alert('Erro ao gerar casos de teste. Tente novamente.')
+    } finally {
+      setAiGenerating(false)
+      setLoading(false)
+      setLoadingMessage('')
+    }
+  }
+
   return (
     <div className="space-y-6">
       {loading && <LoadingSpinner message={loadingMessage} />}
@@ -135,13 +184,22 @@ export default function TestCasesPage({
               : 'Crie seus casos de teste para execução'}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Caso de Teste
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Caso de Teste
+          </button>
+          <button
+            onClick={() => setShowAIModal(true)}
+            className="btn-secondary flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Sparkles className="w-4 h-4" />
+            Gerar com IA
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -409,6 +467,104 @@ export default function TestCasesPage({
             setEditingTestCase(viewingTestCase)
           }}
         />
+      )}
+
+      {/* AI Generation Modal */}
+      {showAIModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl my-8">
+            <div className="p-6 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Gerar Casos de Teste com IA</h2>
+                  <p className="text-sm text-gray-600">Descreva os requisitos e a IA criará casos de teste automaticamente</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Módulo (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={selectedModule}
+                  onChange={(e) => setSelectedModule(e.target.value)}
+                  className="input-field w-full"
+                  placeholder="Ex: Autenticação, Cadastro, Relatórios"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Requisitos para Teste *
+                </label>
+                <textarea
+                  value={aiRequirements}
+                  onChange={(e) => setAiRequirements(e.target.value)}
+                  className="input-field w-full"
+                  rows={8}
+                  placeholder="Descreva os requisitos que precisam ser testados. Um por linha:
+
+• Login do usuário com email e senha
+• Recuperação de senha via email
+• Validação de campos obrigatórios no formulário
+• Exportação de relatórios em PDF
+• Pesquisa de registros com filtros"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Seja específico para melhores resultados. A IA criará casos de teste para cada requisito.
+                </p>
+              </div>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="font-medium text-purple-900 mb-2">O que a IA vai criar:</h3>
+                <ul className="text-sm text-purple-700 space-y-1">
+                  <li>• Títulos descritivos para cada caso de teste</li>
+                  <li>• Passos detalhados com ações e resultados esperados</li>
+                  <li>• Pré-condições quando aplicável</li>
+                  <li>• Prioridade sugerida baseada na criticidade</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowAIModal(false)
+                  setAiRequirements('')
+                  setSelectedModule('')
+                }}
+                className="btn-secondary"
+                disabled={aiGenerating}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAIGenerate}
+                disabled={aiGenerating || !aiRequirements.trim()}
+                className="btn-primary bg-purple-600 hover:bg-purple-700 flex items-center gap-2"
+              >
+                {aiGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Gerar Casos de Teste
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

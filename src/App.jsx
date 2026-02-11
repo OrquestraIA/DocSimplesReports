@@ -27,6 +27,8 @@ import { ToastProvider, useToast } from './components/Toast'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import { APP_VERSION } from './version'
 import { sendTaskAssignmentEmail } from './emailService'
+import mainLogo from '/logo.png'
+import orquestraLogo from '/logo-orquestraia-transp.png'
 import {
   addTestDocument as addTestDocumentDB,
   updateTestDocument as updateTestDocumentDB,
@@ -114,7 +116,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
         <div className="flex justify-between h-16">
           <div className="flex items-center flex-shrink-0 gap-3">
             <Link to="/" className="flex items-center space-x-2">
-              <img src="/DocSimplesReports/logo.png" alt="OM30" className="w-8 h-8 rounded-lg object-contain" />
+              <img src={mainLogo} alt="OM30" className="w-8 h-8 rounded-lg object-contain" />
               <div className="flex flex-col">
                 <span className="font-bold text-xl text-gray-900 dark:text-white whitespace-nowrap leading-tight">TestWise</span>
                 <span className="text-xs text-gray-400">v{APP_VERSION}</span>
@@ -122,7 +124,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
             </Link>
             <div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
             <a href="https://github.com/OrquestraIA" target="_blank" rel="noopener noreferrer" className="hidden sm:block hover:opacity-80 transition-opacity">
-              <img src="/DocSimplesReports/logo-orquestraia-transp.png" alt="OrquestraIA" className="h-10 w-auto" />
+              <img src={orquestraLogo} alt="OrquestraIA" className="h-10 w-auto" />
             </a>
           </div>
 
@@ -706,6 +708,7 @@ function App() {
                 <TestCasesPage 
                   testCases={testCases}
                   executions={testExecutions}
+                  requirements={requirements}
                   onCreateTestCase={createTestCase}
                   onUpdateTestCase={updateTestCase}
                   onDeleteTestCase={deleteTestCase}

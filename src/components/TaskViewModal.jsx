@@ -111,10 +111,32 @@ export default function TaskViewModal({
   
   const assigneeUser = users.find(u => u.id === task.assignee)
   const screenshots = task.screenshots || task.sourceData?.screenshots || []
+  
+  // Buscar attachments em múltiplos locais (fallback para tarefas antigas)
+  let attachments = task.attachments || task.sourceData?.evidences || []
+  
+  // Se ainda não encontrou, tentar extrair de failedSteps
+  if (attachments.length === 0 && task.sourceData?.failedSteps) {
+    const evidencesFromSteps = []
+    task.sourceData.failedSteps.forEach((step, index) => {
+      if (step.evidences && step.evidences.length > 0) {
+        step.evidences.forEach(evidence => {
+          evidencesFromSteps.push({
+            ...evidence,
+            stepIndex: index,
+            stepAction: step.action
+          })
+        })
+      }
+    })
+    attachments = evidencesFromSteps
+  }
+  
   const sourceData = task.sourceData || {}
 
   // Filtrar usuários para menções
   const filteredUsers = users.filter(u => 
+    u.mentionName?.toLowerCase().includes(mentionFilter.toLowerCase()) ||
     u.name?.toLowerCase().includes(mentionFilter.toLowerCase()) ||
     u.email?.toLowerCase().includes(mentionFilter.toLowerCase())
   ).slice(0, 5)
@@ -143,8 +165,8 @@ export default function TaskViewModal({
   const insertMention = (user) => {
     const lastAtIndex = newComment.lastIndexOf('@')
     const textBefore = newComment.slice(0, lastAtIndex)
-    const userName = user.name || user.email.split('@')[0]
-    setNewComment(`${textBefore}@${userName} `)
+    const mentionValue = user.mentionName || user.name?.replace(/\s+/g, '').toLowerCase() || user.email?.split('@')[0] || 'usuario'
+    setNewComment(`${textBefore}@${mentionValue} `)
     setShowMentions(false)
     textareaRef.current?.focus()
   }
@@ -416,6 +438,50 @@ export default function TaskViewModal({
                       />
                     )}
                   </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Evidências de Falha do Teste */}
+          {attachments.length > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+              <label className="text-xs font-medium text-red-700 dark:text-red-400 mb-2 block">
+                ❌ Evidências da Falha no Teste ({attachments.length})
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {attachments.map((att, index) => (
+                  <div key={index} className="relative">
+                    <button
+                      onClick={() => onViewMedia(attachments.map(a => ({ 
+                        url: a.url, 
+                        type: a.type || 'image', 
+                        name: a.name || `Evidência ${index + 1}`
+                      })), index)}
+                      className="relative group cursor-pointer"
+                    >
+                      {att.type === 'video' || att.url?.includes('.mp4') || att.url?.includes('.webm') ? (
+                        <div className="relative w-24 h-24">
+                          <video src={att.url} className="w-24 h-24 object-cover rounded-lg border-2 border-red-300 dark:border-red-700" />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center hover:bg-black/50 transition-colors">
+                            <Play className="w-8 h-8 text-white" />
+                          </div>
+                          <span className="absolute bottom-1 left-1 text-xs bg-black/70 text-white px-1 rounded">Vídeo</span>
+                        </div>
+                      ) : (
+                        <img 
+                          src={att.url} 
+                          alt={att.name || `Evidência ${index + 1}`} 
+                          className="w-24 h-24 object-cover rounded-lg border-2 border-red-300 dark:border-red-700 hover:opacity-80 transition-opacity" 
+                        />
+                      )}
+                    </button>
+                    {att.stepAction && (
+                      <div className="absolute -bottom-6 left-0 right-0 text-xs text-red-600 dark:text-red-400 truncate text-center" title={att.stepAction}>
+                        Passo {att.stepIndex + 1}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

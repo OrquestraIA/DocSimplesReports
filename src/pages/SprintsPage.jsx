@@ -4,7 +4,7 @@ import {
   AlertTriangle, Bug, Lightbulb, FileText, ChevronDown, ChevronRight,
   Edit2, Trash2, User, Tag, MoreVertical, Play, Pause, Target,
   ArrowRight, Link2, Eye, Download, Image, Video, ExternalLink, Upload, Loader2,
-  Smile, AtSign
+  Smile, AtSign, Sparkles
 } from 'lucide-react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import MediaViewer from '../components/MediaViewer'
@@ -13,6 +13,7 @@ import UploadLoading from '../components/UploadLoading'
 import { useToast } from '../components/Toast'
 import ReactionPicker, { ReactionDisplay } from '../components/ReactionPicker'
 import { renderTextWithMentions } from '../components/MentionInput'
+import AIService from '../services/aiService' // Usando IA real
 
 const TASK_TYPES = {
   'bug': { bg: 'bg-red-100', text: 'text-red-700', label: 'Bug', icon: Bug },
@@ -77,6 +78,13 @@ export default function SprintsPage({
   const [showImportModal, setShowImportModal] = useState(false)
   const [viewingTask, setViewingTask] = useState(null)
   const [viewingMedia, setViewingMedia] = useState(null)
+  
+  // Estados para IA
+  const [showAIModal, setShowAIModal] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiTaskDescription, setAiTaskDescription] = useState('')
+  const [aiTaskType, setAiTaskType] = useState('improvement')
+  const [aiTaskPriority, setAiTaskPriority] = useState('medium')
 
   // Documentos de teste pendentes/reprovados que ainda não foram importados
   const pendingTestDocs = useMemo(() => {
@@ -183,6 +191,54 @@ export default function SprintsPage({
     setShowTaskModal(true)
   }
 
+  // Função para criar tarefa com IA
+  const handleAIGenerateTask = async () => {
+    if (!aiTaskDescription.trim()) {
+      alert('Por favor, descreva a tarefa que deseja criar.')
+      return
+    }
+
+    setAiGenerating(true)
+    setLoading(true)
+
+    try {
+      // Gerar detalhes da tarefa com IA
+      const aiResponse = await AIService.generateTaskDetails({
+        description: aiTaskDescription,
+        type: aiTaskType,
+        priority: aiTaskPriority,
+        existingTasks: tasks.slice(0, 5) // Contexto das últimas tarefas
+      })
+
+      // Criar tarefa com dados da IA
+      await onCreateTask({
+        title: aiResponse.title,
+        description: aiResponse.description,
+        type: aiTaskType,
+        priority: aiTaskPriority,
+        status: 'pending',
+        assignee: currentUser?.id || null,
+        createdBy: currentUser?.id || 'system',
+        tags: aiResponse.tags || [],
+        estimatedHours: aiResponse.estimatedHours || 4,
+        sprintId: selectedSprint?.id || null
+      })
+
+      setShowAIModal(false)
+      setAiTaskDescription('')
+      setAiTaskType('improvement')
+      setAiTaskPriority('medium')
+      
+      alert('Tarefa criada com sucesso usando IA!')
+    } catch (error) {
+      console.error('Erro ao criar tarefa com IA:', error)
+      alert('Erro ao criar tarefa com IA. Tente novamente.')
+    } finally {
+      setAiGenerating(false)
+      setLoading(false)
+    }
+  }
+
   const handleMoveToSprint = async (taskId, sprintId) => {
     try {
       await onUpdateTask(taskId, { sprintId })
@@ -232,6 +288,8 @@ export default function SprintsPage({
 
   return (
     <div className="space-y-6">
+      {loading && <LoadingSpinner />}
+      
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -245,6 +303,10 @@ export default function SprintsPage({
               Importar Testes ({pendingTestDocs.length})
             </button>
           )}
+          <button onClick={() => setShowAIModal(true)} className="btn-secondary flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white">
+            <Sparkles className="w-4 h-4" />
+            Gerar com IA
+          </button>
           <button onClick={handleCreateTask} className="btn-secondary flex items-center gap-2">
             <Plus className="w-4 h-4" />
             Nova Tarefa
@@ -514,19 +576,23 @@ export default function SprintsPage({
           onSave={async (data) => {
             setLoading(true)
             try {
-              if (editingTask) {
+              if (editingTask && editingTask.id) {
                 await onUpdateTask(editingTask.id, data)
               } else {
                 await onCreateTask(data)
               }
               setShowTaskModal(false)
+              setEditingTask(null)
             } catch (error) {
               console.error('Erro ao salvar tarefa:', error)
             } finally {
               setLoading(false)
             }
           }}
-          onClose={() => setShowTaskModal(false)}
+          onClose={() => {
+            setShowTaskModal(false)
+            setEditingTask(null)
+          }}
           loading={loading}
         />
       )}
@@ -572,6 +638,25 @@ export default function SprintsPage({
           onUpdateRequirement={onUpdateRequirement}
         />
       )}
+
+      {/* AI Task Generation Modal */}
+      <AITaskGenerationModal
+        show={showAIModal}
+        onClose={() => {
+          setShowAIModal(false)
+          setAiTaskDescription('')
+          setAiTaskType('improvement')
+          setAiTaskPriority('medium')
+        }}
+        onGenerate={handleAIGenerateTask}
+        generating={aiGenerating}
+        description={aiTaskDescription}
+        setDescription={setAiTaskDescription}
+        taskType={aiTaskType}
+        setTaskType={setAiTaskType}
+        priority={aiTaskPriority}
+        setPriority={setAiTaskPriority}
+      />
 
       {/* Media Viewer */}
       {viewingMedia && (
@@ -975,13 +1060,42 @@ function SprintModal({ sprint, onSave, onClose, loading }) {
 
 // Modal de Tarefa
 function TaskModal({ task, sprints, users, onSave, onClose, loading }) {
-  const [title, setTitle] = useState(task?.title || '')
-  const [description, setDescription] = useState(task?.description || '')
-  const [type, setType] = useState(task?.type || 'bug')
-  const [status, setStatus] = useState(task?.status || 'pending')
-  const [priority, setPriority] = useState(task?.priority || 'medium')
-  const [sprintId, setSprintId] = useState(task?.sprintId || '')
-  const [assignee, setAssignee] = useState(task?.assignee || '')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [type, setType] = useState('bug')
+  const [status, setStatus] = useState('pending')
+  const [priority, setPriority] = useState('medium')
+  const [sprintId, setSprintId] = useState('')
+  const [assignee, setAssignee] = useState('')
+  const [screenshots, setScreenshots] = useState([])
+  const [attachments, setAttachments] = useState([])
+  const [viewingMedia, setViewingMedia] = useState(null)
+
+  // Atualizar estados quando a tarefa mudar
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title || '')
+      setDescription(task.description || '')
+      setType(task.type || 'bug')
+      setStatus(task.status || 'pending')
+      setPriority(task.priority || 'medium')
+      setSprintId(task.sprintId || '')
+      setAssignee(task.assignee || '')
+      setScreenshots(task.screenshots || [])
+      // Buscar attachments no campo direto ou em sourceData.evidences (fallback para tarefas antigas)
+      setAttachments(task.attachments || task.sourceData?.evidences || [])
+    } else {
+      setTitle('')
+      setDescription('')
+      setType('bug')
+      setStatus('pending')
+      setPriority('medium')
+      setSprintId('')
+      setAssignee('')
+      setScreenshots([])
+      setAttachments([])
+    }
+  }, [task])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -993,7 +1107,9 @@ function TaskModal({ task, sprints, users, onSave, onClose, loading }) {
       status, 
       priority, 
       sprintId: sprintId || null,
-      assignee: assignee || null
+      assignee: assignee || null,
+      screenshots,
+      attachments
     })
   }
 
@@ -1096,6 +1212,82 @@ function TaskModal({ task, sprints, users, onSave, onClose, loading }) {
             </div>
           )}
 
+          {/* Evidências de Falha do Teste */}
+          {attachments.length > 0 && (
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-xs font-medium text-red-700 mb-2">
+                ❌ Evidências da Falha no Teste ({attachments.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((att, index) => (
+                  <div key={index} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => setViewingMedia({ media: attachments, index })}
+                      className="block"
+                    >
+                      {att.type === 'video' ? (
+                        <div className="relative w-16 h-16">
+                          <video src={att.url} className="w-16 h-16 object-cover rounded border-2 border-red-300" />
+                          <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
+                            <Video className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img src={att.url} alt="" className="w-16 h-16 object-cover rounded border-2 border-red-300" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    >
+                      <XCircle className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Screenshots */}
+          {screenshots.length > 0 && (
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-xs font-medium text-blue-700 mb-2">
+                📸 Evidências Adicionais ({screenshots.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {screenshots.map((ss, index) => (
+                  <div key={index} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => setViewingMedia({ media: screenshots, index })}
+                      className="block"
+                    >
+                      {ss.type === 'video' ? (
+                        <div className="relative w-16 h-16">
+                          <video src={ss.url} className="w-16 h-16 object-cover rounded border border-blue-300" />
+                          <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center">
+                            <Video className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img src={ss.url} alt="" className="w-16 h-16 object-cover rounded border border-blue-300" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScreenshots(prev => prev.filter((_, i) => i !== index))}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    >
+                      <XCircle className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Source info (read-only) */}
           {task?.sourceType && (
             <div className="p-3 bg-gray-50 rounded-lg">
@@ -1121,6 +1313,139 @@ function TaskModal({ task, sprints, users, onSave, onClose, loading }) {
             className="btn-primary"
           >
             {loading ? 'Salvando...' : task ? 'Salvar' : 'Criar Tarefa'}
+          </button>
+        </div>
+      </div>
+
+      {/* Media Viewer */}
+      {viewingMedia && (
+        <MediaViewer
+          media={viewingMedia.media}
+          initialIndex={viewingMedia.index}
+          onClose={() => setViewingMedia(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// Modal para geração de tarefas com IA
+function AITaskGenerationModal({ 
+  show, 
+  onClose, 
+  onGenerate, 
+  generating, 
+  description, 
+  setDescription,
+  taskType,
+  setTaskType,
+  priority,
+  setPriority
+}) {
+  if (!show) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl my-8">
+        <div className="p-6 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Criar Tarefa com IA</h2>
+              <p className="text-sm text-gray-600">Descreva a tarefa e a IA criará detalhes automaticamente</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo da Tarefa
+            </label>
+            <select
+              value={taskType}
+              onChange={(e) => setTaskType(e.target.value)}
+              className="input-field w-full"
+            >
+              <option value="improvement">Melhoria</option>
+              <option value="bug">Bug</option>
+              <option value="business_rule">Regra de Negócio</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Prioridade
+            </label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="input-field w-full"
+            >
+              <option value="low">Baixa</option>
+              <option value="medium">Média</option>
+              <option value="high">Alta</option>
+              <option value="critical">Crítica</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Descrição da Tarefa *
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="input-field w-full"
+              rows={6}
+              placeholder="Descreva detalhadamente o que precisa ser feito:
+
+Exemplo: Preciso melhorar a performance da tela de relatórios que está demorando mais de 10 segundos para carregar quando há muitos filtros aplicados. O usuário consegue ver o loading mas a experiência não é boa."
+              required
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Seja específico para melhores resultados. A IA criará título, descrição detalhada e estimativas.
+            </p>
+          </div>
+
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <h3 className="font-medium text-purple-900 mb-2">O que a IA vai criar:</h3>
+            <ul className="text-sm text-purple-700 space-y-1">
+              <li>• Título claro e objetivo</li>
+              <li>• Descrição detalhada com contexto</li>
+              <li>• Tags relevantes automaticamente</li>
+              <li>• Estimativa de horas sugerida</li>
+              <li>• Critérios de aceitação</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="btn-secondary"
+            disabled={generating}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onGenerate}
+            disabled={generating || !description.trim()}
+            className="btn-primary bg-purple-600 hover:bg-purple-700 flex items-center gap-2"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Criar Tarefa
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1376,10 +1701,32 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
   
   const assigneeUser = users.find(u => u.id === task.assignee)
   const screenshots = task.screenshots || task.sourceData?.screenshots || []
+  
+  // Buscar attachments em múltiplos locais (fallback para tarefas antigas)
+  let attachments = task.attachments || task.sourceData?.evidences || []
+  
+  // Se ainda não encontrou, tentar extrair de failedSteps
+  if (attachments.length === 0 && task.sourceData?.failedSteps) {
+    const evidencesFromSteps = []
+    task.sourceData.failedSteps.forEach((step, index) => {
+      if (step.evidences && step.evidences.length > 0) {
+        step.evidences.forEach(evidence => {
+          evidencesFromSteps.push({
+            ...evidence,
+            stepIndex: index,
+            stepAction: step.action
+          })
+        })
+      }
+    })
+    attachments = evidencesFromSteps
+  }
+  
   const sourceData = task.sourceData || {}
 
   // Filtrar usuários para menções
   const filteredUsers = users.filter(u => 
+    u.mentionName?.toLowerCase().includes(mentionFilter.toLowerCase()) ||
     u.name?.toLowerCase().includes(mentionFilter.toLowerCase()) ||
     u.email?.toLowerCase().includes(mentionFilter.toLowerCase())
   ).slice(0, 5)
@@ -1408,8 +1755,8 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
   const insertMention = (user) => {
     const lastAtIndex = newComment.lastIndexOf('@')
     const textBefore = newComment.slice(0, lastAtIndex)
-    const userName = user.name || user.email.split('@')[0]
-    setNewComment(`${textBefore}@${userName} `)
+    const mentionValue = user.mentionName || user.name?.replace(/\s+/g, '').toLowerCase() || user.email?.split('@')[0] || 'usuario'
+    setNewComment(`${textBefore}@${mentionValue} `)
     setShowMentions(false)
     textareaRef.current?.focus()
   }
@@ -1648,11 +1995,58 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
             )}
           </div>
 
+          {/* Evidências de Falha do Teste */}
+          {attachments.length > 0 && (
+            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+              <label className="text-xs font-medium text-red-700 mb-2 block">
+                ❌ Evidências da Falha no Teste ({attachments.length})
+              </label>
+              <p className="text-xs text-red-600 mb-3">
+                Evidências capturadas durante a execução do teste que falhou
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {attachments.map((att, index) => (
+                  <div key={index} className="relative">
+                    <button
+                      onClick={() => onViewMedia(attachments.map(a => ({ 
+                        url: a.url, 
+                        type: a.type || 'image', 
+                        name: a.name || `Evidência ${index + 1}`
+                      })), index)}
+                      className="relative group cursor-pointer"
+                    >
+                      {att.type === 'video' || att.url?.includes('.mp4') || att.url?.includes('.webm') ? (
+                        <div className="relative w-24 h-24">
+                          <video src={att.url} className="w-24 h-24 object-cover rounded-lg border-2 border-red-300" />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center hover:bg-black/50 transition-colors">
+                            <Play className="w-8 h-8 text-white" />
+                          </div>
+                          <span className="absolute bottom-1 left-1 text-xs bg-black/70 text-white px-1 rounded">Vídeo</span>
+                        </div>
+                      ) : (
+                        <img 
+                          src={att.url} 
+                          alt={att.name || `Evidência ${index + 1}`} 
+                          className="w-24 h-24 object-cover rounded-lg border-2 border-red-300 hover:opacity-80 transition-opacity" 
+                        />
+                      )}
+                    </button>
+                    {att.stepAction && (
+                      <div className="absolute -bottom-6 left-0 right-0 text-xs text-red-600 truncate text-center" title={att.stepAction}>
+                        Passo {att.stepIndex + 1}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Screenshots/Evidences */}
           {screenshots.length > 0 && (
             <div>
               <label className="text-xs font-medium text-gray-500 mb-2 block">
-                📸 Evidências ({screenshots.length})
+                📸 Evidências Adicionais ({screenshots.length})
               </label>
               <div className="flex flex-wrap gap-3">
                 {screenshots.map((ss, index) => (

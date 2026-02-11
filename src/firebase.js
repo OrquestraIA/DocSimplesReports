@@ -23,6 +23,7 @@ const auth = getAuth(app)
 // Collections
 const testDocumentsCollection = collection(db, 'testDocuments')
 const requirementsCollection = collection(db, 'requirements')
+const importCollection = collection(db, 'importedRequirements')
 const notificationsCollection = collection(db, 'notifications')
 const usersCollection = collection(db, 'users')
 
@@ -205,6 +206,25 @@ export const getUserRole = (email) => {
     return 'desenvolvedor'
   }
   return 'operacao'
+}
+
+// Remove campos undefined (Firestore não aceita)
+const removeUndefinedFields = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map(item => removeUndefinedFields(item))
+      .filter(item => item !== undefined)
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce((acc, [key, val]) => {
+      const cleaned = removeUndefinedFields(val)
+      if (cleaned !== undefined) {
+        acc[key] = cleaned
+      }
+      return acc
+    }, {})
+  }
+  return value === undefined ? undefined : value
 }
 
 // Funções para Notificações
@@ -616,6 +636,21 @@ export const finishTestExecution = async (id, data) => {
   })
 }
 
+// Buscar uma execução específica por ID
+export const getTestExecutionById = async (executionId) => {
+  try {
+    const docRef = doc(db, 'testExecutions', executionId)
+    const docSnap = await getDoc(docRef)
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() }
+    }
+    return null
+  } catch (error) {
+    console.error('Erro ao buscar execução:', error)
+    return null
+  }
+}
+
 // Buscar execuções de um caso de teste
 export const subscribeToTestExecutions = (testCaseId, callback, onError) => {
   const q = query(
@@ -721,10 +756,12 @@ export const subscribeToSprints = (callback, onError) => {
 
 // Criar tarefa
 export const createTask = async (taskData) => {
+  const timestamp = new Date().toISOString()
+  const cleanData = removeUndefinedFields(taskData)
   const docRef = await addDoc(tasksCollection, {
-    ...taskData,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    ...cleanData,
+    createdAt: timestamp,
+    updatedAt: timestamp
   })
   return docRef.id
 }
@@ -859,32 +896,131 @@ export const createTaskFromFailedTest = async (testDocument, type = 'bug', assig
 
 // Criar tarefa a partir de execução de caso de teste reprovado
 export const createTaskFromFailedExecution = async (execution, testCase, type = 'bug') => {
-  // Encontrar os passos que falharam
-  const failedSteps = execution.steps?.filter(s => s.status === 'failed') || []
-  const failedStepsText = failedSteps.map((s, i) => `- Passo ${i + 1}: ${s.action}`).join('\n')
-  
+  const failedStepsRaw = execution.steps?.filter(s => s.status === 'failed') || []
+  const failedStepsText = failedStepsRaw.map((s, i) => `- Passo ${i + 1}: ${s.action || 'Ação não informada'}`).join('\n')
+
+  const sanitizeEvidence = (evidence, step, stepIndex) => {
+    if (!evidence || (!evidence.url && !evidence.path)) return null
+    return removeUndefinedFields({
+      url: evidence.url || evidence.path || '',
+      name: evidence.name || evidence.fileName || `evidencia-passo-${stepIndex + 1}`,
+      type: evidence.type || evidence.fileType || 'image',
+      thumbnailUrl: evidence.thumbnailUrl || evidence.previewUrl || null,
+      uploadedAt: evidence.uploadedAt || evidence.createdAt || new Date().toISOString(),
+      stepIndex,
+      stepAction: step?.action || ''
+    })
+  }
+
+  const sanitizedFailedSteps = failedStepsRaw.map((step, index) => {
+    const evidences = (step.evidences || [])
+      .map(evidence => sanitizeEvidence(evidence, step, index))
+      .filter(Boolean)
+
+    return removeUndefinedFields({
+      stepIndex: index,
+      action: step.action || '',
+      expectedResult: step.expectedResult || '',
+      actualResult: step.actualResult || '',
+      status: step.status || '',
+      notes: step.notes || '',
+      evidences
+    })
+  })
+
+  const failedEvidences = sanitizedFailedSteps.flatMap(step => step?.evidences || [])
+
+  const executedBy = execution.executedBy
+    ? removeUndefinedFields({
+        uid: execution.executedBy.uid || execution.executedBy.id || '',
+        name: execution.executedBy.name || '',
+        email: execution.executedBy.email || ''
+      })
+    : null
+
   const taskData = {
     title: `[${type === 'bug' ? 'Bug' : type === 'business_rule' ? 'RN' : 'Melhoria'}] ${testCase?.title || 'Caso de Teste Reprovado'}`,
     description: `Caso de teste reprovado.\n\nPassos que falharam:\n${failedStepsText}\n\nObservações: ${execution.notes || 'Nenhuma'}`,
-    type: type,
+    type,
     status: 'pending',
     priority: 'high',
     sprintId: null,
     sourceType: 'test_execution',
     sourceId: execution.id,
-    testCaseId: testCase?.id,
-    sourceData: {
+    testCaseId: testCase?.id || null,
+    sourceData: removeUndefinedFields({
       testCaseTitle: testCase?.title,
       module: testCase?.module,
-      failedSteps: failedSteps,
-      executedBy: execution.executedBy,
-      finishedAt: execution.finishedAt
-    },
+      failedSteps: sanitizedFailedSteps,
+      executedBy,
+      finishedAt: execution.finishedAt || new Date().toISOString(),
+      evidences: failedEvidences
+    }),
+    attachments: failedEvidences,
     assignee: null,
-    createdBy: execution.executedBy?.name || 'Sistema'
+    createdBy: executedBy?.name || executedBy?.email || 'Sistema'
   }
-  
+
   return await createTask(taskData)
+}
+
+// Sincronizar evidências de uma tarefa com sua execução original
+export const syncTaskEvidencesFromExecution = async (taskId) => {
+  try {
+    // Buscar a tarefa
+    const taskRef = doc(db, 'tasks', taskId)
+    const taskSnap = await getDoc(taskRef)
+    
+    if (!taskSnap.exists()) {
+      console.error('Tarefa não encontrada')
+      return false
+    }
+    
+    const task = taskSnap.data()
+    
+    // Verificar se é uma tarefa de execução de teste
+    if (task.sourceType !== 'test_execution' || !task.sourceId) {
+      console.log('Tarefa não é de execução de teste')
+      return false
+    }
+    
+    // Buscar a execução original
+    const execution = await getTestExecutionById(task.sourceId)
+    
+    if (!execution) {
+      console.error('Execução não encontrada')
+      return false
+    }
+    
+    // Extrair evidências dos passos que falharam
+    const failedSteps = execution.steps?.filter(s => s.status === 'failed') || []
+    const failedEvidences = []
+    
+    failedSteps.forEach((step, index) => {
+      if (step.evidences && step.evidences.length > 0) {
+        step.evidences.forEach(evidence => {
+          failedEvidences.push({
+            ...evidence,
+            stepIndex: index,
+            stepAction: step.action
+          })
+        })
+      }
+    })
+    
+    // Atualizar a tarefa com as evidências
+    await updateDoc(taskRef, {
+      attachments: failedEvidences,
+      'sourceData.evidences': failedEvidences,
+      'sourceData.failedSteps': failedSteps
+    })
+    
+    console.log(`Sincronizadas ${failedEvidences.length} evidências para a tarefa ${taskId}`)
+    return true
+  } catch (error) {
+    console.error('Erro ao sincronizar evidências:', error)
+    return false
+  }
 }
 
 export { db, storage, auth }

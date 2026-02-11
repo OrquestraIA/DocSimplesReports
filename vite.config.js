@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/DocSimplesReports/',
   server: {
-    port: 3000,
+    port: 5173,
     host: true
   },
   build: {

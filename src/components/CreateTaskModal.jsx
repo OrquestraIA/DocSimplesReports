@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   X, 
   Save, 
@@ -38,7 +38,8 @@ export default function CreateTaskModal({
   users = [],
   currentUser,
   workspace,
-  relatedRequirement = null
+  relatedRequirement = null,
+  editingTask = null
 }) {
   const [formData, setFormData] = useState({
     title: '',
@@ -51,11 +52,44 @@ export default function CreateTaskModal({
     actualResult: '',
   })
   const [media, setMedia] = useState([])
+  const [attachments, setAttachments] = useState([])
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [viewingMedia, setViewingMedia] = useState(null)
   const fileInputRef = useRef(null)
+
+  // Carregar dados da tarefa ao editar
+  useEffect(() => {
+    if (editingTask) {
+      setFormData({
+        title: editingTask.title || '',
+        description: editingTask.description || '',
+        type: editingTask.type || 'bug',
+        priority: editingTask.priority || 'medium',
+        assignee: editingTask.assignee || '',
+        steps: editingTask.steps || '',
+        expectedResult: editingTask.expectedResult || '',
+        actualResult: editingTask.actualResult || '',
+      })
+      setMedia(editingTask.screenshots || [])
+      // Buscar attachments no campo direto ou em sourceData.evidences (fallback para tarefas antigas)
+      setAttachments(editingTask.attachments || editingTask.sourceData?.evidences || [])
+    } else {
+      setFormData({
+        title: '',
+        description: '',
+        type: 'bug',
+        priority: 'medium',
+        assignee: '',
+        steps: '',
+        expectedResult: '',
+        actualResult: '',
+      })
+      setMedia([])
+      setAttachments([])
+    }
+  }, [editingTask])
 
   if (!isOpen) return null
 
@@ -123,17 +157,24 @@ export default function CreateTaskModal({
       const taskData = {
         ...formData,
         screenshots: media,
-        workspace: workspace?.id || 'general',
-        relatedRequirementId: relatedRequirement?.firebaseId || null,
-        relatedRequirementCode: relatedRequirement?.id || null,
-        createdBy: currentUser?.name || currentUser?.email || 'Anônimo',
-        createdByUid: currentUser?.uid || currentUser?.id,
-        createdAt: new Date().toISOString(),
-        status: 'pending',
-        comments: [],
+        attachments: attachments,
       }
 
-      await onSave(taskData)
+      // Se estiver editando, apenas atualizar os campos modificáveis
+      if (editingTask) {
+        await onSave(editingTask.id, taskData)
+      } else {
+        // Se for nova tarefa, incluir campos de criação
+        taskData.workspace = workspace?.id || 'general'
+        taskData.relatedRequirementId = relatedRequirement?.firebaseId || null
+        taskData.relatedRequirementCode = relatedRequirement?.id || null
+        taskData.createdBy = currentUser?.name || currentUser?.email || 'Anônimo'
+        taskData.createdByUid = currentUser?.uid || currentUser?.id
+        taskData.createdAt = new Date().toISOString()
+        taskData.status = 'pending'
+        taskData.comments = []
+        await onSave(taskData)
+      }
       
       // Reset form
       setFormData({
@@ -147,6 +188,7 @@ export default function CreateTaskModal({
         actualResult: '',
       })
       setMedia([])
+      setAttachments([])
       onClose()
     } catch (error) {
       console.error('Erro ao salvar tarefa:', error)
@@ -169,7 +211,9 @@ export default function CreateTaskModal({
               <TypeIcon className={`w-6 h-6 text-${selectedType?.color || 'gray'}-600`} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Nova Tarefa</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {editingTask ? 'Editar Tarefa' : 'Nova Tarefa'}
+              </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {workspace?.name || 'Espaço de Trabalho'}
                 {relatedRequirement && ` • Requisito ${relatedRequirement.id}`}
@@ -334,10 +378,62 @@ export default function CreateTaskModal({
             </div>
           </div>
 
+          {/* Evidências de Falha do Teste (somente leitura editável) */}
+          {attachments.length > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+              <label className="block text-sm font-medium text-red-700 dark:text-red-400 mb-2">
+                ❌ Evidências da Falha no Teste ({attachments.length})
+              </label>
+              <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+                Evidências capturadas durante a execução do teste que falhou
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {attachments.map((att, index) => (
+                  <div key={index} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => setViewingMedia({ media: attachments, index })}
+                      className="block focus:outline-none focus:ring-2 focus:ring-red-500 rounded-lg"
+                      title={att.stepAction ? `Passo ${att.stepIndex + 1}: ${att.stepAction}` : 'Clique para visualizar'}
+                    >
+                      {att.type === 'video' || att.url?.includes('.mp4') || att.url?.includes('.webm') ? (
+                        <div className="relative w-24 h-24">
+                          <video src={att.url} className="w-24 h-24 object-cover rounded-lg border-2 border-red-300 dark:border-red-700" />
+                          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center hover:bg-black/50 transition-colors">
+                            <Video className="w-8 h-8 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img 
+                          src={att.url} 
+                          alt={att.name || `Evidência ${index + 1}`} 
+                          className="w-24 h-24 object-cover rounded-lg border-2 border-red-300 dark:border-red-700 hover:opacity-90 transition-opacity" 
+                        />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      title="Remover evidência"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    {att.stepAction && (
+                      <div className="absolute -bottom-6 left-0 right-0 text-xs text-red-600 dark:text-red-400 truncate text-center" title={att.stepAction}>
+                        Passo {att.stepIndex + 1}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Upload de Evidências */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Evidências (Prints/Vídeos)
+              Evidências Adicionais (Prints/Vídeos)
             </label>
             
             {/* Drop Zone */}
@@ -441,7 +537,7 @@ export default function CreateTaskModal({
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                Criar Tarefa
+                {editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
               </>
             )}
           </button>
