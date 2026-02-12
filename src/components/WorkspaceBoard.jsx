@@ -26,6 +26,19 @@ import {
   FileText,
   User,
   Image,
+  ArrowUpRight,
+  BarChart3,
+  Trello,
+  Target,
+  Flame,
+  Activity,
+  Cpu,
+  Settings2,
+  CalendarCheck,
+  Layers,
+  PanelRightOpen,
+  ClipboardList,
+  Sparkles,
   X
 } from 'lucide-react'
 import { WORKSPACES, colorClasses } from './WorkspaceSidebar'
@@ -83,6 +96,107 @@ const STATUS_OPTIONS = {
     { value: 'in_review', label: 'Em Revisão' },
     { value: 'done', label: 'Concluído' },
   ]
+}
+
+const widgetAccentMap = {
+  indigo: 'border-indigo-100 dark:border-indigo-800',
+  blue: 'border-blue-100 dark:border-blue-800',
+  green: 'border-green-100 dark:border-green-800',
+  orange: 'border-orange-100 dark:border-orange-800',
+  purple: 'border-purple-100 dark:border-purple-800'
+}
+
+function WidgetCard({ title, description, icon: Icon, accent = 'indigo', children, footer }) {
+  return (
+    <div className={`bg-white dark:bg-slate-800 border rounded-2xl p-4 flex flex-col gap-4 shadow-sm ${widgetAccentMap[accent] || 'border-gray-200 dark:border-slate-700'}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            {Icon && (
+              <div className="p-2 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200">
+                <Icon className="w-4 h-4" />
+              </div>
+            )}
+            <h4 className="font-semibold text-gray-800 dark:text-white">{title}</h4>
+          </div>
+          {description && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{description}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex-1">{children}</div>
+      {footer && (
+        <div className="text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-slate-700 pt-2">
+          {footer}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TaskMiniList({ items = [], emptyMessage = 'Nenhuma tarefa' }) {
+  if (!items.length) {
+    return <p className="text-sm text-gray-500 dark:text-gray-400">{emptyMessage}</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map(task => (
+        <div key={task.id} className="flex items-center justify-between p-2 rounded-xl border border-gray-100 dark:border-slate-700">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
+              {task.taskCode || task.title}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{task.title}</p>
+          </div>
+          <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+            {TASK_STATUS[task.status]?.label || '—'}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DocumentMiniList({ items = [], emptyMessage = 'Nenhum documento' }) {
+  if (!items.length) {
+    return <p className="text-sm text-gray-500 dark:text-gray-400">{emptyMessage}</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map(doc => (
+        <div key={doc.id} className="flex items-center justify-between p-2 rounded-xl border border-gray-100 dark:border-slate-700">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
+              {doc.title || doc.feature || 'Documento'}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{doc.requirement || doc.module || 'Sem requisito'}</p>
+          </div>
+          <span className="text-xs text-gray-600 dark:text-gray-300 font-medium capitalize">
+            {doc.status?.replace('_', ' ') || '—'}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function StatBadge({ label, value, trend }) {
+  return (
+    <div className="p-3 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</p>
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-xl font-semibold text-gray-800 dark:text-white">{value}</span>
+        {trend && (
+          <span className={`flex items-center gap-1 text-xs font-medium ${trend > 0 ? 'text-emerald-500' : 'text-gray-400'}`}>
+            <ArrowUpRight className="w-3 h-3" />
+            {trend > 0 ? `+${trend}%` : 'OK'}
+          </span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function RequirementCard({ requirement, onUpdateStatus, statusField, workspace, onOpenDetail }) {
