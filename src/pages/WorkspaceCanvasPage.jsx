@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react'
 import TaskViewModal from '../components/TaskViewModal'
+import TaskDetailModal from '../components/TaskDetailModal'
 import MediaViewer from '../components/MediaViewer'
 import { subscribeToTasks } from '../firebase'
 
@@ -32,7 +33,6 @@ const MODULES = [
     icon: Music3,
     description: 'Player embutido para manter a concentração — inclua seu podcast ou playlist favorita.'
   },
-  { id: 'kanban', name: 'Kanban', icon: LayoutGrid, description: 'Quadro visual para status das demandas' }
 ]
 
 const DEFAULT_CLASSICAL_PLAYLIST = {
@@ -121,11 +121,26 @@ const MODULE_DEFAULT_SIZES = {
   spotify: { width: 320, height: 220 }
 }
 
-const normalizeWorkspace = (value) => (value || '').toString().toLowerCase().trim()
+const normalizeWorkspace = (value) =>
+  (value || '')
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
 
 const VARIANT_WORKSPACE_MAP = {
-  operacao: ['operacao', 'op', 'operacional'],
-  dev: ['dev', 'devs', 'desenvolvimento', 'desenvolvedor', 'engenharia', 'engenharia de software', 'tecnologia', 'tech'],
+  operacao: null,
+  dev: [
+    'dev',
+    'devs',
+    'desenvolvimento',
+    'desenvolvedor',
+    'engenharia',
+    'engenharia de software',
+    'tecnologia',
+    'tech'
+  ],
   qa: ['qa', 'qualidade', 'homologacao', 'homologação']
 }
 
@@ -186,6 +201,7 @@ const WorkspaceCanvasPage = ({
   const [zCounter, setZCounter] = useState(1)
   const [tasksState, setTasksState] = useState(tasksProp)
   const [selectedTask, setSelectedTask] = useState(null)
+  const [selectedRequirement, setSelectedRequirement] = useState(null)
   const [mediaViewerState, setMediaViewerState] = useState(null)
   const canvasRef = useRef(null)
   const statusTimerRef = useRef(null)
@@ -304,6 +320,10 @@ const WorkspaceCanvasPage = ({
     }
     if (moduleId === 'digital' && DIGITAL_STREAMS.length) {
       newWindow.streamId = DIGITAL_STREAMS[0].id
+    }
+    if (moduleId === 'notes') {
+      newWindow.notesText = ''
+      newWindow.notesTitle = 'Bloco rápido'
     }
     if (moduleId === 'spotify') {
       newWindow.playlistEmbed = DEFAULT_CLASSICAL_PLAYLIST.embedUrl
@@ -435,11 +455,25 @@ const WorkspaceCanvasPage = ({
   const renderWindowContent = (window) => {
     switch (window.moduleId) {
       case 'tasks_operacao':
-        return <TasksWindowContent tasks={effectiveTasks} variant="operacao" onSelectTask={setSelectedTask} />
+        return (
+          <OperationWindowContent
+            tasks={effectiveTasks}
+            requirements={requirements}
+            onSelectTask={setSelectedTask}
+            onSelectRequirement={(req) => setSelectedRequirement(req)}
+          />
+        )
       case 'tasks_dev':
         return <TasksWindowContent tasks={effectiveTasks} variant="dev" onSelectTask={setSelectedTask} />
       case 'tasks_qa':
         return <TasksWindowContent tasks={effectiveTasks} variant="qa" onSelectTask={setSelectedTask} />
+      case 'notes':
+        return (
+          <NotesWindowContent
+            windowData={window}
+            onUpdate={(updates) => handleUpdateWindow(window.id, updates)}
+          />
+        )
       case 'monitor':
         return <MonitorWindowContent stats={monitorStats} />
       case 'digital':
@@ -638,6 +672,19 @@ const WorkspaceCanvasPage = ({
           requirements={requirements}
           testDocuments={testDocuments}
           onUpdateRequirement={onUpdateRequirement}
+        />
+      )}
+      {selectedRequirement && (
+        <TaskDetailModal
+          isOpen
+          onClose={() => setSelectedRequirement(null)}
+          requirement={selectedRequirement}
+          workspace="operacao"
+          users={users}
+          currentUser={currentUser}
+          onUpdateRequirement={onUpdateRequirement}
+          onAddNotification={onAddNotification}
+          sprints={[]}
         />
       )}
       {mediaViewerState && (
@@ -839,15 +886,19 @@ const MusicFocusWindowContent = ({ windowData = {}, onUpdate }) => {
 export default WorkspaceCanvasPage
 
 const TasksWindowContent = ({ tasks = [], variant, onSelectTask }) => {
-  const allowedWorkspaces = VARIANT_WORKSPACE_MAP[variant] || []
+  const allowedWorkspaces = VARIANT_WORKSPACE_MAP[variant]
+  const shouldFilterWorkspace = Array.isArray(allowedWorkspaces) && allowedWorkspaces.length > 0
 
   const filteredTasks = useMemo(() => {
     if (!Array.isArray(tasks) || !tasks.length) return []
     return tasks.filter((task) => {
       const workspaceKey = normalizeWorkspace(task.workspace || inferTaskWorkspace(task))
-      return allowedWorkspaces.includes(workspaceKey)
+      if (shouldFilterWorkspace) {
+        return allowedWorkspaces.includes(workspaceKey)
+      }
+      return (task.status || '').toLowerCase() === 'pending'
     })
-  }, [tasks, allowedWorkspaces])
+  }, [tasks, allowedWorkspaces, shouldFilterWorkspace])
 
   if (!filteredTasks.length) {
     return (
@@ -858,8 +909,8 @@ const TasksWindowContent = ({ tasks = [], variant, onSelectTask }) => {
   }
 
   return (
-    <div className="space-y-2 overflow-y-auto pr-1 custom-scroll">
-      {filteredTasks.slice(0, 6).map((task) => (
+    <div className="space-y-2 overflow-y-auto pr-1 custom-scroll max-h-[260px]">
+      {filteredTasks.map((task) => (
         <div
           key={task.id}
           className="rounded-lg border border-white/5 bg-white/5 px-2 py-1.5 text-[11px] cursor-pointer hover:border-blue-400/40 transition-colors"
@@ -877,12 +928,168 @@ const TasksWindowContent = ({ tasks = [], variant, onSelectTask }) => {
   )
 }
 
+const OperationWindowContent = ({ tasks = [], requirements = [], onSelectTask, onSelectRequirement }) => {
+  const pendingTasks = useMemo(
+    () => tasks.filter((task) => (task.status || '').toLowerCase() === 'pending'),
+    [tasks]
+  )
+
+  const paraTeste = useMemo(
+    () => requirements.filter((req) => req.statusHomolog === 'Para_Teste_Homolog'),
+    [requirements]
+  )
+  const emTeste = useMemo(
+    () => requirements.filter((req) => req.statusHomolog === 'Em Teste'),
+    [requirements]
+  )
+  const paraReteste = useMemo(
+    () => requirements.filter((req) => req.statusHomolog === 'Para_Reteste_Homolog'),
+    [requirements]
+  )
+
+  const homologSections = [
+    {
+      key: 'paraTeste',
+      label: 'Para Teste',
+      accent: 'text-cyan-200',
+      border: 'border-cyan-300/30',
+      items: paraTeste
+    },
+    {
+      key: 'emTeste',
+      label: 'Em Teste',
+      accent: 'text-blue-200',
+      border: 'border-blue-300/30',
+      items: emTeste
+    },
+    {
+      key: 'paraReteste',
+      label: 'Para Reteste',
+      accent: 'text-amber-200',
+      border: 'border-amber-300/30',
+      items: paraReteste
+    }
+  ]
+
+  return (
+    <div className="flex flex-col h-full gap-3">
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-white/60">Operação</p>
+            <h3 className="text-white font-semibold text-base">Tarefas Pendentes</h3>
+          </div>
+          <span className="text-white/70 text-sm">{pendingTasks.length}</span>
+        </div>
+        {pendingTasks.length ? (
+          <div className="mt-3 space-y-2 max-h-[150px] overflow-y-auto pr-1 custom-scroll">
+            {pendingTasks.map((task) => (
+              <div
+                key={task.id}
+                className="rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-[11px] cursor-pointer hover:border-blue-400/40 transition-colors"
+                onClick={() => onSelectTask?.(task)}
+              >
+                <p className="font-semibold text-white truncate">{task.title || 'Sem título'}</p>
+                <p className="text-white/50 truncate">{task.description || 'Sem descrição'}</p>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-white/40 uppercase tracking-[0.15em]">
+                  <span>{task.priority || 'prioridade'}</span>
+                  <span>{task.assignee || 'Sem responsável'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[11px] text-white/50 mt-3">Nenhuma pendência no momento.</p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 flex-1">
+        {homologSections.map((section) => (
+          <div
+            key={section.key}
+            className={`rounded-2xl border ${section.border} bg-white/5 px-3 py-3 flex flex-col`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-[9px] uppercase tracking-[0.4em] text-white/40">Homologação</p>
+                <p className={`text-sm font-semibold ${section.accent}`}>{section.label}</p>
+              </div>
+              <span className="text-white text-sm font-semibold">{section.items.length}</span>
+            </div>
+            {section.items.length ? (
+              <div className="space-y-1 overflow-y-auto custom-scroll pr-1 text-[11px] text-white/80">
+                {section.items.map((req) => (
+                  <div
+                    key={req.id || req.firebaseId}
+                    className="rounded-lg bg-black/20 border border-white/5 px-2 py-1.5 cursor-pointer hover:border-blue-400/30 transition-colors"
+                    onClick={() => onSelectRequirement?.(req)}
+                  >
+                    <p className="font-semibold truncate">{req.id || req.firebaseId || 'Req'}</p>
+                    <p className="text-white/60 text-[10px] line-clamp-2 leading-snug">
+                      {req.descricao || req.description || 'Sem descrição'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-white/50 mt-2">Nenhum item.</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const PlaceholderModuleContent = ({ moduleId }) => (
   <div className="h-full flex flex-col items-center justify-center text-center text-[11px] text-gray-400 px-4 gap-1">
     <p>Conteúdo do módulo "{moduleId}" em reconstrução.</p>
     <p>Em breve esta janela exibirá dados reais novamente.</p>
   </div>
 )
+
+const NotesWindowContent = ({ windowData = {}, onUpdate }) => {
+  const [draft, setDraft] = useState(windowData.notesText || '')
+  const [titleDraft, setTitleDraft] = useState(windowData.notesTitle || 'Bloco rápido')
+  const saveTimeout = useRef(null)
+
+  useEffect(() => {
+    setDraft(windowData.notesText || '')
+  }, [windowData.notesText])
+
+  useEffect(() => {
+    setTitleDraft(windowData.notesTitle || 'Bloco rápido')
+  }, [windowData.notesTitle])
+
+  useEffect(() => {
+    saveTimeout.current = setTimeout(() => {
+      onUpdate?.({ notesText: draft, notesTitle: titleDraft })
+    }, 350)
+    return () => clearTimeout(saveTimeout.current)
+  }, [draft, titleDraft, onUpdate])
+
+  return (
+    <div className="flex flex-col h-full gap-2">
+      <input
+        value={titleDraft}
+        onChange={(event) => setTitleDraft(event.target.value)}
+        placeholder="Título do bloco"
+        onMouseDown={(event) => event.stopPropagation()}
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-blue-400/60"
+      />
+      <textarea
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onMouseDown={(event) => event.stopPropagation()}
+        placeholder="Escreva algo rápido aqui..."
+        className="flex-1 bg-black/25 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-blue-400/60 resize-none"
+      />
+      <p className="text-[10px] text-white/40 uppercase tracking-[0.3em]">
+        Salva automaticamente
+      </p>
+    </div>
+  )
+}
 
 const DigitalWindowContent = ({ windowData, onChangeStream }) => {
   const currentStream =
