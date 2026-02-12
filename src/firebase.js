@@ -698,6 +698,32 @@ export const uploadTestEvidence = async (file, executionId, stepIndex) => {
 const sprintsCollection = collection(db, 'sprints')
 const tasksCollection = collection(db, 'tasks')
 
+const TASK_PREFIXES = {
+  operacao: 'OPR',
+  devs: 'DEV',
+  qa: 'QA'
+}
+
+const DEFAULT_TASK_PREFIX = 'TSK'
+
+const inferWorkspaceKey = (taskData = {}) => {
+  if (taskData.workspace) return taskData.workspace
+  if (taskData.sourceType === 'test_document' || taskData.sourceType === 'test_execution') {
+    return 'devs'
+  }
+  if (taskData.type === 'bug') {
+    return 'qa'
+  }
+  return 'operacao'
+}
+
+const generateTaskCode = (workspaceKey) => {
+  const prefix = TASK_PREFIXES[workspaceKey] || DEFAULT_TASK_PREFIX
+  const timePart = Date.now().toString().slice(-4)
+  const randomPart = Math.floor(Math.random() * 90 + 10) // 2 dígitos
+  return `${prefix}-${timePart}${randomPart}`
+}
+
 // Tipos de tarefa
 export const TASK_TYPES = {
   'bug': { label: 'Bug', color: 'red' },
@@ -758,8 +784,11 @@ export const subscribeToSprints = (callback, onError) => {
 export const createTask = async (taskData) => {
   const timestamp = new Date().toISOString()
   const cleanData = removeUndefinedFields(taskData)
+  const workspaceKey = inferWorkspaceKey(cleanData)
   const docRef = await addDoc(tasksCollection, {
     ...cleanData,
+    workspace: workspaceKey,
+    taskCode: cleanData.taskCode || generateTaskCode(workspaceKey),
     createdAt: timestamp,
     updatedAt: timestamp
   })

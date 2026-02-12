@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid, User, Workflow } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid, User, Workflow, MonitorSmartphone } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
@@ -19,6 +19,7 @@ import RequirementsReportsPage from './pages/RequirementsReportsPage'
 import WorkspacesPage from './pages/WorkspacesPage'
 import ProfilePage from './pages/ProfilePage'
 import TestsAutomationPage from './pages/TestsAutomationPage'
+import WorkspaceCanvasPage from './pages/WorkspaceCanvasPage'
 import WhatsNewModal from './components/WhatsNewModal'
 import WelcomeModal from './components/WelcomeModal'
 import NotificationsPanel from './components/NotificationsPanel'
@@ -93,6 +94,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
     { path: '/minhas-tarefas', label: 'Tarefas', icon: CheckSquare, badge: myTasksCount, tooltip: 'Minhas Tarefas' },
     { path: '/sprints', label: 'Sprints', icon: Calendar, tooltip: 'Gestão de Sprints' },
     { path: '/espacos', label: 'Espaços', icon: LayoutGrid, tooltip: 'Espaços de Trabalho' },
+    { path: '/canvas', label: 'Canvas', icon: MonitorSmartphone, tooltip: 'Montar Layout Personalizado' },
     { path: '/testes-automatizados', label: 'Automação', icon: Workflow, tooltip: 'Testes Automatizados' },
   ]
 
@@ -1024,6 +1026,151 @@ function App() {
                   onUpdateTestDocument={updateTestDocument}
                 />
               } 
+            />
+            <Route 
+              path="/canvas" 
+              element={
+                <WorkspaceCanvasPage
+                  onCreateTask={createTask}
+                  users={users}
+                  currentUser={user}
+                  tasks={tasks}
+                  requirements={importedRequirements}
+                  testDocuments={testDocuments}
+                  testExecutions={testExecutions}
+                  onAddTaskComment={async (taskId, comment) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    const existingComments = task?.comments || []
+                    await updateTask(taskId, { 
+                      comments: [...existingComments, comment] 
+                    })
+                  }}
+                  onToggleTaskReaction={async (taskId, commentIndex, reaction, userId, userName) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    if (!task) return
+                    const comments = task.comments || []
+                    const comment = comments[commentIndex]
+                    if (!comment) return
+                    
+                    const reactions = comment.reactions || {}
+                    const emoji = reaction.value
+                    const usersReacted = reactions[emoji] || []
+                    const userIndex = usersReacted.indexOf(userId)
+                    
+                    let newUsers
+                    if (userIndex >= 0) {
+                      newUsers = usersReacted.filter(u => u !== userId)
+                    } else {
+                      newUsers = [...usersReacted, userId]
+                    }
+                    
+                    const newReactions = { ...reactions }
+                    if (newUsers.length === 0) {
+                      delete newReactions[emoji]
+                    } else {
+                      newReactions[emoji] = newUsers
+                    }
+                    
+                    const newComments = comments.map((c, idx) => 
+                      idx === commentIndex ? { ...c, reactions: newReactions } : c
+                    )
+                    await updateTask(taskId, { comments: newComments })
+                  }}
+                  onUploadTaskEvidence={async (taskId, file) => {
+                    const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage')
+                    const { storage } = await import('./firebase')
+                    
+                    const fileName = `${Date.now()}_${file.name}`
+                    const storageRef = ref(storage, `task-evidences/${taskId}/${fileName}`)
+                    await uploadBytes(storageRef, file)
+                    const url = await getDownloadURL(storageRef)
+                    
+                    const newEvidence = {
+                      url,
+                      name: file.name,
+                      type: file.type.startsWith('video') ? 'video' : 'image',
+                      uploadedAt: new Date().toISOString(),
+                      uploadedBy: user?.email || user?.name || 'Dev'
+                    }
+                    
+                    const task = tasks.find(t => t.id === taskId)
+                    const existingEvidences = task?.devEvidences || []
+                    await updateTask(taskId, { 
+                      devEvidences: [...existingEvidences, newEvidence]
+                    })
+                    
+                    return newEvidence
+                  }}
+                  onDeleteTaskEvidence={async (taskId, evidenceIndex) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    if (!task) return
+                    const existingEvidences = task.devEvidences || []
+                    const newEvidences = existingEvidences.filter((_, idx) => idx !== evidenceIndex)
+                    await updateTask(taskId, { devEvidences: newEvidences })
+                  }}
+                  onRequestRetest={async (task) => {
+                    if (task.sourceId && task.sourceType === 'test_document') {
+                      const updateData = { 
+                        status: 'em-reteste',
+                        retestRequestedAt: new Date().toISOString(),
+                        retestRequestedBy: user?.email || user?.name || 'Dev'
+                      }
+                      
+                      if (task.comments?.length > 0) {
+                        const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                        const existingComments = testDoc?.comments || []
+                        updateData.comments = [...existingComments, ...task.comments.map(c => ({
+                          ...c,
+                          fromTask: true
+                        }))]
+                      }
+                      
+                      if (task.devEvidences?.length > 0) {
+                        const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                        const existingScreenshots = testDoc?.screenshots || []
+                        updateData.screenshots = [...existingScreenshots, ...task.devEvidences.map(e => ({
+                          ...e,
+                          fromDev: true
+                        }))]
+                      }
+                      
+                      await updateTestDocumentDB(task.sourceId, updateData)
+                      
+                      const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                      if (testDoc?.requirement && importedRequirements.length > 0) {
+                        const relatedReq = importedRequirements.find(r => r.id === testDoc.requirement)
+                        if (relatedReq?.firebaseId) {
+                          await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+                        }
+                      }
+                      
+                      await updateTask(task.id, { 
+                        status: 'in_review',
+                        retestRequestedAt: new Date().toISOString()
+                      })
+                      
+                      if (testDoc?.tester) {
+                        const testerUser = users.find(u => u.email === testDoc.tester || u.name === testDoc.tester)
+                        if (testerUser) {
+                          await addNotification({
+                            userId: testerUser.id,
+                            type: 'retest_requested',
+                            title: 'Reteste Solicitado',
+                            message: `O desenvolvedor solicitou reteste para: ${task.title}`,
+                            link: `/documentos?id=${task.sourceId}`,
+                            read: false
+                          })
+                        }
+                      }
+                    }
+                  }}
+                  onAddNotification={addNotification}
+                  onUpdateDocumentStatus={async (docId, status) => {
+                    await updateTestDocumentDB(docId, { status })
+                  }}
+                  onUpdateRequirement={updateImportedRequirement}
+                />
+              }
             />
             <Route 
               path="/perfil" 
