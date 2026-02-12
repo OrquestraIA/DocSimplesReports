@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ClipboardList,
@@ -28,15 +28,56 @@ const MODULES = [
 ]
 
 const DEFAULT_WINDOW_SIZE = { width: 280, height: 180 }
+const LAYOUT_STORAGE_KEY = 'workspaceCanvasLayout'
 
 const WorkspaceCanvasPage = () => {
   const navigate = useNavigate()
   const [windows, setWindows] = useState([])
   const [zCounter, setZCounter] = useState(1)
   const canvasRef = useRef(null)
+  const statusTimerRef = useRef(null)
+  const [statusMessage, setStatusMessage] = useState(null)
+
+  useEffect(() => {
+    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY)
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        setWindows(parsed)
+        const maxZ = parsed.reduce((max, win) => Math.max(max, win.zIndex || 1), 1)
+        setZCounter(maxZ + 1)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar layout salvo:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
+    }
+  }, [])
+
+  const showStatus = (message) => {
+    setStatusMessage(message)
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
+    statusTimerRef.current = setTimeout(() => setStatusMessage(null), 2500)
+  }
 
   const handleDragStart = (event, moduleId) => {
     event.dataTransfer.setData('moduleId', moduleId)
+  }
+
+  const handleSaveLayout = () => {
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(windows))
+    showStatus('Layout salvo com sucesso.')
+  }
+
+  const handleResetLayout = () => {
+    setWindows([])
+    localStorage.removeItem(LAYOUT_STORAGE_KEY)
+    showStatus('Layout resetado e removido do armazenamento.')
   }
 
   const handleDragOver = (event) => {
@@ -306,8 +347,25 @@ const WorkspaceCanvasPage = () => {
               <div className="absolute inset-0 pointer-events-none border border-dashed border-white/5 rounded-2xl" />
             </div>
             <div className="text-sm text-gray-500">
-              Última atualização: dropzone reativada com criação básica de janelas (sem persistência ainda).
+              Última atualização: dropzone reativada com criação básica de janelas + salvamento manual.
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleSaveLayout}
+                className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors"
+              >
+                Salvar layout
+              </button>
+              <button
+                onClick={handleResetLayout}
+                className="px-3 py-1.5 text-xs rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-gray-200"
+              >
+                Resetar
+              </button>
+            </div>
+            {statusMessage && (
+              <p className="text-xs text-blue-300 mt-1">{statusMessage}</p>
+            )}
           </div>
         </section>
 
