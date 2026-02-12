@@ -555,101 +555,80 @@ const WorkspaceCanvasPage = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#05060a] text-white w-full">
-      <div className="mx-auto px-6 py-12 space-y-10 max-w-7xl w-full">
-        <header className="space-y-3 text-center lg:text-left">
-          <p className="text-xs uppercase tracking-[0.35em] text-blue-400">Workspace Canvas</p>
-          <h1 className="text-3xl font-semibold">Reconstruindo sua área personalizada</h1>
-          <p className="text-gray-400 max-w-3xl">
-            Vamos reintroduzir o canvas parte por parte. Por enquanto, você já consegue visualizar os módulos disponíveis
-            e o espaço reservado onde eles voltarão a ser posicionados em breve.
-          </p>
+    <div
+      className="min-h-screen bg-[#05060a] text-white flex w-screen"
+      style={{ marginLeft: 'calc(50% - 50vw)', marginRight: 'calc(50% - 50vw)' }}
+    >
+      <aside className="w-20 lg:w-24 border-r border-white/5 bg-black/40 backdrop-blur flex flex-col items-center py-10 gap-6">
+        <div className="flex-1 flex flex-col items-center gap-3">
+          {MODULES.map((module) => {
+            const Icon = module.icon
+            return (
+              <div key={module.id} className="group relative">
+                <button
+                  className="w-12 h-12 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center cursor-grab active:cursor-grabbing transition hover:border-blue-400/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+                  draggable
+                  onDragStart={(event) => handleDragStart(event, module.id)}
+                  title={`${module.name} — ${module.description}`}
+                  aria-label={`${module.name}: ${module.description}`}
+                >
+                  <Icon className="h-5 w-5 text-blue-200" />
+                  <span className="sr-only">{module.name}</span>
+                </button>
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:flex">
+                  <div className="rounded-lg border border-white/10 bg-black/90 px-3 py-2 text-[11px] text-white whitespace-nowrap shadow-xl">
+                    <p className="font-semibold">{module.name}</p>
+                    <p className="text-white/70 max-w-[220px]">{module.description}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="flex flex-col gap-2 w-full px-3">
+          <button
+            onClick={handleSaveLayout}
+            className="w-full px-2 py-2 text-[11px] rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors"
+          >
+            Salvar layout
+          </button>
+          <button
+            onClick={handleResetLayout}
+            className="w-full px-2 py-2 text-[11px] rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-gray-200"
+          >
+            Resetar
+          </button>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col py-6 space-y-4">
+        <header className="space-y-2">
+          <h1 className="text-3xl font-semibold">Área de Trabalho Personalizada</h1>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-gray-900/70 to-gray-900/30 p-5 space-y-6">
-            <div className="space-y-1">
-              <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Biblioteca</p>
-              <h2 className="text-lg font-semibold">Módulos disponíveis</h2>
-              <p className="text-sm text-gray-400">
-                Estes serão os blocos que você poderá arrastar para o canvas personalizado.
-              </p>
+        <div
+          ref={canvasRef}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          className="flex-1 w-full h-full min-h-[78vh] bg-black/25 border-l border-white/5 border-t border-white/10 relative overflow-hidden"
+        >
+          {windows.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-sm text-gray-500 gap-2 pointer-events-none">
+              <p>Arraste um módulo e solte no canvas para começar.</p>
+              <p className="text-xs text-gray-600">Ainda sem persistência: perfeito para testar o canvas.</p>
             </div>
-            <div className="space-y-3">
-              {MODULES.map((module) => {
-                const Icon = module.icon
-                return (
-                  <div
-                    key={module.id}
-                    className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2 cursor-grab active:cursor-grabbing select-none"
-                    draggable
-                    onDragStart={(event) => handleDragStart(event, module.id)}
-                  >
-                    <div className="rounded-lg bg-white/10 p-2">
-                      <Icon className="h-4 w-4 text-blue-300" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{module.name}</p>
-                      <p className="text-xs text-gray-400">{module.description}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          ) : (
+            windows.map(renderWindow)
+          )}
+        </div>
 
-          <div className="rounded-2xl border border-dashed border-white/20 bg-gradient-to-b from-gray-900/60 to-gray-900/20 p-6 flex flex-col gap-4 min-h-[70vh]">
-            <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Área do canvas</p>
-              <h2 className="text-lg font-semibold">Dropzone ativa</h2>
-              <p className="text-sm text-gray-400">
-                Agora você já pode arrastar um módulo da biblioteca para cá e veremos uma janela simples sendo criada.
-              </p>
-            </div>
-            <div
-              ref={canvasRef}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              className="flex-1 rounded-xl border border-dashed border-white/10 bg-black/20 relative overflow-hidden w-full"
-            >
-              {windows.length === 0 ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-sm text-gray-500 gap-2 pointer-events-none">
-                  <p>Arraste um módulo da biblioteca e solte aqui para criar a primeira janela.</p>
-                  <p className="text-xs text-gray-600">Ainda sem persistência: perfeito para testar o canvas.</p>
-                </div>
-              ) : (
-                windows.map(renderWindow)
-              )}
-              <div className="absolute inset-0 pointer-events-none border border-dashed border-white/5 rounded-2xl" />
-            </div>
-            <div className="text-sm text-gray-500">
-              Última atualização: dropzone reativada com criação básica de janelas + salvamento manual.
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleSaveLayout}
-                className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors"
-              >
-                Salvar layout
-              </button>
-              <button
-                onClick={handleResetLayout}
-                className="px-3 py-1.5 text-xs rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-gray-200"
-              >
-                Resetar
-              </button>
-            </div>
-            {statusMessage && (
-              <p className="text-xs text-blue-300 mt-1">{statusMessage}</p>
-            )}
-          </div>
-        </section>
+        {statusMessage && <p className="text-xs text-blue-300">{statusMessage}</p>}
 
-        <div className="flex flex-col items-center lg:items-start gap-2">
+        <div className="flex flex-col gap-2">
           <p className="text-sm text-gray-400">Precisa continuar usando os relatórios tradicionais?</p>
           <button
             onClick={() => navigate('/espacos')}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition-colors self-start"
           >
             Voltar para Workspaces
           </button>
