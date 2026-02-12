@@ -1,8 +1,27 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.5.0'
+export const APP_VERSION = '2.6.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.6.0',
+    date: '2026-02-12',
+    title: 'Workspace Canvas em Tela Cheia',
+    changes: [
+      {
+        type: 'feature',
+        description: '🖥️ Canvas de trabalho agora ocupa 100% da tela com dock lateral fixo de módulos estilo FlashChart'
+      },
+      {
+        type: 'improvement',
+        description: '📌 Botões Salvar Layout e Resetar foram movidos para o dock para acesso rápido sem sair do fluxo'
+      },
+      {
+        type: 'improvement',
+        description: '🧼 Header simplificado: removemos textos auxiliares para destacar apenas o título principal'
+      }
+    ]
+  },
   {
     version: '2.5.0',
     date: '2026-02-11',

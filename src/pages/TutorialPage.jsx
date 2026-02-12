@@ -743,6 +743,36 @@ export default function TutorialPage() {
           tip: 'Status desatualizado gera confusão e retrabalho.'
         }
       ]
+    },
+    {
+      id: 'workspace_canvas',
+      title: 'Workspace Canvas Personalizado',
+      icon: LayoutGrid,
+      color: 'bg-slate-600',
+      steps: [
+        {
+          title: 'Abrindo o Canvas',
+          description: 'No menu “Mais”, selecione “Canvas” para acessar a área personalizável de módulos.',
+          tip: 'O Canvas abre em tela cheia e mantém o layout salvo localmente.'
+        },
+        {
+          title: 'Usando o Dock Lateral',
+          description: 'Passe o mouse sobre os ícones para ver o nome/descrição do módulo. Clique e arraste para adicionar ao Canvas.',
+          important: true,
+          tip: 'Botões “Salvar layout” e “Resetar” ficam no rodapé do dock para acesso rápido.'
+        },
+        {
+          title: 'Arrastando e Organizando Janelas',
+          description: 'Depois que um módulo é solto na área escura, você pode arrastá-lo, redimensionar e reorganizar livremente.',
+          tip: 'Clique no título da janela para trazê-la para frente quando várias estiverem abertas.'
+        },
+        {
+          title: 'Salvando e Restaurando Layout',
+          description: 'Use “Salvar layout” para persistir a posição e o tamanho das janelas. “Resetar” limpa o Canvas e remove o layout salvo.',
+          important: true,
+          tip: 'A persistência é local (navegador). Para voltar ao padrão, basta clicar em Resetar.'
+        }
+      ]
     }
   ]
 
