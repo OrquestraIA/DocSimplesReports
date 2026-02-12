@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ClipboardList,
@@ -10,7 +10,10 @@ import {
   HardHat,
   Code2,
   ShieldCheck,
-  Music3
+  Music3,
+  Minus,
+  Square,
+  X
 } from 'lucide-react'
 
 const MODULES = [
@@ -24,30 +27,219 @@ const MODULES = [
   { id: 'kanban', name: 'Kanban', icon: LayoutGrid, description: 'Quadro visual para status das demandas' }
 ]
 
+const DEFAULT_WINDOW_SIZE = { width: 280, height: 180 }
+
 const WorkspaceCanvasPage = () => {
   const navigate = useNavigate()
-  const [windows] = useState([
-    {
-      id: 'placeholder-1',
-      title: 'Janela de exemplo',
-      description: 'Assim que reativarmos o canvas, suas janelas voltarão a aparecer aqui.',
-      width: 260,
-      height: 160,
-      position: 'top-left'
-    },
-    {
-      id: 'placeholder-2',
-      title: 'Dados em tempo real',
-      description: 'Indicadores, tarefas, notas e muito mais.',
-      width: 240,
-      height: 140,
-      position: 'bottom-right'
+  const [windows, setWindows] = useState([])
+  const [zCounter, setZCounter] = useState(1)
+  const canvasRef = useRef(null)
+
+  const handleDragStart = (event, moduleId) => {
+    event.dataTransfer.setData('moduleId', moduleId)
+  }
+
+  const handleDragOver = (event) => {
+    event.preventDefault()
+  }
+
+  const handleDrop = (event) => {
+    event.preventDefault()
+    const moduleId = event.dataTransfer.getData('moduleId')
+    if (!moduleId) return
+
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const x = event.clientX - rect.left - DEFAULT_WINDOW_SIZE.width / 2
+    const y = event.clientY - rect.top - DEFAULT_WINDOW_SIZE.height / 2
+
+    const newWindow = {
+      id: `${moduleId}-${Date.now()}`,
+      moduleId,
+      x: Math.max(0, Math.min(x, rect.width - DEFAULT_WINDOW_SIZE.width)),
+      y: Math.max(0, Math.min(y, rect.height - DEFAULT_WINDOW_SIZE.height)),
+      width: DEFAULT_WINDOW_SIZE.width,
+      height: DEFAULT_WINDOW_SIZE.height,
+      zIndex: zCounter,
+      minimized: false
     }
-  ])
+
+    setWindows((prev) => [...prev, newWindow])
+    setZCounter((prev) => prev + 1)
+  }
+
+  const handleBringToFront = (windowId) => {
+    setWindows((prev) =>
+      prev.map((win) =>
+        win.id === windowId
+          ? { ...win, zIndex: zCounter + 1 }
+          : win
+      )
+    )
+    setZCounter((prev) => prev + 1)
+  }
+
+  const handleWindowMouseDown = (event, windowId) => {
+    event.preventDefault()
+    handleBringToFront(windowId)
+
+    const rect = canvasRef.current?.getBoundingClientRect()
+    const targetWindow = windows.find((win) => win.id === windowId)
+    if (!rect || !targetWindow) return
+
+    const startOffsetX = event.clientX - rect.left - targetWindow.x
+    const startOffsetY = event.clientY - rect.top - targetWindow.y
+
+    const onMouseMove = (moveEvent) => {
+      const currentRect = canvasRef.current?.getBoundingClientRect()
+      if (!currentRect) return
+
+      const newX = Math.max(
+        0,
+        Math.min(
+          moveEvent.clientX - currentRect.left - startOffsetX,
+          currentRect.width - targetWindow.width
+        )
+      )
+      const newY = Math.max(
+        0,
+        Math.min(
+          moveEvent.clientY - currentRect.top - startOffsetY,
+          currentRect.height - targetWindow.height
+        )
+      )
+
+      setWindows((prev) =>
+        prev.map((win) =>
+          win.id === windowId ? { ...win, x: newX, y: newY } : win
+        )
+      )
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+
+  const handleCloseWindow = (windowId) => {
+    setWindows((prev) => prev.filter((win) => win.id !== windowId))
+  }
+
+  const handleToggleMinimize = (windowId) => {
+    setWindows((prev) =>
+      prev.map((win) =>
+        win.id === windowId ? { ...win, minimized: !win.minimized } : win
+      )
+    )
+  }
+
+  const handleResizeMouseDown = (event, windowId) => {
+    event.preventDefault()
+    event.stopPropagation()
+    handleBringToFront(windowId)
+
+    const rect = canvasRef.current?.getBoundingClientRect()
+    const targetWindow = windows.find((win) => win.id === windowId)
+    if (!rect || !targetWindow || targetWindow.minimized) return
+
+    const startWidth = targetWindow.width
+    const startHeight = targetWindow.height
+    const startX = event.clientX
+    const startY = event.clientY
+
+    const onMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX
+      const deltaY = moveEvent.clientY - startY
+
+      const maxWidth = rect.width - targetWindow.x
+      const maxHeight = rect.height - targetWindow.y
+
+      const newWidth = Math.max(200, Math.min(startWidth + deltaX, maxWidth))
+      const newHeight = Math.max(140, Math.min(startHeight + deltaY, maxHeight))
+
+      setWindows((prev) =>
+        prev.map((win) =>
+          win.id === windowId ? { ...win, width: newWidth, height: newHeight } : win
+        )
+      )
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+
+  const renderWindow = (window) => {
+    const module = MODULES.find((mod) => mod.id === window.moduleId)
+    return (
+      <div
+        key={window.id}
+        style={{
+          left: `${window.x}px`,
+          top: `${window.y}px`,
+          width: `${window.width}px`,
+          height: `${window.height}px`,
+          zIndex: window.zIndex || 1
+        }}
+        className="absolute"
+        onMouseDown={(event) => handleWindowMouseDown(event, window.id)}
+      >
+        <div className="h-full rounded-xl border border-white/10 bg-gray-900/90 shadow-xl shadow-black/40 flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 text-xs text-white/80">
+            <span className="uppercase tracking-[0.2em]">{module?.name || 'Módulo'}</span>
+            <div className="flex items-center gap-1 text-white/60">
+              <button
+                className="p-1 hover:bg-white/10 rounded transition-colors"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  handleToggleMinimize(window.id)
+                }}
+                title={window.minimized ? 'Restaurar' : 'Minimizar'}
+              >
+                {window.minimized ? <Square className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+              </button>
+              <button
+                className="p-1 hover:bg-white/10 rounded transition-colors text-red-400 hover:text-red-300"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  handleCloseWindow(window.id)
+                }}
+                title="Fechar"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+          {!window.minimized && (
+            <div className="flex-1 px-3 py-2 text-[11px] text-gray-400">
+              Conteúdo em reconstrução. Em breve voltaremos a renderizar os dados deste módulo aqui.
+            </div>
+          )}
+          {!window.minimized && (
+            <div
+              className="h-3 bg-white/5 flex items-center justify-end px-2 text-[10px] uppercase tracking-[0.2em] text-white/30 cursor-se-resize"
+              onMouseDown={(event) => handleResizeMouseDown(event, window.id)}
+            >
+              resize
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-[#05060a] text-white">
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-10">
+    <div className="min-h-screen bg-[#05060a] text-white w-full">
+      <div className="mx-auto px-6 py-12 space-y-10 max-w-7xl w-full">
         <header className="space-y-3 text-center lg:text-left">
           <p className="text-xs uppercase tracking-[0.35em] text-blue-400">Workspace Canvas</p>
           <h1 className="text-3xl font-semibold">Reconstruindo sua área personalizada</h1>
@@ -57,7 +249,7 @@ const WorkspaceCanvasPage = () => {
           </p>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <section className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-gray-900/70 to-gray-900/30 p-5 space-y-6">
             <div className="space-y-1">
               <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Biblioteca</p>
@@ -72,7 +264,9 @@ const WorkspaceCanvasPage = () => {
                 return (
                   <div
                     key={module.id}
-                    className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2"
+                    className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2 cursor-grab active:cursor-grabbing select-none"
+                    draggable
+                    onDragStart={(event) => handleDragStart(event, module.id)}
                   >
                     <div className="rounded-lg bg-white/10 p-2">
                       <Icon className="h-4 w-4 text-blue-300" />
@@ -87,40 +281,32 @@ const WorkspaceCanvasPage = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-dashed border-white/20 bg-gradient-to-b from-gray-900/60 to-gray-900/20 p-6 flex flex-col gap-4">
+          <div className="rounded-2xl border border-dashed border-white/20 bg-gradient-to-b from-gray-900/60 to-gray-900/20 p-6 flex flex-col gap-4 min-h-[70vh]">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Área do canvas</p>
-              <h2 className="text-lg font-semibold">Janela reservada</h2>
+              <h2 className="text-lg font-semibold">Dropzone ativa</h2>
               <p className="text-sm text-gray-400">
-                Esta visualização mostra apenas placeholders. A próxima etapa será permitir arrastar módulos reais e salvar
-                o layout novamente.
+                Agora você já pode arrastar um módulo da biblioteca para cá e veremos uma janela simples sendo criada.
               </p>
             </div>
-            <div className="flex-1 rounded-xl border border-dashed border-white/10 bg-black/20 relative overflow-hidden">
-              {windows.map((win) => (
-                <div
-                  key={win.id}
-                  className={`absolute rounded-xl border border-white/10 bg-gray-900/90 p-4 shadow-lg shadow-black/40 text-left space-y-2 ${
-                    win.position === 'top-left' ? 'top-6 left-6' : 'bottom-6 right-6'
-                  }`}
-                  style={{ width: win.width, height: win.height }}
-                >
-                  <div className="flex items-center justify-between text-xs text-white/70">
-                    <span>{win.title}</span>
-                    <span className="text-white/40">prévia</span>
-                  </div>
-                  <p className="text-sm text-gray-300">{win.description}</p>
-                  <div className="flex gap-2 text-[11px] text-gray-500">
-                    <span className="px-2 py-0.5 bg-white/5 rounded-full border border-white/5">drag</span>
-                    <span className="px-2 py-0.5 bg-white/5 rounded-full border border-white/5">resize</span>
-                    <span className="px-2 py-0.5 bg-white/5 rounded-full border border-white/5">save</span>
-                  </div>
+            <div
+              ref={canvasRef}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              className="flex-1 rounded-xl border border-dashed border-white/10 bg-black/20 relative overflow-hidden w-full"
+            >
+              {windows.length === 0 ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-sm text-gray-500 gap-2 pointer-events-none">
+                  <p>Arraste um módulo da biblioteca e solte aqui para criar a primeira janela.</p>
+                  <p className="text-xs text-gray-600">Ainda sem persistência: perfeito para testar o canvas.</p>
                 </div>
-              ))}
+              ) : (
+                windows.map(renderWindow)
+              )}
               <div className="absolute inset-0 pointer-events-none border border-dashed border-white/5 rounded-2xl" />
             </div>
             <div className="text-sm text-gray-500">
-              Última atualização: placeholders de janelas adicionados para preparar a reativação do canvas.
+              Última atualização: dropzone reativada com criação básica de janelas (sem persistência ainda).
             </div>
           </div>
         </section>
