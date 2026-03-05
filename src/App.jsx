@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid, User, Workflow, MonitorSmartphone } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid, User, Workflow, MonitorSmartphone, Shield } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
@@ -20,6 +20,7 @@ import WorkspacesPage from './pages/WorkspacesPage'
 import ProfilePage from './pages/ProfilePage'
 import TestsAutomationPage from './pages/TestsAutomationPage'
 import WorkspaceCanvasPage from './pages/WorkspaceCanvasPage'
+import UsersAdminPage from './pages/UsersAdminPage'
 import WhatsNewModal from './components/WhatsNewModal'
 import WelcomeModal from './components/WelcomeModal'
 import NotificationsPanel from './components/NotificationsPanel'
@@ -69,7 +70,8 @@ import {
   subscribeToTasks,
   createTaskFromFailedTest,
   createTaskFromFailedExecution,
-  migrateRetestStatusToRequirements
+  migrateRetestStatusToRequirements,
+  updateUserRole
 } from './firebase'
 
 function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
@@ -107,6 +109,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
     { path: '/particao', label: 'Tabela Partição', icon: Table2, tooltip: 'Tabela de Partição' },
     { path: '/relatorios', label: 'Rel. Testes', icon: BarChart3, tooltip: 'Relatórios de Testes' },
     { path: '/ajuda', label: 'Ajuda', icon: HelpCircle, tooltip: 'Central de Ajuda' },
+    ...(user?.role === 'admin' ? [{ path: '/admin/usuarios', label: 'Gerenciar Usuários', icon: Shield, tooltip: 'Gerenciar Usuários (Admin)' }] : []),
   ]
 
   // Todos os itens para mobile
@@ -781,6 +784,7 @@ function App() {
                   sprints={sprints}
                   users={users}
                   currentUser={user}
+                  testDocuments={testDocuments}
                   onUpdateTask={updateTask}
                   onAddNotification={addNotification}
                   onUpdateDocumentStatus={async (docId, status) => {
@@ -1181,9 +1185,13 @@ function App() {
                 />
               } 
             />
-            <Route 
-              path="/testes-automatizados" 
-              element={<TestsAutomationPage />} 
+            <Route
+              path="/testes-automatizados"
+              element={<TestsAutomationPage />}
+            />
+            <Route
+              path="/admin/usuarios"
+              element={<UsersAdminPage currentUser={user} />}
             />
           </Routes>
         </main>

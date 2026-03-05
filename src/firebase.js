@@ -373,7 +373,7 @@ export const subscribeToNotifications = (callback, onError, currentUser = null) 
     
     // Filtrar notificações para o usuário atual
     if (currentUser) {
-      const userRole = getUserRole(currentUser.email)
+      const userRole = (currentUser.role || getUserRole(currentUser.email)).toLowerCase()
       const userEmail = currentUser.email
       const userId = currentUser.uid
       
@@ -387,7 +387,7 @@ export const subscribeToNotifications = (callback, onError, currentUser = null) 
           return true
         }
         // Notificação direcionada por role (ex: operacao, desenvolvedor)
-        if (notification.targetRole && notification.targetRole === userRole) {
+        if (notification.targetRole && notification.targetRole.toLowerCase() === userRole) {
           // Não mostrar notificações que o próprio usuário criou
           if (notification.authorEmail === userEmail) {
             return false
@@ -465,6 +465,12 @@ export const subscribeToUsers = (callback, onError) => {
 export const updateUserProfile = async (uid, data) => {
   const userRef = doc(db, 'users', uid)
   await updateDoc(userRef, data)
+}
+
+// Atualizar role de um usuário (usado pela tela de admin)
+export const updateUserRole = async (uid, role) => {
+  const userRef = doc(db, 'users', uid)
+  await updateDoc(userRef, { role })
 }
 
 // Função para criar usuário manualmente (para usuários que ainda não logaram)

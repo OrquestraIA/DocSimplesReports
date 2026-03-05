@@ -1,17 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
-import { 
-  Bell, 
-  X, 
-  MessageSquare, 
-  RefreshCw, 
-  CheckCircle, 
+import {
+  Bell,
+  X,
+  MessageSquare,
+  RefreshCw,
+  CheckCircle,
   XCircle,
   Clock,
   Check,
   CheckCheck,
   Trash2,
   AtSign,
-  FileText
+  FileText,
+  Plus
 } from 'lucide-react'
 import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } from '../firebase'
 
@@ -46,6 +47,8 @@ export default function NotificationsPanel({ notifications = [] }) {
         return <AtSign className="w-4 h-4 text-purple-500" />
       case 'novo_documento':
         return <FileText className="w-4 h-4 text-indigo-500" />
+      case 'nova_tarefa':
+        return <Plus className="w-4 h-4 text-green-500" />
       default:
         return <Bell className="w-4 h-4 text-gray-500" />
     }
@@ -65,6 +68,8 @@ export default function NotificationsPanel({ notifications = [] }) {
         return 'border-l-purple-500'
       case 'novo_documento':
         return 'border-l-indigo-500'
+      case 'nova_tarefa':
+        return 'border-l-green-500'
       default:
         return 'border-l-gray-500'
     }
@@ -84,6 +89,8 @@ export default function NotificationsPanel({ notifications = [] }) {
         return 'Você foi mencionado'
       case 'novo_documento':
         return 'Novo Teste Registrado'
+      case 'nova_tarefa':
+        return 'Nova Tarefa Criada'
       default:
         return 'Notificação'
     }
@@ -127,6 +134,16 @@ export default function NotificationsPanel({ notifications = [] }) {
       await deleteNotification(id)
     } catch (error) {
       console.error('Erro ao deletar notificação:', error)
+    }
+  }
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.read) {
+      await markNotificationAsRead(notification.id).catch(() => {})
+    }
+    if (notification.link) {
+      window.location.href = notification.link
+      setIsOpen(false)
     }
   }
 
@@ -182,9 +199,10 @@ export default function NotificationsPanel({ notifications = [] }) {
                 {notifications.slice(0, 20).map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-3 hover:bg-gray-50 transition-colors border-l-4 ${getNotificationColor(notification.type)} ${
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`p-3 transition-colors border-l-4 ${getNotificationColor(notification.type)} ${
                       !notification.read ? 'bg-blue-50/50' : ''
-                    }`}
+                    } ${notification.link ? 'cursor-pointer hover:bg-gray-100' : 'hover:bg-gray-50'}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5">

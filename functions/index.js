@@ -1,6 +1,14 @@
 const functions = require('firebase-functions');
+const admin = require('firebase-admin');
 const cors = require('cors')({ origin: true });
 const fetch = require('node-fetch');
+
+// Inicializar firebase-admin (uma única vez)
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+const db = admin.firestore();
 
 // Configurações do Jira (usar Firebase Config em produção)
 const JIRA_CONFIG = {
@@ -391,10 +399,257 @@ exports.sendTaskAssignmentEmail = functions.https.onRequest((req, res) => {
 
     } catch (error) {
       console.error('Erro ao enviar email:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Erro ao enviar email',
-        message: error.message 
+        message: error.message
       });
     }
   });
 });
+
+// ============================================================
+// Helpers para triggers Firestore
+// ============================================================
+
+/**
+ * Busca todos os usuários com role === 'qa'
+ */
+async function getQaUsers() {
+  // Buscar role 'qa' e 'QA' para cobrir variações de capitalização
+  const [snapLower, snapUpper] = await Promise.all([
+    db.collection('users').where('role', '==', 'qa').get(),
+    db.collection('users').where('role', '==', 'QA').get()
+  ]);
+  const seen = new Set();
+  const users = [];
+  for (const snap of [snapLower, snapUpper]) {
+    for (const d of snap.docs) {
+      if (!seen.has(d.id)) {
+        seen.add(d.id);
+        users.push({ id: d.id, ...d.data() });
+      }
+    }
+  }
+  return users;
+}
+
+/**
+ * Cria uma notificação de nova_tarefa para um usuário QA
+ */
+async function createNovaTarefaNotification({ targetUserId, targetEmail, authorEmail, taskId, title, sourceCollection }) {
+  const link = sourceCollection === 'testDocuments'
+    ? `/#/documentos`
+    : `/#/espacos?taskId=${taskId}`;
+  await db.collection('notifications').add({
+    type: 'nova_tarefa',
+    message: `Nova tarefa criada: "${title}"`,
+    targetUserId,
+    targetEmail,
+    authorEmail: authorEmail || '',
+    taskId: taskId || '',
+    sourceCollection: sourceCollection || '',
+    link,
+    read: false,
+    createdAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Cria uma notificação de mencao para um usuário mencionado
+ */
+async function createMencaoNotification({ targetUserId, targetEmail, authorEmail, taskId, commentText, sourceCollection }) {
+  const preview = (commentText || '').slice(0, 100);
+  const link = sourceCollection === 'testDocuments'
+    ? `/#/documentos`
+    : `/#/espacos?taskId=${taskId}`;
+  await db.collection('notifications').add({
+    type: 'mencao',
+    message: `${authorEmail} mencionou você: "${preview}"`,
+    targetUserId,
+    targetEmail,
+    authorEmail: authorEmail || '',
+    taskId: taskId || '',
+    sourceCollection: sourceCollection || '',
+    link,
+    read: false,
+    createdAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Extrai menções (@palavra) de um texto
+ */
+function extractMentions(text) {
+  const matches = [];
+  const regex = /@(\w+)/g;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    matches.push(m[1].toLowerCase());
+  }
+  return [...new Set(matches)];
+}
+
+/**
+ * Detecta comentários novos comparando before/after
+ */
+function getNewComments(beforeComments, afterComments) {
+  const beforeIds = new Set((beforeComments || []).map(c => c.id));
+  return (afterComments || []).filter(c => !beforeIds.has(c.id));
+}
+
+/**
+ * Processa menções nos comentários novos de um documento
+ */
+async function processMentions(newComments, docId, sourceCollection) {
+  for (const comment of newComments) {
+    const text = comment.text || comment.content || comment.message || '';
+    console.log(`[processMentions] texto do comentário: "${text}"`);
+
+    const mentions = extractMentions(text);
+    console.log(`[processMentions] menções encontradas:`, mentions);
+
+    if (mentions.length === 0) continue;
+
+    const authorEmail = comment.authorEmail || comment.userEmail || '';
+    const authorId = comment.authorId || comment.userId || '';
+
+    for (const mentionName of mentions) {
+      console.log(`[processMentions] buscando usuário com mentionName: "${mentionName}"`);
+      const snap = await db.collection('users').where('mentionName', '==', mentionName).limit(1).get();
+      console.log(`[processMentions] resultado da busca: ${snap.size} usuário(s)`);
+
+      if (snap.empty) {
+        console.log(`[processMentions] nenhum usuário encontrado para @${mentionName}`);
+        continue;
+      }
+
+      const mentionedUser = snap.docs[0].data();
+      const mentionedUid = snap.docs[0].id;
+      console.log(`[processMentions] usuário encontrado: ${mentionedUser.email} (uid: ${mentionedUid})`);
+
+      if (authorEmail && mentionedUser.email === authorEmail) {
+        console.log(`[processMentions] pulando auto-menção por email`);
+        continue;
+      }
+      if (authorId && mentionedUid === authorId) {
+        console.log(`[processMentions] pulando auto-menção por uid`);
+        continue;
+      }
+
+      console.log(`[processMentions] criando notificação para ${mentionedUser.email}`);
+      await createMencaoNotification({
+        targetUserId: mentionedUid,
+        targetEmail: mentionedUser.email,
+        authorEmail: authorEmail || comment.author || '',
+        taskId: docId,
+        commentText: text,
+        sourceCollection
+      });
+      console.log(`[processMentions] notificação criada com sucesso`);
+    }
+  }
+}
+
+// ============================================================
+// Trigger 1: Nova tarefa criada em testDocuments → notificar QA
+// ============================================================
+exports.notifyQaOnNewTestDocument = functions.firestore
+  .document('testDocuments/{docId}')
+  .onCreate(async (snap, context) => {
+    try {
+      const data = snap.data();
+      const title = data.title || data.feature || 'Documento de Teste';
+      const authorEmail = data.tester || data.authorEmail || data.createdBy || '';
+      const docId = context.params.docId;
+
+      const qaUsers = await getQaUsers();
+      const notifyPromises = qaUsers
+        .filter(u => u.email !== authorEmail) // não notificar o próprio criador se for QA
+        .map(u => createNovaTarefaNotification({
+          targetUserId: u.id || u.uid,
+          targetEmail: u.email,
+          authorEmail,
+          taskId: docId,
+          title,
+          sourceCollection: 'testDocuments'
+        }));
+
+      await Promise.all(notifyPromises);
+      console.log(`[notifyQaOnNewTestDocument] ${notifyPromises.length} notificações criadas para doc ${docId}`);
+    } catch (err) {
+      console.error('[notifyQaOnNewTestDocument] Erro:', err);
+    }
+  });
+
+// ============================================================
+// Trigger 2: Nova tarefa criada em tasks → notificar QA
+// ============================================================
+exports.notifyQaOnNewTask = functions.firestore
+  .document('tasks/{taskId}')
+  .onCreate(async (snap, context) => {
+    try {
+      const data = snap.data();
+      const title = data.title || 'Tarefa';
+      const authorEmail = data.createdBy || data.authorEmail || '';
+      const taskId = context.params.taskId;
+
+      const qaUsers = await getQaUsers();
+      const notifyPromises = qaUsers
+        .filter(u => u.email !== authorEmail)
+        .map(u => createNovaTarefaNotification({
+          targetUserId: u.id || u.uid,
+          targetEmail: u.email,
+          authorEmail,
+          taskId,
+          title,
+          sourceCollection: 'tasks'
+        }));
+
+      await Promise.all(notifyPromises);
+      console.log(`[notifyQaOnNewTask] ${notifyPromises.length} notificações criadas para task ${taskId}`);
+    } catch (err) {
+      console.error('[notifyQaOnNewTask] Erro:', err);
+    }
+  });
+
+// ============================================================
+// Trigger 3: Comentário com @menção em testDocuments → notificar usuário
+// ============================================================
+exports.notifyMentionInTestDocument = functions.firestore
+  .document('testDocuments/{docId}')
+  .onUpdate(async (change, context) => {
+    try {
+      const before = change.before.data();
+      const after = change.after.data();
+      const docId = context.params.docId;
+
+      const newComments = getNewComments(before.comments, after.comments);
+      if (newComments.length === 0) return;
+
+      await processMentions(newComments, docId, 'testDocuments');
+      console.log(`[notifyMentionInTestDocument] Processados ${newComments.length} comentário(s) em ${docId}`);
+    } catch (err) {
+      console.error('[notifyMentionInTestDocument] Erro:', err);
+    }
+  });
+
+// ============================================================
+// Trigger 4: Comentário com @menção em tasks → notificar usuário
+// ============================================================
+exports.notifyMentionInTask = functions.firestore
+  .document('tasks/{taskId}')
+  .onUpdate(async (change, context) => {
+    try {
+      const before = change.before.data();
+      const after = change.after.data();
+      const taskId = context.params.taskId;
+
+      const newComments = getNewComments(before.comments, after.comments);
+      if (newComments.length === 0) return;
+
+      await processMentions(newComments, taskId, 'tasks');
+      console.log(`[notifyMentionInTask] Processados ${newComments.length} comentário(s) em ${taskId}`);
+    } catch (err) {
+      console.error('[notifyMentionInTask] Erro:', err);
+    }
+  });
