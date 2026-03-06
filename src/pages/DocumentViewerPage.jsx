@@ -117,7 +117,11 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
   const getNotificationMessage = (type) => {
     switch (type) {
       case 'solicitar_reteste':
-        return 'Desenvolvedor solicitou reteste'
+        return 'Dev enviou para validação do QA'
+      case 'aprovado_qa':
+        return 'QA aprovou e enviou para Operação'
+      case 'reprovado_qa':
+        return 'QA reprovou — correção necessária'
       case 'aprovado_reteste':
         return 'Reteste aprovado pela Operação'
       case 'reprovado_reteste':
@@ -146,15 +150,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
     try {
       // Determinar autor baseado no tipo de ação
       const getAuthorByType = (actionType) => {
-        switch (actionType) {
-          case 'aprovado_reteste':
-          case 'reprovado_reteste':
-            return 'Operação'
-          case 'resposta':
-          case 'solicitar_reteste':
-          default:
-            return 'Desenvolvedor'
-        }
+        return currentUser?.name || currentUser?.email || 'Usuário'
       }
 
       const comment = {
@@ -167,31 +163,36 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
       await addCommentToTestDocument(selectedDoc.id, comment)
       
       // Criar notificação baseada no tipo de ação
-      // Determinar para quem vai a notificação (perfil oposto ao autor)
+      // Determinar para quem vai a notificação
       const getTargetRole = (actionType) => {
         switch (actionType) {
           case 'aprovado_reteste':
           case 'reprovado_reteste':
-            // Operação aprovou/reprovou -> notificar Desenvolvedor
             return 'desenvolvedor'
-          case 'resposta':
-          case 'solicitar_reteste':
-          default:
-            // Desenvolvedor respondeu/solicitou -> notificar Operação
+          case 'aprovado_qa':
             return 'operacao'
+          case 'reprovado_qa':
+            return 'desenvolvedor'
+          case 'solicitar_reteste':
+            return 'qa'
+          default:
+            return null
         }
       }
 
-      const notificationData = {
-        testId: selectedDoc.id,
-        testTitle: selectedDoc.title,
-        type: type === 'resposta' ? 'comentario' : type,
-        message: newComment.trim() || getNotificationMessage(type),
-        author: comment.author,
-        authorEmail: currentUser?.email || null,
-        targetRole: getTargetRole(type)
+      const targetRole = getTargetRole(type)
+      if (targetRole) {
+        const notificationData = {
+          testId: selectedDoc.id,
+          testTitle: selectedDoc.title,
+          type: type === 'resposta' ? 'comentario' : type,
+          message: newComment.trim() || getNotificationMessage(type),
+          author: comment.author,
+          authorEmail: currentUser?.email || null,
+          targetRole
+        }
+        await addNotification(notificationData)
       }
-      await addNotification(notificationData)
 
       // Criar notificações para usuários mencionados
       const mentionedUsers = extractMentions(newComment, users)
@@ -208,25 +209,26 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
         })
       }
       
-      // Se for aprovação após reteste, atualizar status do documento
-      if (type === 'aprovado_reteste') {
-        await onUpdate(selectedDoc.id, { status: 'aprovado' })
-      }
-      // Se for reprovação do reteste, voltar status para 'reprovado'
-      if (type === 'reprovado_reteste') {
-        await onUpdate(selectedDoc.id, { status: 'reprovado' })
-      }
-      // Se for solicitação de reteste, mudar status para 'em_reteste'
       if (type === 'solicitar_reteste') {
         await onUpdate(selectedDoc.id, { status: 'em_reteste' })
-        
-        // Atualizar statusHomolog do requisito associado para 'Para_Reteste_Homolog'
         if (selectedDoc.requirement && onUpdateRequirement && requirements.length > 0) {
           const relatedReq = requirements.find(r => r.id === selectedDoc.requirement)
           if (relatedReq?.firebaseId) {
             await onUpdateRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
           }
         }
+      }
+      if (type === 'aprovado_qa') {
+        await onUpdate(selectedDoc.id, { status: 'em_homologacao' })
+      }
+      if (type === 'reprovado_qa') {
+        await onUpdate(selectedDoc.id, { status: 'reprovado' })
+      }
+      if (type === 'aprovado_reteste') {
+        await onUpdate(selectedDoc.id, { status: 'aprovado' })
+      }
+      if (type === 'reprovado_reteste') {
+        await onUpdate(selectedDoc.id, { status: 'reprovado' })
       }
       
       setNewComment('')
@@ -247,7 +249,9 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
   // Função para formatar tipo de comentário
   const getCommentTypeLabel = (type) => {
     switch(type) {
-      case 'solicitar_reteste': return 'Solicitou Reteste'
+      case 'solicitar_reteste': return 'Enviou para QA'
+      case 'aprovado_qa': return 'Aprovado pelo QA'
+      case 'reprovado_qa': return 'Reprovado pelo QA'
       case 'aprovado_reteste': return 'Aprovou após Reteste'
       case 'reprovado_reteste': return 'Reprovou Reteste'
       case 'feedback': return 'Feedback'
@@ -258,6 +262,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
   const getCommentTypeColor = (type) => {
     switch(type) {
       case 'solicitar_reteste': return 'bg-orange-100 text-orange-700'
+      case 'aprovado_qa': return 'bg-teal-100 text-teal-700'
+      case 'reprovado_qa': return 'bg-red-100 text-red-700'
       case 'aprovado_reteste': return 'bg-green-100 text-green-700'
       case 'reprovado_reteste': return 'bg-red-100 text-red-700'
       case 'feedback': return 'bg-blue-100 text-blue-700'
@@ -917,6 +923,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
         return <XCircle className="w-5 h-5 text-red-500" />
       case 'em_reteste':
         return <RefreshCw className="w-5 h-5 text-orange-500" />
+      case 'em_homologacao':
+        return <RefreshCw className="w-5 h-5 text-teal-500" />
       case 'melhoria':
         return <CheckCircle2 className="w-5 h-5 text-blue-500" />
       default:
@@ -1045,9 +1053,11 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
                         doc.status === 'aprovado' ? 'badge-success' :
                         doc.status === 'reprovado' ? 'badge-error' :
                         doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
+                        doc.status === 'em_homologacao' ? 'bg-teal-100 text-teal-700' :
                         doc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
                       }`}>
-                        {doc.status === 'em_reteste' ? 'Em Reteste' : doc.status}
+                        {doc.status === 'em_reteste' ? 'Em Reteste' :
+                         doc.status === 'em_homologacao' ? 'Em Homologação' : doc.status}
                       </span>
                       <span className="badge badge-info">{doc.testType}</span>
                       <span className="text-xs text-gray-500">
@@ -1356,9 +1366,11 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
                     selectedDoc.status === 'aprovado' ? 'badge-success' :
                     selectedDoc.status === 'reprovado' ? 'badge-error' :
                     selectedDoc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
+                    selectedDoc.status === 'em_homologacao' ? 'bg-teal-100 text-teal-700' :
                     selectedDoc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
                   }`}>
-                    {selectedDoc.status === 'em_reteste' ? 'Em Reteste' : selectedDoc.status}
+                    {selectedDoc.status === 'em_reteste' ? 'Em Reteste' :
+                     selectedDoc.status === 'em_homologacao' ? 'Em Homologação' : selectedDoc.status}
                   </span>
                 </div>
                 <div>
@@ -1823,20 +1835,45 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
                       Enviar Resposta
                     </button>
                     
-                    {/* Dev: Solicitar Reteste - só aparece quando NÃO está em reteste */}
-                    {selectedDoc.status !== 'em_reteste' && (
+                    {/* Dev: Enviar para QA */}
+                    {['desenvolvedor', 'admin'].includes(currentUser?.role?.toLowerCase()) &&
+                      !['em_reteste', 'em_homologacao', 'aprovado'].includes(selectedDoc.status) && (
                       <button
                         onClick={() => handleSendComment('solicitar_reteste')}
                         disabled={sendingComment}
                         className="flex items-center gap-2 text-sm px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
                       >
                         <RefreshCw className="w-4 h-4" />
-                        Solicitar Reteste
+                        Enviar para QA
                       </button>
                     )}
-                    
-                    {/* Operação: Aprovar/Reprovar - só aparece quando ESTÁ em reteste */}
-                    {selectedDoc.status === 'em_reteste' && (
+
+                    {/* QA: Aprovar (envia para Operação) ou Reprovar (devolve ao Dev) */}
+                    {['qa', 'admin'].includes(currentUser?.role?.toLowerCase()) &&
+                      selectedDoc.status === 'em_reteste' && (
+                      <>
+                        <button
+                          onClick={() => handleSendComment('aprovado_qa')}
+                          disabled={sendingComment}
+                          className="flex items-center gap-2 text-sm px-4 py-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200 transition-colors disabled:opacity-50"
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                          Aprovar e Enviar para Operação
+                        </button>
+                        <button
+                          onClick={() => handleSendComment('reprovado_qa')}
+                          disabled={sendingComment}
+                          className="flex items-center gap-2 text-sm px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                        >
+                          <ThumbsDown className="w-4 h-4" />
+                          Reprovar
+                        </button>
+                      </>
+                    )}
+
+                    {/* Operação: Aprovar ou Reprovar após validação do QA */}
+                    {['operacao', 'admin'].includes(currentUser?.role?.toLowerCase()) &&
+                      selectedDoc.status === 'em_homologacao' && (
                       <>
                         <button
                           onClick={() => handleSendComment('aprovado_reteste')}

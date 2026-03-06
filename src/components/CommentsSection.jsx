@@ -9,6 +9,8 @@ import UploadLoading from './UploadLoading'
 const getCommentTypeLabel = (type) => {
   switch(type) {
     case 'solicitar_reteste': return 'Solicitou Reteste'
+    case 'aprovado_qa': return 'Aprovado pelo QA'
+    case 'reprovado_qa': return 'Reprovado pelo QA'
     case 'aprovado_reteste': return 'Aprovou após Reteste'
     case 'reprovado_reteste': return 'Reprovou Reteste'
     case 'feedback': return 'Feedback'
@@ -19,6 +21,8 @@ const getCommentTypeLabel = (type) => {
 const getCommentTypeColor = (type) => {
   switch(type) {
     case 'solicitar_reteste': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+    case 'aprovado_qa': return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+    case 'reprovado_qa': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
     case 'aprovado_reteste': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
     case 'reprovado_reteste': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
     case 'feedback': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
@@ -164,7 +168,10 @@ export default function CommentsSection({
         switch (actionType) {
           case 'aprovado_reteste':
           case 'reprovado_reteste':
-            return 'Operação'
+            return currentUser?.name || currentUser?.email || 'Operação'
+          case 'aprovado_qa':
+          case 'reprovado_qa':
+            return currentUser?.name || currentUser?.email || 'QA'
           case 'resposta':
           case 'solicitar_reteste':
           default:
@@ -187,23 +194,31 @@ export default function CommentsSection({
           case 'aprovado_reteste':
           case 'reprovado_reteste':
             return 'desenvolvedor'
-          case 'resposta':
-          case 'solicitar_reteste':
-          default:
+          case 'aprovado_qa':
             return 'operacao'
+          case 'reprovado_qa':
+            return 'desenvolvedor'
+          case 'solicitar_reteste':
+            return 'qa'
+          case 'resposta':
+          default:
+            return null
         }
       }
 
       if (onAddNotification) {
-        const notificationData = {
-          testId: documentId,
-          type: type === 'resposta' ? 'comentario' : type,
-          message: newComment.trim() || getNotificationMessage(type),
-          author: comment.author,
-          authorEmail: currentUser?.email || null,
-          targetRole: getTargetRole(type)
+        const targetRole = getTargetRole(type)
+        if (targetRole) {
+          const notificationData = {
+            testId: documentId,
+            type: type === 'resposta' ? 'comentario' : type,
+            message: newComment.trim() || getNotificationMessage(type),
+            author: comment.author,
+            authorEmail: currentUser?.email || null,
+            targetRole
+          }
+          await onAddNotification(notificationData)
         }
-        await onAddNotification(notificationData)
 
         // Notificar usuários mencionados
         const mentionedUsers = extractMentions(newComment, users)
@@ -221,19 +236,23 @@ export default function CommentsSection({
       }
       
       // Atualizar status do documento
+      if (type === 'solicitar_reteste' && onUpdateStatus) {
+        await onUpdateStatus('em_reteste')
+        if (onUpdateRequirementStatus) {
+          await onUpdateRequirementStatus('Para_Reteste_Homolog')
+        }
+      }
+      if (type === 'aprovado_qa' && onUpdateStatus) {
+        await onUpdateStatus('em_homologacao')
+      }
+      if (type === 'reprovado_qa' && onUpdateStatus) {
+        await onUpdateStatus('reprovado')
+      }
       if (type === 'aprovado_reteste' && onUpdateStatus) {
         await onUpdateStatus('aprovado')
       }
       if (type === 'reprovado_reteste' && onUpdateStatus) {
         await onUpdateStatus('reprovado')
-      }
-      if (type === 'solicitar_reteste' && onUpdateStatus) {
-        await onUpdateStatus('em_reteste')
-        
-        // Atualizar statusHomolog do requisito associado para 'Para_Reteste_Homolog'
-        if (onUpdateRequirementStatus) {
-          await onUpdateRequirementStatus('Para_Reteste_Homolog')
-        }
       }
       
       setNewComment('')
@@ -528,50 +547,80 @@ export default function CommentsSection({
         </div>
         
         {/* Botões de ação */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => handleSendComment('resposta')}
-            disabled={sendingComment || (!newComment.trim() && commentScreenshots.length === 0)}
-            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
-          >
-            <Send className="w-4 h-4" />
-            Enviar Resposta
-          </button>
-          
-          {/* Dev: Solicitar Reteste */}
-          {status !== 'em_reteste' && status !== 'aprovado' && (
-            <button
-              onClick={() => handleSendComment('solicitar_reteste')}
-              disabled={sendingComment}
-              className="flex items-center gap-2 text-sm px-4 py-2 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Solicitar Reteste
-            </button>
-          )}
-          
-          {/* Operação: Aprovar/Reprovar */}
-          {status === 'em_reteste' && (
-            <>
+        {(() => {
+          const role = currentUser?.role?.toLowerCase()
+          const isDev = role === 'desenvolvedor' || role === 'admin'
+          const isQA = role === 'qa' || role === 'admin'
+          const isOp = role === 'operacao' || role === 'admin'
+          return (
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleSendComment('aprovado_reteste')}
-                disabled={sendingComment}
-                className="flex items-center gap-2 text-sm px-4 py-2 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50"
+                onClick={() => handleSendComment('resposta')}
+                disabled={sendingComment || (!newComment.trim() && commentScreenshots.length === 0)}
+                className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
               >
-                <ThumbsUp className="w-4 h-4" />
-                Aprovar Reteste
+                <Send className="w-4 h-4" />
+                Enviar Resposta
               </button>
-              <button
-                onClick={() => handleSendComment('reprovado_reteste')}
-                disabled={sendingComment}
-                className="flex items-center gap-2 text-sm px-4 py-2 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
-              >
-                <ThumbsDown className="w-4 h-4" />
-                Reprovar Reteste
-              </button>
-            </>
-          )}
-        </div>
+
+              {/* Dev: Solicitar Reteste → envia para o QA */}
+              {isDev && !['em_reteste', 'em_homologacao', 'aprovado'].includes(status) && (
+                <button
+                  onClick={() => handleSendComment('solicitar_reteste')}
+                  disabled={sendingComment}
+                  className="flex items-center gap-2 text-sm px-4 py-2 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Enviar para QA
+                </button>
+              )}
+
+              {/* QA: Aprovar (envia para Operação) ou Reprovar (devolve ao Dev) */}
+              {isQA && status === 'em_reteste' && (
+                <>
+                  <button
+                    onClick={() => handleSendComment('aprovado_qa')}
+                    disabled={sendingComment}
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 rounded-lg hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors disabled:opacity-50"
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    Aprovar e Enviar para Operação
+                  </button>
+                  <button
+                    onClick={() => handleSendComment('reprovado_qa')}
+                    disabled={sendingComment}
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                    Reprovar
+                  </button>
+                </>
+              )}
+
+              {/* Operação: Aprovar ou Reprovar após validação do QA */}
+              {isOp && status === 'em_homologacao' && (
+                <>
+                  <button
+                    onClick={() => handleSendComment('aprovado_reteste')}
+                    disabled={sendingComment}
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50"
+                  >
+                    <ThumbsUp className="w-4 h-4" />
+                    Aprovar Reteste
+                  </button>
+                  <button
+                    onClick={() => handleSendComment('reprovado_reteste')}
+                    disabled={sendingComment}
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                    Reprovar Reteste
+                  </button>
+                </>
+              )}
+            </div>
+          )
+        })()}
         
         {sendingComment && (
           <p className="text-sm text-gray-500">Enviando...</p>

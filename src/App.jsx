@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid, User, Workflow, MonitorSmartphone } from 'lucide-react'
+import { FileText, FlaskConical, Code, Table2, Home, Menu, X, Loader2, LogOut, HelpCircle, BarChart3, FileSpreadsheet, ClipboardList, Calendar, CheckSquare, Moon, Sun, ChevronDown, Calculator, LayoutGrid, User, Workflow, MonitorSmartphone, Shield } from 'lucide-react'
 import HomePage from './pages/HomePage'
 import TestRegistrationPage from './pages/TestRegistrationPage'
 import DocumentViewerPage from './pages/DocumentViewerPage'
@@ -20,9 +20,11 @@ import WorkspacesPage from './pages/WorkspacesPage'
 import ProfilePage from './pages/ProfilePage'
 import TestsAutomationPage from './pages/TestsAutomationPage'
 import WorkspaceCanvasPage from './pages/WorkspaceCanvasPage'
+import UsersAdminPage from './pages/UsersAdminPage'
 import WhatsNewModal from './components/WhatsNewModal'
 import WelcomeModal from './components/WelcomeModal'
 import NotificationsPanel from './components/NotificationsPanel'
+import ProfileSetupModal from './components/ProfileSetupModal'
 import Footer from './components/Footer'
 import { ToastProvider, useToast } from './components/Toast'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
@@ -69,7 +71,9 @@ import {
   subscribeToTasks,
   createTaskFromFailedTest,
   createTaskFromFailedExecution,
-  migrateRetestStatusToRequirements
+  migrateRetestStatusToRequirements,
+  updateUserRole,
+  subscribeToUserDoc
 } from './firebase'
 
 function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
@@ -107,6 +111,7 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
     { path: '/particao', label: 'Tabela Partição', icon: Table2, tooltip: 'Tabela de Partição' },
     { path: '/relatorios', label: 'Rel. Testes', icon: BarChart3, tooltip: 'Relatórios de Testes' },
     { path: '/ajuda', label: 'Ajuda', icon: HelpCircle, tooltip: 'Central de Ajuda' },
+    ...(user?.role === 'admin' ? [{ path: '/admin/usuarios', label: 'Gerenciar Usuários', icon: Shield, tooltip: 'Gerenciar Usuários (Admin)' }] : []),
   ]
 
   // Todos os itens para mobile
@@ -229,15 +234,16 @@ function Navigation({ user, onLogout, notifications = [], tasks = [] }) {
                 )}
                 <div className="flex flex-col items-start">
                   <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[120px]">{user?.name || user?.email?.split('@')[0]}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    (user?.department || '').toLowerCase().includes('qa') 
-                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                      : (user?.department || '').toLowerCase().includes('op') 
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                  }`}>
-                    {user?.department || (getUserRole(user?.email) === 'desenvolvedor' ? 'Dev' : 'Op')}
-                  </span>
+                  {(() => {
+                    const roleMap = {
+                      desenvolvedor: { label: 'Dev', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
+                      operacao: { label: 'Op', cls: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
+                      qa: { label: 'QA', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' },
+                      admin: { label: 'Admin', cls: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+                    }
+                    const r = roleMap[user?.role?.toLowerCase()] || { label: '—', cls: 'bg-gray-100 text-gray-500' }
+                    return <span className={`text-xs px-2 py-0.5 rounded-full ${r.cls}`}>{r.label}</span>
+                  })()}
                 </div>
               </Link>
               <button
@@ -406,23 +412,29 @@ function App() {
   }, [user, updateLastActivity, checkSessionExpiration])
 
   useEffect(() => {
+    let unsubscribeUserDoc = null
+
     const unsubscribeAuth = onAuthChange(async (currentUser) => {
-      // Sincronizar usuário com Firestore no login
+      // Cancelar listener anterior se existir
+      if (unsubscribeUserDoc) { unsubscribeUserDoc(); unsubscribeUserDoc = null }
+
       if (currentUser) {
         const firestoreUser = await syncUserToFirestore(currentUser)
-        // Usar dados do Firestore (que incluem perfil editado) junto com dados do Auth
         setUser({ ...currentUser, ...firestoreUser })
-        // Registrar tempo de login se for novo login
+
+        // Listener em tempo real no documento do usuário (role, profileCompleted, etc.)
+        unsubscribeUserDoc = subscribeToUserDoc(currentUser.uid, (updatedProfile) => {
+          setUser(prev => prev ? { ...prev, ...updatedProfile } : prev)
+        })
+
         if (!localStorage.getItem('loginTime')) {
           const now = Date.now()
           localStorage.setItem('loginTime', now.toString())
           localStorage.setItem('lastActivity', now.toString())
           loginTimeRef.current = now
-          // Mostrar modal de boas-vindas após um pequeno delay para carregar as tarefas
           setTimeout(() => setShowWelcomeModal(true), 1500)
         }
       } else {
-        // Limpar dados de sessão no logout
         localStorage.removeItem('lastActivity')
         localStorage.removeItem('loginTime')
         setShowWelcomeModal(false)
@@ -431,7 +443,11 @@ function App() {
       }
       setAuthLoading(false)
     })
-    return () => unsubscribeAuth()
+
+    return () => {
+      unsubscribeAuth()
+      if (unsubscribeUserDoc) unsubscribeUserDoc()
+    }
   }, [])
 
   useEffect(() => {
@@ -573,6 +589,23 @@ function App() {
   const updateTestDocument = async (id, updates) => {
     try {
       await updateTestDocumentDB(id, updates)
+      // Quando o documento é aprovado, fechar todas as tarefas vinculadas e atualizar requisito
+      if (updates.status === 'aprovado') {
+        const linkedTasks = tasks.filter(t => t.sourceId === id && t.status !== 'done')
+        for (const task of linkedTasks) {
+          await updateTask(task.id, { status: 'done' })
+        }
+        const testDoc = testDocuments.find(d => d.id === id)
+        if (testDoc?.requirement) {
+          const relatedReq = importedRequirements.find(r => r.id === testDoc.requirement)
+          if (relatedReq?.firebaseId && relatedReq.statusHomolog !== 'Aprovado') {
+            await updateImportedRequirement(relatedReq.firebaseId, {
+              statusHomolog: 'Aprovado',
+              dataAprovacaoHomolog: new Date().toISOString()
+            })
+          }
+        }
+      }
     } catch (err) {
       console.error('Erro ao atualizar documento:', err)
     }
@@ -781,10 +814,11 @@ function App() {
                   sprints={sprints}
                   users={users}
                   currentUser={user}
+                  testDocuments={testDocuments}
                   onUpdateTask={updateTask}
                   onAddNotification={addNotification}
                   onUpdateDocumentStatus={async (docId, status) => {
-                    await updateTestDocumentDB(docId, { status })
+                    await updateTestDocument(docId, { status })
                   }}
                   onAddTaskComment={async (taskId, comment) => {
                     const task = tasks.find(t => t.id === taskId)
@@ -1002,7 +1036,7 @@ function App() {
                   }}
                   onAddNotification={addNotification}
                   onUpdateDocumentStatus={async (docId, status) => {
-                    await updateTestDocumentDB(docId, { status })
+                    await updateTestDocument(docId, { status })
                   }}
                   currentUser={user}
                 />
@@ -1011,7 +1045,7 @@ function App() {
             <Route 
               path="/espacos" 
               element={
-                <WorkspacesPage 
+                <WorkspacesPage
                   requirements={importedRequirements}
                   onUpdateRequirement={updateImportedRequirement}
                   users={users}
@@ -1024,6 +1058,87 @@ function App() {
                   onDeleteTask={deleteTask}
                   testDocuments={testDocuments}
                   onUpdateTestDocument={updateTestDocument}
+                  onAddTaskComment={async (taskId, comment) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    const existingComments = task?.comments || []
+                    await updateTask(taskId, { comments: [...existingComments, comment] })
+                  }}
+                  onToggleTaskReaction={async (taskId, commentIndex, reaction, userId, userName) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    if (!task) return
+                    const comments = task.comments || []
+                    const comment = comments[commentIndex]
+                    if (!comment) return
+                    const reactions = comment.reactions || []
+                    const existingIndex = reactions.findIndex(
+                      r => r.type === reaction.type && r.value === reaction.value && r.userId === userId
+                    )
+                    let newReactions
+                    if (existingIndex >= 0) {
+                      newReactions = reactions.filter((_, idx) => idx !== existingIndex)
+                    } else {
+                      newReactions = [...reactions, { ...reaction, userId, userName, createdAt: new Date().toISOString() }]
+                    }
+                    const newComments = comments.map((c, idx) =>
+                      idx === commentIndex ? { ...c, reactions: newReactions } : c
+                    )
+                    await updateTask(taskId, { comments: newComments })
+                  }}
+                  onUploadTaskEvidence={async (taskId, file) => {
+                    const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage')
+                    const { storage } = await import('./firebase')
+                    const fileName = `${Date.now()}_${file.name}`
+                    const storageRef = ref(storage, `task-evidences/${taskId}/${fileName}`)
+                    await uploadBytes(storageRef, file)
+                    const url = await getDownloadURL(storageRef)
+                    const newEvidence = {
+                      url, name: file.name,
+                      type: file.type.startsWith('video') ? 'video' : 'image',
+                      uploadedAt: new Date().toISOString(),
+                      uploadedBy: user?.email || user?.name || 'Dev'
+                    }
+                    const task = tasks.find(t => t.id === taskId)
+                    const existingEvidences = task?.devEvidences || []
+                    await updateTask(taskId, { devEvidences: [...existingEvidences, newEvidence] })
+                    return newEvidence
+                  }}
+                  onDeleteTaskEvidence={async (taskId, evidenceIndex) => {
+                    const task = tasks.find(t => t.id === taskId)
+                    if (!task) return
+                    const newEvidences = (task.devEvidences || []).filter((_, idx) => idx !== evidenceIndex)
+                    await updateTask(taskId, { devEvidences: newEvidences })
+                  }}
+                  onRequestRetest={async (task) => {
+                    if (task.sourceId && task.sourceType === 'test_document') {
+                      const updateData = {
+                        status: 'em-reteste',
+                        retestRequestedAt: new Date().toISOString(),
+                        retestRequestedBy: user?.email || user?.name || 'Dev'
+                      }
+                      if (task.comments?.length > 0) {
+                        const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                        const existingComments = testDoc?.comments || []
+                        updateData.comments = [...existingComments, ...task.comments.map(c => ({ ...c, fromTask: true }))]
+                      }
+                      if (task.devEvidences?.length > 0) {
+                        const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                        const existingScreenshots = testDoc?.screenshots || []
+                        updateData.screenshots = [...existingScreenshots, ...task.devEvidences.map(e => ({ ...e, fromDev: true }))]
+                      }
+                      await updateTestDocumentDB(task.sourceId, updateData)
+                      const testDoc = testDocuments.find(d => d.id === task.sourceId)
+                      if (testDoc?.requirement && importedRequirements.length > 0) {
+                        const relatedReq = importedRequirements.find(r => r.id === testDoc.requirement)
+                        if (relatedReq?.firebaseId) {
+                          await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+                        }
+                      }
+                      await updateTask(task.id, { status: 'in_review', retestRequestedAt: new Date().toISOString() })
+                    }
+                  }}
+                  onUpdateDocumentStatus={async (docId, status) => {
+                    await updateTestDocument(docId, { status })
+                  }}
                 />
               } 
             />
@@ -1166,7 +1281,7 @@ function App() {
                   }}
                   onAddNotification={addNotification}
                   onUpdateDocumentStatus={async (docId, status) => {
-                    await updateTestDocumentDB(docId, { status })
+                    await updateTestDocument(docId, { status })
                   }}
                   onUpdateRequirement={updateImportedRequirement}
                 />
@@ -1181,14 +1296,26 @@ function App() {
                 />
               } 
             />
-            <Route 
-              path="/testes-automatizados" 
-              element={<TestsAutomationPage />} 
+            <Route
+              path="/testes-automatizados"
+              element={<TestsAutomationPage />}
+            />
+            <Route
+              path="/admin/usuarios"
+              element={<UsersAdminPage currentUser={user} />}
             />
           </Routes>
         </main>
         <Footer />
         
+        {/* Modal de configuração de perfil — primeiro acesso ou perfil incompleto */}
+        {user && !user.profileCompleted && (
+          <ProfileSetupModal
+            user={user}
+            onComplete={(updates) => setUser(prev => ({ ...prev, ...updates }))}
+          />
+        )}
+
         {/* Modal de Boas-vindas */}
         <WelcomeModal
           isOpen={showWelcomeModal}

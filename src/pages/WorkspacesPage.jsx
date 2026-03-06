@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import WorkspaceSidebar from '../components/WorkspaceSidebar'
 import WorkspaceBoard from '../components/WorkspaceBoard'
 
@@ -22,6 +23,9 @@ export default function WorkspacesPage({
   onRequestRetest,
   onUpdateDocumentStatus
 }) {
+  const [searchParams] = useSearchParams()
+  const autoOpenTaskId = searchParams.get('taskId')
+
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [selectedWorkspace, setSelectedWorkspace] = useState('operacao')
   const [selectedList, setSelectedList] = useState(null)
@@ -60,6 +64,7 @@ export default function WorkspacesPage({
         onDeleteTaskEvidence={onDeleteTaskEvidence}
         onRequestRetest={onRequestRetest}
         onUpdateDocumentStatus={onUpdateDocumentStatus}
+        autoOpenTaskId={autoOpenTaskId}
       />
     </div>
   )

@@ -633,6 +633,7 @@ export default function SprintsPage({
           onRequestRetest={onRequestRetest}
           onAddNotification={onAddNotification}
           onUpdateDocumentStatus={onUpdateDocumentStatus}
+          onUpdateTask={onUpdateTask}
           requirements={requirements}
           testDocuments={testDocuments}
           onUpdateRequirement={onUpdateRequirement}
@@ -1637,7 +1638,7 @@ function ImportTestDocsModal({ testDocs, users, onImport, onClose, loading }) {
 }
 
 // Modal para visualizar detalhes da tarefa
-function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment, onToggleReaction, onRequestRetest, onUploadEvidence, onDeleteEvidence, currentUser, onAddNotification, onUpdateDocumentStatus, requirements = [], testDocuments = [], onUpdateRequirement }) {
+function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment, onToggleReaction, onRequestRetest, onUploadEvidence, onDeleteEvidence, currentUser, onAddNotification, onUpdateDocumentStatus, onUpdateTask, requirements = [], testDocuments = [], onUpdateRequirement }) {
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -1857,7 +1858,7 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
   const handleRequestRetest = async () => {
     if (!onRequestRetest) return
     if (!window.confirm('Deseja solicitar reteste? O QA será notificado para validar a correção.')) return
-    
+
     setSubmitting(true)
     try {
       await onRequestRetest(task)
@@ -1870,6 +1871,86 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
       setSubmitting(false)
     }
   }
+
+  const handleUpdateStatus = async (newStatus, reviewStage = null) => {
+    if (!onUpdateTask) return
+    setSubmitting(true)
+    try {
+      const updates = { status: newStatus }
+      if (reviewStage) updates.reviewStage = reviewStage
+      else updates.reviewStage = null
+      await onUpdateTask(task.id, updates)
+
+      if (onAddNotification) {
+        const author = currentUser?.name || currentUser?.email || 'Usuário'
+        if (newStatus === 'in_review' && reviewStage === 'qa') {
+          await onAddNotification({
+            type: 'nova_tarefa',
+            message: `${author} enviou para revisão do QA: "${task.title}"`,
+            author,
+            authorEmail: currentUser?.email || null,
+            targetRole: 'qa'
+          })
+        } else if (newStatus === 'in_review' && reviewStage === 'operacao') {
+          await onAddNotification({
+            type: 'aprovado_reteste',
+            message: `QA aprovou e enviou para Operação: "${task.title}"`,
+            author,
+            authorEmail: currentUser?.email || null,
+            targetRole: 'operacao'
+          })
+        } else if (newStatus === 'done') {
+          const assigneeUser = users.find(u => u.id === task.assignee)
+          if (assigneeUser) {
+            await onAddNotification({
+              type: 'aprovado_reteste',
+              message: `Tarefa aprovada por ${author}: "${task.title}"`,
+              author,
+              authorEmail: currentUser?.email || null,
+              targetUserId: assigneeUser.id,
+              targetEmail: assigneeUser.email
+            })
+          }
+        } else if (newStatus === 'in_progress') {
+          const assigneeUser = users.find(u => u.id === task.assignee)
+          if (assigneeUser) {
+            await onAddNotification({
+              type: 'reprovado_reteste',
+              message: `Tarefa reprovada por ${author}: "${task.title}"`,
+              author,
+              authorEmail: currentUser?.email || null,
+              targetUserId: assigneeUser.id,
+              targetEmail: assigneeUser.email
+            })
+          }
+        }
+      }
+      toast.success(
+        reviewStage === 'qa' ? 'Enviado para o QA!' :
+        reviewStage === 'operacao' ? 'Aprovado pelo QA — enviado para Operação!' :
+        newStatus === 'done' ? 'Tarefa aprovada e encerrada!' :
+        'Tarefa reprovada — devolvida ao desenvolvedor!'
+      )
+      onClose()
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error)
+      toast.error('Erro ao atualizar status. Tente novamente.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const role = currentUser?.role?.toLowerCase()
+  const isStandaloneTask = !task.sourceType || task.sourceType !== 'test_document'
+  const isDev = role === 'desenvolvedor' || role === 'admin'
+  const isQA = role === 'qa' || role === 'admin'
+  const isOp = role === 'operacao' || role === 'admin'
+  const showSendToQA = isStandaloneTask && isDev &&
+    (task.status === 'pending' || task.status === 'in_progress')
+  const showQAActions = isStandaloneTask && isQA &&
+    task.status === 'in_review' && task.reviewStage === 'qa'
+  const showOpActions = isStandaloneTask && isOp &&
+    task.status === 'in_review' && task.reviewStage === 'operacao'
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -2375,11 +2456,58 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
           </div>
         </div>
 
-        <div className="p-6 border-t bg-gray-50 flex justify-between">
-          <button onClick={onEdit} className="btn-secondary flex items-center gap-2">
-            <Edit2 className="w-4 h-4" />
-            Editar
-          </button>
+        <div className="p-6 border-t bg-gray-50 flex justify-between items-center">
+          <div className="flex gap-2">
+            <button onClick={onEdit} className="btn-secondary flex items-center gap-2">
+              <Edit2 className="w-4 h-4" />
+              Editar
+            </button>
+            {showSendToQA && (
+              <button
+                onClick={() => handleUpdateStatus('in_review', 'qa')}
+                disabled={submitting}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+              >
+                Enviar para QA
+              </button>
+            )}
+            {showQAActions && (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus('in_review', 'operacao')}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50"
+                >
+                  Aprovar e Enviar para Operação
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus('in_progress')}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                >
+                  Reprovar
+                </button>
+              </>
+            )}
+            {showOpActions && (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus('done')}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                >
+                  Aprovar
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus('in_progress')}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                >
+                  Reprovar
+                </button>
+              </>
+            )}
+          </div>
           <button onClick={onClose} className="btn-primary">
             Fechar
           </button>

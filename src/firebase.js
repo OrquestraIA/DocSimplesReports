@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc } from 'firebase/firestore'
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, setDoc, getDoc, getDocs } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 
@@ -373,7 +373,7 @@ export const subscribeToNotifications = (callback, onError, currentUser = null) 
     
     // Filtrar notificações para o usuário atual
     if (currentUser) {
-      const userRole = getUserRole(currentUser.email)
+      const userRole = (currentUser.role || getUserRole(currentUser.email)).toLowerCase()
       const userEmail = currentUser.email
       const userId = currentUser.uid
       
@@ -387,7 +387,7 @@ export const subscribeToNotifications = (callback, onError, currentUser = null) 
           return true
         }
         // Notificação direcionada por role (ex: operacao, desenvolvedor)
-        if (notification.targetRole && notification.targetRole === userRole) {
+        if (notification.targetRole && notification.targetRole.toLowerCase() === userRole) {
           // Não mostrar notificações que o próprio usuário criou
           if (notification.authorEmail === userEmail) {
             return false
@@ -420,30 +420,45 @@ export const syncUserToFirestore = async (authUser) => {
   const mentionName = emailName.toLowerCase().replace(/[._]/g, '')
   
   if (!userSnap.exists()) {
-    // Criar novo usuário
+    // Criar novo usuário — role e profileCompleted definidos pelo próprio usuário no primeiro acesso
     const userData = {
       uid: authUser.uid,
       email: authUser.email,
       name: displayName,
       displayName: displayName,
-      mentionName: mentionName, // nome para @menção
-      role: getUserRole(authUser.email),
+      mentionName: mentionName,
+      role: null,
+      profileCompleted: false,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString()
     }
     await setDoc(userRef, userData)
     return userData
   } else {
-    // Atualizar apenas último login, preservando dados do perfil
-    await updateDoc(userRef, { lastLogin: new Date().toISOString() })
     const existingData = userSnap.data()
-    return { 
-      id: userSnap.id, 
+    // Migração automática: usuários antigos com role já definido são marcados como profileCompleted
+    const updates = { lastLogin: new Date().toISOString() }
+    // Auto-migrar apenas roles atribuídos manualmente (admin e qa nunca são auto-gerados)
+    // Desenvolvedor e operacao podem ser auto-atribuídos — usuário deve confirmar via modal
+    if (!existingData.profileCompleted && (existingData.role === 'admin' || existingData.role === 'qa')) {
+      updates.profileCompleted = true
+    }
+    await updateDoc(userRef, updates)
+    return {
+      id: userSnap.id,
       uid: authUser.uid,
       ...existingData,
-      lastLogin: new Date().toISOString()
+      ...updates
     }
   }
+}
+
+// Ouvir mudanças em tempo real no documento do usuário logado
+export const subscribeToUserDoc = (uid, callback) => {
+  const userRef = doc(db, 'users', uid)
+  return onSnapshot(userRef, (snap) => {
+    if (snap.exists()) callback({ id: snap.id, ...snap.data() })
+  })
 }
 
 // Buscar todos os usuários (para autocomplete de menções)
@@ -465,6 +480,53 @@ export const subscribeToUsers = (callback, onError) => {
 export const updateUserProfile = async (uid, data) => {
   const userRef = doc(db, 'users', uid)
   await updateDoc(userRef, data)
+}
+
+// Atualizar role de um usuário (usado pela tela de admin)
+export const updateUserRole = async (uid, role) => {
+  const userRef = doc(db, 'users', uid)
+  await updateDoc(userRef, { role })
+}
+
+// Resetar perfil: força o usuário a passar pelo modal de configuração no próximo login
+export const resetUserProfile = async (uid) => {
+  const userRef = doc(db, 'users', uid)
+  await updateDoc(userRef, { profileCompleted: false, role: null })
+}
+
+// Remove documentos duplicados da collection users (mesmo email, IDs diferentes)
+// Mantém o documento cujo ID === uid (criado via setDoc — o correto)
+// e apaga todos os outros com o mesmo email
+export const deduplicateUsers = async () => {
+  const snapshot = await getDocs(usersCollection)
+  const byEmail = {}
+
+  snapshot.docs.forEach(d => {
+    const data = d.data()
+    const email = data.email?.toLowerCase()
+    if (!email) return
+    if (!byEmail[email]) byEmail[email] = []
+    byEmail[email].push({ docId: d.id, ...data })
+  })
+
+  let deleted = 0
+  for (const email of Object.keys(byEmail)) {
+    const group = byEmail[email]
+    if (group.length <= 1) continue
+
+    // O documento correto é aquele cujo docId === uid
+    const correct = group.find(u => u.docId === u.uid)
+    const toDelete = correct
+      ? group.filter(u => u.docId !== correct.docId)
+      : group.slice(1) // se nenhum tem uid como ID, mantém o primeiro e apaga o resto
+
+    for (const dup of toDelete) {
+      await deleteDoc(doc(db, 'users', dup.docId))
+      deleted++
+    }
+  }
+
+  return deleted
 }
 
 // Função para criar usuário manualmente (para usuários que ainda não logaram)

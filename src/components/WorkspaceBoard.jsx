@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { 
   Search, 
   Filter, 
@@ -837,11 +837,11 @@ function ListView({ requirements, tasks, testDocuments, workspace, selectedList,
   )
 }
 
-export default function WorkspaceBoard({ 
-  requirements = [], 
+export default function WorkspaceBoard({
+  requirements = [],
   tasks = [],
   testDocuments = [],
-  selectedWorkspace, 
+  selectedWorkspace,
   selectedList,
   onUpdateRequirement,
   onUpdateTask,
@@ -857,7 +857,8 @@ export default function WorkspaceBoard({
   onUploadTaskEvidence,
   onDeleteTaskEvidence,
   onRequestRetest,
-  onUpdateDocumentStatus
+  onUpdateDocumentStatus,
+  autoOpenTaskId = null
 }) {
   const [viewMode, setViewMode] = useState('kanban') // 'kanban' ou 'list'
   const [searchTerm, setSearchTerm] = useState('')
@@ -876,6 +877,15 @@ export default function WorkspaceBoard({
     if (!selectedItem || selectedItemType !== 'requirement') return null
     return requirements.find(r => r.firebaseId === selectedItem.firebaseId) || null
   }, [requirements, selectedItem, selectedItemType])
+
+  // Auto-abrir tarefa quando vindo de notificação via URL ?taskId=
+  useEffect(() => {
+    if (!autoOpenTaskId || tasks.length === 0) return
+    const task = tasks.find(t => t.id === autoOpenTaskId)
+    if (task) {
+      setViewingTask(task)
+    }
+  }, [autoOpenTaskId, tasks])
 
   const handleOpenDetail = (item, type = 'requirement') => {
     setSelectedItem(item)
@@ -1128,6 +1138,7 @@ export default function WorkspaceBoard({
           onRequestRetest={onRequestRetest}
           onAddNotification={onAddNotification}
           onUpdateDocumentStatus={onUpdateDocumentStatus}
+          onUpdateTask={onUpdateTask}
           requirements={requirements}
           testDocuments={testDocuments}
           onUpdateRequirement={onUpdateRequirement}
