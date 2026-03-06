@@ -251,9 +251,21 @@ export default function TutorialPage() {
           tip: 'Notificações verdes = aprovado, vermelhas = reprovado.'
         },
         {
-          title: 'Menções (@)',
-          description: 'Quando alguém te menciona em um comentário, você recebe uma notificação destacada em roxo.',
-          tip: 'Menções são úteis para chamar atenção de pessoas específicas.'
+          title: 'Menções (@) em Comentários',
+          description: 'Quando alguém te menciona em um comentário (em qualquer módulo: documentos, tarefas, Sprints ou Espaços), você recebe uma notificação destacada em roxo com o trecho do comentário.',
+          important: true,
+          tip: 'As menções são processadas server-side — você é notificado mesmo que não esteja online no momento.'
+        },
+        {
+          title: 'Notificações Clicáveis (Deep Link)',
+          description: 'Clicar em qualquer notificação leva diretamente ao documento ou tarefa relacionada, sem precisar procurar manualmente. A notificação é marcada como lida automaticamente ao clicar.',
+          important: true,
+          tip: 'O cursor de mão aparece apenas nas notificações que têm destino — as sem link são informativas.'
+        },
+        {
+          title: 'Nova Tarefa Criada',
+          description: 'Usuários com função QA recebem alerta (ícone verde +) sempre que uma nova tarefa ou documento de teste é criado por outro papel (Dev ou Operação).',
+          tip: 'Isso garante que o QA não perca nenhum item novo que precise de validação.'
         }
       ]
     },
@@ -708,6 +720,47 @@ export default function TutorialPage() {
           description: 'Quando um dev marca como "Implementado", o requisito vai automaticamente para QA testar. Quando QA aprova, vai para Operação validar.',
           important: true,
           tip: 'O fluxo Dev → QA → Operação é automático!'
+        }
+      ]
+    },
+    {
+      id: 'roles',
+      title: 'Funções (Roles) e Fluxo de Aprovação',
+      icon: Workflow,
+      color: 'bg-violet-500',
+      steps: [
+        {
+          title: 'Configuração de Perfil no Primeiro Login',
+          description: 'No primeiro acesso, o sistema exibe um modal solicitando seu nome e sua função no time: Desenvolvedor, Operação ou QA.',
+          important: true,
+          tip: 'O admin pode alterar sua função a qualquer momento pela tela "Gerenciar Usuários".'
+        },
+        {
+          title: 'Funções disponíveis',
+          description: 'Desenvolvedor: corrige bugs e implementa melhorias. QA: valida as correções antes de enviar para homologação. Operação: homologa e aprova o resultado final.',
+          tip: 'A função define quais botões e ações aparecem para você em cada tarefa e documento.'
+        },
+        {
+          title: 'Fluxo em 3 Etapas: Dev → QA → Operação',
+          description: 'Para tarefas e documentos de teste: (1) Dev corrige e clica "Enviar para QA". (2) QA testa e clica "Aprovar e Enviar para Operação" ou "Reprovar". (3) Operação valida e clica "Aprovar" — encerrando a tarefa.',
+          important: true,
+          tip: 'Nenhuma etapa pode ser pulada: o botão da próxima etapa só aparece para o role correto.'
+        },
+        {
+          title: 'Aprovação em Cascata',
+          description: 'Quando a Operação aprova um documento de teste, todas as tarefas vinculadas a ele são fechadas automaticamente e o status do requisito na tabela muda para "Aprovado".',
+          important: true,
+          tip: 'Você não precisa fechar as tarefas manualmente — o sistema faz isso por você.'
+        },
+        {
+          title: 'Badge de Role em Tempo Real',
+          description: 'A badge no canto superior direito (Dev/QA/Op/Admin) reflete seu role atual do banco de dados e atualiza instantaneamente quando o admin altera sua função.',
+          tip: 'Se a badge estiver errada, entre em contato com o admin para corrigir seu role.'
+        },
+        {
+          title: 'Gerenciar Usuários (Admin)',
+          description: 'Admins acessam "Gerenciar Usuários" no menu para alterar o role de qualquer pessoa, resetar perfil (obrigá-la a preencher novamente) e remover registros duplicados.',
+          tip: 'Apenas usuários com role "admin" têm acesso a essa tela.'
         }
       ]
     },

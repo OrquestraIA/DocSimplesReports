@@ -1,8 +1,59 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.6.0'
+export const APP_VERSION = '2.7.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.7.0',
+    date: '2026-03-06',
+    title: 'Roles, Fluxo QA e Gestão de Usuários',
+    changes: [
+      {
+        type: 'feature',
+        description: '👤 Perfil no primeiro login — ao entrar pela primeira vez, o usuário escolhe seu nome e função (Desenvolvedor, Operação ou QA)'
+      },
+      {
+        type: 'feature',
+        description: '🔁 Fluxo de aprovação em 3 etapas — Dev corrige → QA valida → Operação homologa e fecha a tarefa'
+      },
+      {
+        type: 'feature',
+        description: '🛡️ Gerenciar Usuários — admins podem alterar o role de qualquer usuário, resetar perfil e remover duplicatas diretamente pela tela'
+      },
+      {
+        type: 'feature',
+        description: '🔔 Alertas para QA via Cloud Functions — QA é notificado sempre que uma nova tarefa ou documento de teste é criado por outro papel'
+      },
+      {
+        type: 'improvement',
+        description: '✅ Aprovação em cascata — ao aprovar um documento de teste, todas as tarefas vinculadas são fechadas e o requisito atualiza para "Aprovado" automaticamente'
+      },
+      {
+        type: 'improvement',
+        description: '⚡ Badge de role em tempo real — a badge no header (Dev/QA/Op/Admin) atualiza instantaneamente sem precisar fazer logout'
+      },
+      {
+        type: 'bugfix',
+        description: '🔧 Correção da badge de role que mostrava "Op" para todos os usuários independente do cargo real no Firestore'
+      },
+      {
+        type: 'feature',
+        description: '🔔 Notificações clicáveis com deep link — clicar em uma notificação leva diretamente ao documento ou tarefa relacionada, já marcando como lida'
+      },
+      {
+        type: 'feature',
+        description: '💬 Notificações de menção (@) em comentários — ao ser mencionado em qualquer comentário do sistema, o usuário recebe alerta em roxo'
+      },
+      {
+        type: 'feature',
+        description: '📋 Novos tipos de notificação: "Nova Tarefa Criada" (verde) e "Novo Teste Registrado" (índigo) com ícones distintos no painel'
+      },
+      {
+        type: 'bugfix',
+        description: '🧹 Remoção de usuários duplicados — ferramenta para limpar documentos duplicados gerados por versões antigas do sistema'
+      }
+    ]
+  },
   {
     version: '2.6.0',
     date: '2026-02-12',

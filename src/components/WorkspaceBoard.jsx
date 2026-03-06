@@ -1138,6 +1138,7 @@ export default function WorkspaceBoard({
           onRequestRetest={onRequestRetest}
           onAddNotification={onAddNotification}
           onUpdateDocumentStatus={onUpdateDocumentStatus}
+          onUpdateTask={onUpdateTask}
           requirements={requirements}
           testDocuments={testDocuments}
           onUpdateRequirement={onUpdateRequirement}

@@ -35,6 +35,7 @@ export default function MyTasksPage({
   sprints = [],
   users = [],
   currentUser,
+  testDocuments = [],
   onUpdateTask,
   onAddNotification,
   onUpdateDocumentStatus,
@@ -48,13 +49,37 @@ export default function MyTasksPage({
   const [viewingMedia, setViewingMedia] = useState(null)
   const [loading, setLoading] = useState(false)
 
+  // Enriquecer tasks com dados atualizados do documento de teste, quando existir
+  const enrichedTasks = useMemo(() => {
+    if (!testDocuments || testDocuments.length === 0) return tasks
+    return tasks.map(task => {
+      if (task.sourceType === 'test_document' && task.sourceId) {
+        const testDoc = testDocuments.find(doc => doc.id === task.sourceId)
+        if (testDoc) {
+          return {
+            ...task,
+            sourceData: {
+              ...task.sourceData,
+              comments: testDoc.comments || [],
+              status: testDoc.status,
+              screenshots: testDoc.screenshots || [],
+              evidences: testDoc.evidences || task.sourceData?.evidences || [],
+              failedSteps: testDoc.failedSteps || task.sourceData?.failedSteps || []
+            }
+          }
+        }
+      }
+      return task
+    })
+  }, [tasks, testDocuments])
+
   // Filtrar tarefas atribuídas ao usuário atual
   const myTasks = useMemo(() => {
     if (!currentUser) return []
     // Verificar por id ou uid (Firebase Auth usa uid)
     const userId = currentUser.id || currentUser.uid
-    return tasks.filter(t => t.assignee === userId)
-  }, [tasks, currentUser])
+    return enrichedTasks.filter(t => t.assignee === userId)
+  }, [enrichedTasks, currentUser])
 
   // Aplicar filtros
   const filteredTasks = useMemo(() => {
@@ -252,8 +277,10 @@ export default function MyTasksPage({
           sprints={sprints}
           users={users}
           currentUser={currentUser}
+          testDocuments={testDocuments}
           onClose={() => setViewingTask(null)}
           onUpdateStatus={handleUpdateStatus}
+          onUpdateTask={onUpdateTask}
           onViewMedia={(media, index) => setViewingMedia({ media, index })}
           onAddNotification={onAddNotification}
           onUpdateDocumentStatus={onUpdateDocumentStatus}
@@ -318,7 +345,11 @@ function TaskRow({ task, sprints, onView, onUpdateStatus }) {
   const priorityStyle = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
   const TypeIcon = typeStyle.icon
   const sprint = sprints.find(s => s.id === task.sprintId)
-  const hasEvidences = task.sourceData?.screenshots?.length > 0
+  const hasEvidences = (task.screenshots?.length || 0) > 0 ||
+    (task.sourceData?.screenshots?.length || 0) > 0 ||
+    (task.attachments?.length || 0) > 0 ||
+    (task.sourceData?.evidences?.length || 0) > 0 ||
+    (task.devEvidences?.length || task.sourceData?.devEvidences?.length || 0) > 0
 
   return (
     <div className="p-4 hover:bg-gray-50 transition-colors">
@@ -358,7 +389,7 @@ function TaskRow({ task, sprints, onView, onUpdateStatus }) {
             )}
             {hasEvidences && (
               <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-600">
-                📸 {task.sourceData.screenshots.length}
+                📎 Evidências
               </span>
             )}
             <select
@@ -378,7 +409,7 @@ function TaskRow({ task, sprints, onView, onUpdateStatus }) {
 }
 
 // Modal de visualização de tarefa com interação completa
-function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateStatus, onViewMedia, onAddNotification, onUpdateDocumentStatus, onAddComment, onToggleReaction, onUpdateTask }) {
+function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], onClose, onUpdateStatus, onViewMedia, onAddNotification, onUpdateDocumentStatus, onAddComment, onToggleReaction, onUpdateTask }) {
   const [activeTab, setActiveTab] = useState('detalhes')
   const [newComment, setNewComment] = useState('')
   const [commentMedia, setCommentMedia] = useState([])
@@ -391,6 +422,13 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
   const [openReactionPicker, setOpenReactionPicker] = useState(null)
   const fileInputRef = useRef(null)
   const textareaRef = useRef(null)
+
+  // DEBUG: expor última tarefa visualizada para inspeção no console
+  if (typeof window !== 'undefined') {
+    window.__lastTask = task
+    // eslint-disable-next-line no-console
+    console.log('[MyTasksPage] TaskViewModal task:', task)
+  }
 
   // Sincronizar comentários locais quando a tarefa mudar
   useEffect(() => {
@@ -479,7 +517,72 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
   const statusStyle = TASK_STATUS[task.status] || TASK_STATUS.pending
   const priorityStyle = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
   const TypeIcon = typeStyle.icon
-  const screenshots = task.screenshots || task.sourceData?.screenshots || []
+  const findTestDoc = () => {
+    if (task.sourceType === 'test_document' && task.sourceId && testDocuments.length > 0) {
+      return testDocuments.find(doc => doc.id === task.sourceId)
+    }
+    return null
+  }
+
+  const latestTestDoc = findTestDoc()
+  const sourceData = {
+    ...task.sourceData,
+    screenshots: task.sourceData?.screenshots || latestTestDoc?.screenshots || [],
+    evidences: task.sourceData?.evidences || latestTestDoc?.evidences || [],
+    failedSteps: task.sourceData?.failedSteps || latestTestDoc?.failedSteps || []
+  }
+
+  const pickMediaList = (...lists) => {
+    for (const list of lists) {
+      if (Array.isArray(list) && list.length > 0) {
+        return list
+      }
+    }
+    return lists.find(list => Array.isArray(list)) || []
+  }
+
+  const screenshots = pickMediaList(task.screenshots, sourceData.screenshots)
+
+  let attachments = pickMediaList(task.attachments, sourceData.evidences)
+  if (attachments.length === 0 && sourceData.failedSteps) {
+    const evidencesFromSteps = []
+    sourceData.failedSteps.forEach((step, index) => {
+      if (step.evidences && step.evidences.length > 0) {
+        step.evidences.forEach(evidence => {
+          evidencesFromSteps.push({
+            ...evidence,
+            stepIndex: index,
+            stepAction: step.action
+          })
+        })
+      }
+    })
+    attachments = evidencesFromSteps
+  }
+
+  const devEvidences = pickMediaList(task.devEvidences, sourceData.devEvidences)
+
+  const inferMediaType = (item) => {
+    if (item?.type) return item.type
+    if (item?.mediaType) return item.mediaType
+    const url = item?.url || ''
+    const videoRegex = /\.(mp4|webm|mov|avi)$/i
+    return videoRegex.test(url) ? 'video' : 'image'
+  }
+
+  const buildMediaItems = (items, prefix = 'Evidência') =>
+    items.map((item, index) => ({
+      url: item.url,
+      type: inferMediaType(item),
+      name: item.name || `${prefix} ${index + 1}`,
+      stepIndex: typeof item.stepIndex === 'number' ? item.stepIndex : undefined,
+      stepAction: item.stepAction
+    }))
+
+  const screenshotsMedia = buildMediaItems(screenshots, 'Evidência')
+  const attachmentsMedia = buildMediaItems(attachments, 'Falha')
+  const devEvidencesMedia = buildMediaItems(devEvidences, 'Evidência do Dev')
+  const totalEvidenceCount = screenshots.length + attachments.length + devEvidences.length
   const sprint = sprints.find(s => s.id === task.sprintId)
 
   // Filtrar usuários para menções
@@ -606,11 +709,121 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
     setOpenReactionPicker(null)
   }
 
+  const handleUpdateStatus = async (newStatus, reviewStage = null) => {
+    if (!onUpdateTask) return
+    setSending(true)
+    try {
+      const updates = { status: newStatus }
+      updates.reviewStage = reviewStage || null
+      await onUpdateTask(task.id, updates)
+      if (onAddNotification) {
+        const author = currentUser?.name || currentUser?.email || 'Usuário'
+        if (newStatus === 'in_review' && reviewStage === 'qa') {
+          await onAddNotification({
+            type: 'nova_tarefa',
+            message: `${author} enviou para revisão do QA: "${task.title}"`,
+            author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+          })
+        } else if (newStatus === 'in_review' && reviewStage === 'operacao') {
+          await onAddNotification({
+            type: 'aprovado_reteste',
+            message: `QA aprovou e enviou para Operação: "${task.title}"`,
+            author, authorEmail: currentUser?.email || null, targetRole: 'operacao'
+          })
+        } else if (newStatus === 'done') {
+          const assigneeUser = users.find(u => u.id === task.assignee)
+          if (assigneeUser) {
+            await onAddNotification({
+              type: 'aprovado_reteste',
+              message: `Tarefa aprovada por ${author}: "${task.title}"`,
+              author, authorEmail: currentUser?.email || null,
+              targetUserId: assigneeUser.id, targetEmail: assigneeUser.email
+            })
+          }
+        } else if (newStatus === 'in_progress') {
+          const assigneeUser = users.find(u => u.id === task.assignee)
+          if (assigneeUser) {
+            await onAddNotification({
+              type: 'reprovado_reteste',
+              message: `Tarefa reprovada por ${author}: "${task.title}"`,
+              author, authorEmail: currentUser?.email || null,
+              targetUserId: assigneeUser.id, targetEmail: assigneeUser.email
+            })
+          }
+        }
+      }
+      onClose()
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error)
+      alert('Erro ao atualizar status. Tente novamente.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const role = currentUser?.role?.toLowerCase()
+  const isStandaloneTask = !task.sourceType || task.sourceType !== 'test_document'
+  const isDev = role === 'desenvolvedor' || role === 'admin'
+  const isQA = role === 'qa' || role === 'admin'
+  const isOp = role === 'operacao' || role === 'admin'
+  const showSendToQA = isStandaloneTask && isDev &&
+    (task.status === 'pending' || task.status === 'in_progress')
+  const showQAActions = isStandaloneTask && isQA &&
+    task.status === 'in_review' && task.reviewStage === 'qa'
+  const showOpActions = isStandaloneTask && isOp &&
+    task.status === 'in_review' && task.reviewStage === 'operacao'
+
   const tabs = [
     { id: 'detalhes', label: 'Detalhes' },
     { id: 'comentarios', label: `Comentários (${localComments.length})` },
-    { id: 'evidencias', label: `Evidências (${screenshots.length})` },
+    { id: 'evidencias', label: `Evidências QA (${screenshots.length + attachments.length})` },
+    { id: 'dev', label: `Evidências Dev (${devEvidences.length})` },
   ]
+
+  const renderMediaGrid = (mediaList, accent = 'blue') => {
+    const accentBg = accent === 'red' ? 'bg-red-600' : accent === 'purple' ? 'bg-purple-600' : 'bg-blue-600'
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {mediaList.map((media, index) => (
+          <button
+            key={`${media.url}-${index}`}
+            onClick={() => onViewMedia(mediaList, index)}
+            className="relative group cursor-pointer aspect-video bg-gray-100 dark:bg-slate-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all"
+          >
+            {media.type === 'video' ? (
+              <>
+                <video
+                  src={media.url}
+                  className="w-full h-full object-cover"
+                  playsInline
+                  muted
+                  loop
+                  preload="metadata"
+                  poster={media.thumbnail || undefined}
+                />
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <Play className="w-10 h-10 text-white" />
+                </div>
+              </>
+            ) : (
+              <img src={media.url} alt={media.name} className="w-full h-full object-cover" />
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+            <div className="absolute bottom-3 left-3 right-3 text-xs font-semibold text-white">
+              <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${accentBg}`}>
+                {media.stepAction ? `Passo ${media.stepIndex + 1}` : media.name}
+              </div>
+              {media.stepAction && (
+                <div className="mt-2 px-2 py-1 rounded-md bg-black/70 line-clamp-2 text-[11px]">
+                  {media.stepAction}
+                </div>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -976,37 +1189,52 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
           )}
 
           {activeTab === 'evidencias' && (
-            <div>
-              {screenshots.length === 0 ? (
+            <div className="space-y-6">
+              {screenshotsMedia.length === 0 && attachmentsMedia.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhuma evidência anexada</p>
+                  <p>Nenhuma evidência anexada por QA</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-4">
-                  {screenshots.map((ss, index) => (
-                    <button
-                      key={index}
-                      onClick={() => onViewMedia(screenshots.map(s => ({ 
-                        url: s.url, 
-                        type: s.type || (s.url?.includes('.mp4') || s.url?.includes('.webm') || s.url?.includes('.mov') ? 'video' : 'image'), 
-                        name: s.name 
-                      })), index)}
-                      className="relative group cursor-pointer aspect-video bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden"
-                    >
-                      {ss.type === 'video' || ss.url?.includes('.mp4') || ss.url?.includes('.webm') ? (
-                        <>
-                          <video src={ss.url} className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <Play className="w-10 h-10 text-white" />
-                          </div>
-                        </>
-                      ) : (
-                        <img src={ss.url} alt="" className="w-full h-full object-cover" />
-                      )}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                    </button>
-                  ))}
+                <>
+                  {screenshotsMedia.length > 0 && (
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">
+                        📸 Capturas do Teste ({screenshotsMedia.length})
+                      </label>
+                      {renderMediaGrid(screenshotsMedia)}
+                    </div>
+                  )}
+
+                  {attachmentsMedia.length > 0 && (
+                    <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                      <label className="text-xs font-medium text-red-700 dark:text-red-400 mb-2 block">
+                        ❌ Evidências da Falha ({attachmentsMedia.length})
+                      </label>
+                      <p className="text-xs text-red-600 dark:text-red-300 mb-3">
+                        Evidências que indicam em qual passo do teste ocorreu a falha.
+                      </p>
+                      {renderMediaGrid(attachmentsMedia, 'red')}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'dev' && (
+            <div>
+              {devEvidencesMedia.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Nenhuma evidência enviada pelo time de desenvolvimento</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-300">
+                    Evidências anexadas pelo desenvolvedor para comprovar correções ou reproduzir o comportamento.
+                  </p>
+                  {renderMediaGrid(devEvidencesMedia, 'purple')}
                 </div>
               )}
             </div>
@@ -1014,7 +1242,54 @@ function TaskViewModal({ task, sprints, users, currentUser, onClose, onUpdateSta
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-end shrink-0">
+        <div className="p-4 border-t dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
+          <div className="flex gap-2">
+            {showSendToQA && (
+              <button
+                onClick={() => handleUpdateStatus('in_review', 'qa')}
+                disabled={sending}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm"
+              >
+                Enviar para QA
+              </button>
+            )}
+            {showQAActions && (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus('in_review', 'operacao')}
+                  disabled={sending}
+                  className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 text-sm"
+                >
+                  Aprovar e Enviar para Operação
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus('in_progress')}
+                  disabled={sending}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-sm"
+                >
+                  Reprovar
+                </button>
+              </>
+            )}
+            {showOpActions && (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus('done')}
+                  disabled={sending}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 text-sm"
+                >
+                  Aprovar
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus('in_progress')}
+                  disabled={sending}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-sm"
+                >
+                  Reprovar
+                </button>
+              </>
+            )}
+          </div>
           <button onClick={onClose} className="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors">
             Fechar
           </button>
