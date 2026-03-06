@@ -796,6 +796,11 @@ function TaskCard({ task, sprints, users, onView, onEdit, onDelete, onMoveToSpri
                 {task.sourceData.screenshots.length} evidência(s)
               </span>
             )}
+            {task.reviewStage === 'para_correcao' && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                ⚠️ Para Correção
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
@@ -2481,11 +2486,11 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
                   Aprovar e Enviar para Operação
                 </button>
                 <button
-                  onClick={() => handleUpdateStatus('in_progress')}
+                  onClick={() => handleUpdateStatus('in_progress', 'para_correcao')}
                   disabled={submitting}
                   className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
                 >
-                  Reprovar
+                  Reprovar (devolver ao Dev)
                 </button>
               </>
             )}

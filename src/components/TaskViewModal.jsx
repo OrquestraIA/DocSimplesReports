@@ -382,6 +382,11 @@ export default function TaskViewModal({
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}>
                     {statusStyle.label}
                   </span>
+                  {task.reviewStage === 'para_correcao' && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                      ⚠️ Para Correção
+                    </span>
+                  )}
                   {sourceData.jiraKey && (
                     <a 
                       href={sourceData.jiraUrl} 
@@ -889,11 +894,11 @@ export default function TaskViewModal({
                   Aprovar e Enviar para Operação
                 </button>
                 <button
-                  onClick={() => handleUpdateStatus('in_progress')}
+                  onClick={() => handleUpdateStatus('in_progress', 'para_correcao')}
                   disabled={submitting}
                   className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
                 >
-                  Reprovar
+                  Reprovar (devolver ao Dev)
                 </button>
               </>
             )}

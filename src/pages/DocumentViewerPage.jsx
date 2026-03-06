@@ -222,7 +222,7 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
         await onUpdate(selectedDoc.id, { status: 'em_homologacao' })
       }
       if (type === 'reprovado_qa') {
-        await onUpdate(selectedDoc.id, { status: 'reprovado' })
+        await onUpdate(selectedDoc.id, { status: 'para_correcao' })
       }
       if (type === 'aprovado_reteste') {
         await onUpdate(selectedDoc.id, { status: 'aprovado' })
@@ -925,6 +925,8 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
         return <RefreshCw className="w-5 h-5 text-orange-500" />
       case 'em_homologacao':
         return <RefreshCw className="w-5 h-5 text-teal-500" />
+      case 'para_correcao':
+        return <XCircle className="w-5 h-5 text-orange-500" />
       case 'melhoria':
         return <CheckCircle2 className="w-5 h-5 text-blue-500" />
       default:
@@ -1054,10 +1056,12 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
                         doc.status === 'reprovado' ? 'badge-error' :
                         doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
                         doc.status === 'em_homologacao' ? 'bg-teal-100 text-teal-700' :
+                        doc.status === 'para_correcao' ? 'bg-orange-100 text-orange-700' :
                         doc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
                       }`}>
                         {doc.status === 'em_reteste' ? 'Em Reteste' :
-                         doc.status === 'em_homologacao' ? 'Em Homologação' : doc.status}
+                         doc.status === 'em_homologacao' ? 'Em Homologação' :
+                         doc.status === 'para_correcao' ? 'Para Correção' : doc.status}
                       </span>
                       <span className="badge badge-info">{doc.testType}</span>
                       <span className="text-xs text-gray-500">
@@ -1367,10 +1371,12 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
                     selectedDoc.status === 'reprovado' ? 'badge-error' :
                     selectedDoc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
                     selectedDoc.status === 'em_homologacao' ? 'bg-teal-100 text-teal-700' :
+                    selectedDoc.status === 'para_correcao' ? 'bg-orange-100 text-orange-700' :
                     selectedDoc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
                   }`}>
                     {selectedDoc.status === 'em_reteste' ? 'Em Reteste' :
-                     selectedDoc.status === 'em_homologacao' ? 'Em Homologação' : selectedDoc.status}
+                     selectedDoc.status === 'em_homologacao' ? 'Em Homologação' :
+                     selectedDoc.status === 'para_correcao' ? 'Para Correção' : selectedDoc.status}
                   </span>
                 </div>
                 <div>

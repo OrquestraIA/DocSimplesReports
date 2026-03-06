@@ -246,7 +246,7 @@ export default function CommentsSection({
         await onUpdateStatus('em_homologacao')
       }
       if (type === 'reprovado_qa' && onUpdateStatus) {
-        await onUpdateStatus('reprovado')
+        await onUpdateStatus('para_correcao')
       }
       if (type === 'aprovado_reteste' && onUpdateStatus) {
         await onUpdateStatus('aprovado')
@@ -565,6 +565,7 @@ export default function CommentsSection({
 
               {/* Dev: Solicitar Reteste → envia para o QA */}
               {isDev && !['em_reteste', 'em_homologacao', 'aprovado'].includes(status) && (
+                // status 'para_correcao' também aparece aqui — QA devolveu para o Dev corrigir
                 <button
                   onClick={() => handleSendComment('solicitar_reteste')}
                   disabled={sendingComment}
