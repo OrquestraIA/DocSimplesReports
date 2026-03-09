@@ -142,7 +142,13 @@ export default function NotificationsPanel({ notifications = [] }) {
       await markNotificationAsRead(notification.id).catch(() => {})
     }
     if (notification.link) {
-      window.location.href = notification.link
+      // Usa window.location.hash para preservar o base path em produção (GitHub Pages).
+      // '/#/rota?param=x' → hash = '#/rota?param=x', mantendo origin + /DocSimplesReports/
+      if (notification.link.startsWith('/#/')) {
+        window.location.hash = notification.link.slice(1)
+      } else {
+        window.location.href = notification.link
+      }
       setIsOpen(false)
     }
   }
