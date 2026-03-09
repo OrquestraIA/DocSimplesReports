@@ -1,0 +1,5 @@
+# Normaliza line endings para LF em todos os arquivos de texto
+* text=auto
+
+# Scripts shell sempre com LF (evita erro 'bash\r' no WSL/Linux)
+*.sh text eol=lf
