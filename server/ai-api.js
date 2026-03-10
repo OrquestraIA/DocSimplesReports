@@ -6,6 +6,7 @@ const { OpenAI } = require('openai');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 // Middleware
 app.use(cors());
@@ -52,7 +53,7 @@ Retorne em formato JSON array:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: OPENAI_MODEL,
       messages: [
         {
           role: "system",
@@ -112,7 +113,7 @@ Retorne em formato JSON:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: OPENAI_MODEL,
       messages: [
         {
           role: "system",
@@ -173,7 +174,7 @@ Retorne em formato JSON:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: OPENAI_MODEL,
       messages: [
         {
           role: "system",
@@ -229,7 +230,7 @@ Retorne em formato JSON:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: OPENAI_MODEL,
       messages: [
         {
           role: "system",
@@ -283,7 +284,7 @@ Produza um JSON com:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: OPENAI_MODEL,
       messages: [
         {
           role: "system",
@@ -368,7 +369,7 @@ Retorne em formato JSON:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.2",
+      model: OPENAI_MODEL,
       messages: [
         {
           role: "system",

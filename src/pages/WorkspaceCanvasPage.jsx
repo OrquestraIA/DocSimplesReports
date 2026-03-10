@@ -42,6 +42,115 @@ const DEFAULT_CLASSICAL_PLAYLIST = {
   watchUrl: 'https://open.spotify.com/playlist/37i9dQZF1DWWEJlAGA9gs0'
 }
 
+const QaWindowContent = ({ tasks = [], onSelectTask }) => {
+  const qaTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const workspaceKey = normalizeWorkspace(task.workspace || inferTaskWorkspace(task))
+      return VARIANT_WORKSPACE_MAP.qa.includes(workspaceKey)
+    })
+  }, [tasks])
+
+  const getByStatus = useCallback(
+    (statuses) =>
+      qaTasks.filter((task) => statuses.includes((task.status || '').toLowerCase())),
+    [qaTasks]
+  )
+
+  const sections = [
+    {
+      key: 'paraTeste',
+      label: 'Para Teste',
+      statuses: ['pending'],
+      accent: 'text-cyan-200',
+      border: 'border-cyan-300/30',
+      bg: 'bg-cyan-400/10'
+    },
+    {
+      key: 'emTeste',
+      label: 'Em Teste',
+      statuses: ['in_progress'],
+      accent: 'text-blue-200',
+      border: 'border-blue-300/30',
+      bg: 'bg-blue-400/10'
+    },
+    {
+      key: 'paraReteste',
+      label: 'Para Reteste',
+      statuses: ['in_review'],
+      accent: 'text-amber-200',
+      border: 'border-amber-300/30',
+      bg: 'bg-amber-400/10'
+    }
+  ]
+
+  const summary = {
+    total: qaTasks.length,
+    pending: getByStatus(['pending']).length,
+    inTest: getByStatus(['in_progress']).length,
+    retest: getByStatus(['in_review']).length
+  }
+
+  return (
+    <div className="flex flex-col h-full gap-3">
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-white/60">QA</p>
+            <h3 className="text-white font-semibold text-base">Fila de Homologação</h3>
+          </div>
+          <div className="flex gap-4 text-[11px] text-white/70">
+            <span>Total: {summary.total}</span>
+            <span>Pendentes: {summary.pending}</span>
+            <span>Reteste: {summary.retest}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
+        {sections.map((section) => {
+          const sectionTasks = getByStatus(section.statuses)
+          return (
+            <div
+              key={section.key}
+              className={`rounded-2xl border ${section.border} bg-white/5 px-3 py-3 flex flex-col`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.4em] text-white/40">Homologação</p>
+                  <p className={`text-sm font-semibold ${section.accent}`}>{section.label}</p>
+                </div>
+                <span className="text-white text-sm font-semibold">{sectionTasks.length}</span>
+              </div>
+              {sectionTasks.length ? (
+                <div className="space-y-1 overflow-y-auto custom-scroll pr-1 text-[11px] text-white/80">
+                  {sectionTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className={`rounded-lg ${section.bg} border border-white/5 px-2 py-1.5 cursor-pointer hover:border-blue-400/30 transition-colors`}
+                      onClick={() => onSelectTask?.(task)}
+                    >
+                      <p className="font-semibold truncate">{task.title || 'Sem título'}</p>
+                      <p className="text-white/60 text-[10px] line-clamp-2 leading-snug">
+                        {task.description || 'Sem descrição'}
+                      </p>
+                      <div className="flex items-center justify-between mt-1 text-[9px] uppercase tracking-[0.2em] text-white/40">
+                        <span>{task.priority || 'Prioridade'}</span>
+                        <span>{task.assignee || 'Sem responsável'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-white/50 mt-2">Nenhuma tarefa.</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const mapPlaylistInputToEmbed = (rawUrl = '') => {
   if (!rawUrl) return null
   const trimmed = rawUrl.trim()
@@ -466,7 +575,12 @@ const WorkspaceCanvasPage = ({
       case 'tasks_dev':
         return <TasksWindowContent tasks={effectiveTasks} variant="dev" onSelectTask={setSelectedTask} />
       case 'tasks_qa':
-        return <TasksWindowContent tasks={effectiveTasks} variant="qa" onSelectTask={setSelectedTask} />
+        return (
+          <QaWindowContent
+            tasks={effectiveTasks}
+            onSelectTask={setSelectedTask}
+          />
+        )
       case 'notes':
         return (
           <NotesWindowContent
