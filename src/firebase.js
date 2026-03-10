@@ -770,7 +770,10 @@ const DEFAULT_TASK_PREFIX = 'TSK'
 
 const inferWorkspaceKey = (taskData = {}) => {
   if (taskData.workspace) return taskData.workspace
-  if (taskData.sourceType === 'test_document' || taskData.sourceType === 'test_execution') {
+  if (taskData.sourceType === 'test_document') {
+    return 'qa' // vai para triagem do QA antes de ir aos devs
+  }
+  if (taskData.sourceType === 'test_execution') {
     return 'devs'
   }
   if (taskData.type === 'bug') {

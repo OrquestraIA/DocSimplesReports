@@ -432,7 +432,12 @@ function TaskCard({ task, onUpdateStatus, workspace, onOpenDetail, users = [] })
           </div>
         </div>
 
-        {/* Título */}
+        {/* Código + Título */}
+        {task.taskCode && (
+          <span className="text-xs font-mono text-gray-400 dark:text-gray-500 mb-0.5 block">
+            {task.taskCode}
+          </span>
+        )}
         <p className="text-sm font-medium text-gray-800 dark:text-white line-clamp-2 mb-2">
           {task.title}
         </p>

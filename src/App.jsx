@@ -939,18 +939,19 @@ function App() {
                       
                       await updateTestDocumentDB(task.sourceId, updateData)
                       
-                      // Atualizar statusHomolog do requisito associado para 'Para_Reteste_Homolog'
+                      // Atualizar statusQaDev do requisito (reteste vai para QA Dev, não homolog)
                       const testDoc = testDocuments.find(d => d.id === task.sourceId)
                       if (testDoc?.requirement && importedRequirements.length > 0) {
                         const relatedReq = importedRequirements.find(r => r.id === testDoc.requirement)
                         if (relatedReq?.firebaseId) {
-                          await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+                          await updateImportedRequirement(relatedReq.firebaseId, { statusQaDev: 'Para_Reteste_QA' })
                         }
                       }
-                      
-                      // Atualizar status da tarefa para "Em Revisão"
-                      await updateTask(task.id, { 
+
+                      // Devolver tarefa ao espaço QA para reteste
+                      await updateTask(task.id, {
                         status: 'in_review',
+                        workspace: 'qa',
                         retestRequestedAt: new Date().toISOString()
                       })
                       
@@ -1130,10 +1131,10 @@ function App() {
                       if (testDoc?.requirement && importedRequirements.length > 0) {
                         const relatedReq = importedRequirements.find(r => r.id === testDoc.requirement)
                         if (relatedReq?.firebaseId) {
-                          await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+                          await updateImportedRequirement(relatedReq.firebaseId, { statusQaDev: 'Para_Reteste_QA' })
                         }
                       }
-                      await updateTask(task.id, { status: 'in_review', retestRequestedAt: new Date().toISOString() })
+                      await updateTask(task.id, { status: 'in_review', workspace: 'qa', retestRequestedAt: new Date().toISOString() })
                     }
                   }}
                   onUpdateDocumentStatus={async (docId, status) => {
@@ -1255,12 +1256,13 @@ function App() {
                       if (testDoc?.requirement && importedRequirements.length > 0) {
                         const relatedReq = importedRequirements.find(r => r.id === testDoc.requirement)
                         if (relatedReq?.firebaseId) {
-                          await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+                          await updateImportedRequirement(relatedReq.firebaseId, { statusQaDev: 'Para_Reteste_QA' })
                         }
                       }
-                      
-                      await updateTask(task.id, { 
+
+                      await updateTask(task.id, {
                         status: 'in_review',
+                        workspace: 'qa',
                         retestRequestedAt: new Date().toISOString()
                       })
                       

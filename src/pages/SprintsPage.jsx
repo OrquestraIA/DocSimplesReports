@@ -95,9 +95,14 @@ export default function SprintsPage({
     )
   }, [testDocuments, tasks])
 
+  // Tarefas em triagem QA não aparecem em Sprints — ficam só no espaço QA
+  const sprintEligibleTasks = useMemo(() => {
+    return tasks.filter(t => !(t.sourceType === 'test_document' && t.workspace === 'qa' && t.status === 'pending'))
+  }, [tasks])
+
   // Enriquecer tasks com sourceData atualizado dos testDocuments
   const enrichedTasks = useMemo(() => {
-    return tasks.map(task => {
+    return sprintEligibleTasks.map(task => {
       if (task.sourceType === 'test_document' && task.sourceId) {
         const testDoc = testDocuments.find(d => d.id === task.sourceId)
         if (testDoc) {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  XCircle, Bug, Lightbulb, FileText, User, Clock, Play, 
-  Edit2, Upload, Smile, ExternalLink
+import {
+  XCircle, Bug, Lightbulb, FileText, User, Clock, Play,
+  Edit2, Upload, Smile, ExternalLink, UserCheck, ArrowLeft
 } from 'lucide-react'
 import { useToast } from './Toast'
 import MediaViewer from './MediaViewer'
@@ -51,6 +51,9 @@ export default function TaskViewModal({
 }) {
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [qaAction, setQaAction] = useState(null) // 'distribuir' | 'devolver' | null
+  const [selectedDev, setSelectedDev] = useState('')
+  const [devolveReason, setDevolveReason] = useState('')
   const [uploading, setUploading] = useState(false)
   const [localSourceComments, setLocalSourceComments] = useState(task.sourceData?.comments || [])
   const [localDocumentStatus, setLocalDocumentStatus] = useState(task.sourceData?.status || 'pendente')
@@ -265,6 +268,57 @@ export default function TaskViewModal({
     }
   }
 
+  const handleDistribuirDev = async () => {
+    if (!selectedDev || !onUpdateTask) return
+    const dev = devUsers.find(u => u.id === selectedDev)
+    setSubmitting(true)
+    try {
+      await onUpdateTask(task.id, { workspace: 'devs', assignee: selectedDev, status: 'pending' })
+      if (onAddComment) {
+        await onAddComment(task.id, {
+          text: `QA distribuiu tarefa para ${dev?.name || dev?.email || 'Dev'}.`,
+          type: 'distribuido_qa',
+          author: currentUser?.name || currentUser?.email,
+          authorId: currentUser?.id || currentUser?.uid,
+          authorEmail: currentUser?.email || null,
+          createdAt: new Date().toISOString()
+        })
+      }
+      toast.success(`Tarefa distribuída para ${dev?.name || dev?.email}!`)
+      onClose()
+    } catch (error) {
+      console.error('Erro ao distribuir tarefa:', error)
+      toast.error('Erro ao distribuir tarefa. Tente novamente.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDevolverOperacao = async () => {
+    if (!devolveReason.trim() || !onUpdateTask) return
+    setSubmitting(true)
+    try {
+      await onUpdateTask(task.id, { workspace: 'operacao', reviewStage: 'nao_pertinente', status: 'pending' })
+      if (onAddComment) {
+        await onAddComment(task.id, {
+          text: `QA devolveu para Operação (não pertinente): ${devolveReason.trim()}`,
+          type: 'devolvido_operacao',
+          author: currentUser?.name || currentUser?.email,
+          authorId: currentUser?.id || currentUser?.uid,
+          authorEmail: currentUser?.email || null,
+          createdAt: new Date().toISOString()
+        })
+      }
+      toast.success('Tarefa devolvida para Operação.')
+      onClose()
+    } catch (error) {
+      console.error('Erro ao devolver tarefa:', error)
+      toast.error('Erro ao devolver tarefa. Tente novamente.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleRequestRetest = async () => {
     if (!onRequestRetest) return
     if (!window.confirm('Deseja solicitar reteste? O QA será notificado para validar a correção.')) return
@@ -361,6 +415,12 @@ export default function TaskViewModal({
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
+  // Triagem QA: tarefas geradas de documento de teste que chegaram ao espaço QA
+  const showQATriageActions = isQA &&
+    task.sourceType === 'test_document' &&
+    task.workspace === 'qa' &&
+    task.status === 'pending'
+  const devUsers = (users || []).filter(u => u.role === 'desenvolvedor')
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -373,6 +433,11 @@ export default function TaskViewModal({
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
+                  {task.taskCode && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 select-all">
+                      {task.taskCode}
+                    </span>
+                  )}
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeStyle.bg} ${typeStyle.text}`}>
                     {typeStyle.label}
                   </span>
@@ -866,6 +931,45 @@ export default function TaskViewModal({
             )}
           </div>
         </div>
+
+        {showQATriageActions && (
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-700 bg-amber-50 dark:bg-amber-900/20 space-y-3">
+            {qaAction === null && (
+              <div className="flex gap-2 flex-wrap">
+                <span className="text-sm text-amber-700 dark:text-amber-400 font-medium self-center mr-2">Triagem QA:</span>
+                <button onClick={() => setQaAction('distribuir')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                  <UserCheck className="w-4 h-4" /> Distribuir para Dev
+                </button>
+                <button onClick={() => setQaAction('devolver')} className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm">
+                  <ArrowLeft className="w-4 h-4" /> Devolver para Operação
+                </button>
+              </div>
+            )}
+            {qaAction === 'distribuir' && (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Selecione o desenvolvedor responsável:</span>
+                <div className="flex gap-2 flex-wrap">
+                  <select value={selectedDev} onChange={e => setSelectedDev(e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white">
+                    <option value="">Selecione um dev...</option>
+                    {devUsers.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                  </select>
+                  <button onClick={handleDistribuirDev} disabled={!selectedDev || submitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm">{submitting ? 'Enviando...' : 'Confirmar'}</button>
+                  <button onClick={() => setQaAction(null)} className="px-4 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 text-sm">Cancelar</button>
+                </div>
+              </div>
+            )}
+            {qaAction === 'devolver' && (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Motivo da devolução (obrigatório):</span>
+                <textarea value={devolveReason} onChange={e => setDevolveReason(e.target.value)} placeholder="Descreva por que esta tarefa não é pertinente..." className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white resize-none" rows={2} />
+                <div className="flex gap-2">
+                  <button onClick={handleDevolverOperacao} disabled={!devolveReason.trim() || submitting} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm">{submitting ? 'Enviando...' : 'Confirmar Devolução'}</button>
+                  <button onClick={() => setQaAction(null)} className="px-4 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 text-sm">Cancelar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="p-6 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
           <div className="flex gap-2">
