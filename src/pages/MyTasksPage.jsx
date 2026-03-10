@@ -832,13 +832,13 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
   const isQA = role === 'qa' || role === 'admin'
   const isOp = role === 'operacao' || role === 'admin'
   const showSendToQA = isStandaloneTask && isDev &&
+    task.workspace !== 'qa' &&
     (task.status === 'pending' || task.status === 'in_progress')
   const showQAActions = isStandaloneTask && isQA &&
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
   const showQATriageActions = isQA &&
-    task.sourceType === 'test_document' &&
     task.workspace === 'qa' &&
     task.status === 'pending'
   const devUsers = (users || []).filter(u => u.role === 'desenvolvedor')

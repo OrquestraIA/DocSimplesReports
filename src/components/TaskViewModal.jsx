@@ -410,14 +410,14 @@ export default function TaskViewModal({
   const isQA = role === 'qa' || role === 'admin'
   const isOp = role === 'operacao' || role === 'admin'
   const showSendToQA = isStandaloneTask && isDev &&
+    task.workspace !== 'qa' &&
     (task.status === 'pending' || task.status === 'in_progress')
   const showQAActions = isStandaloneTask && isQA &&
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
-  // Triagem QA: tarefas geradas de documento de teste que chegaram ao espaço QA
+  // Triagem QA: qualquer tarefa no workspace QA aguardando distribuição
   const showQATriageActions = isQA &&
-    task.sourceType === 'test_document' &&
     task.workspace === 'qa' &&
     task.status === 'pending'
   const devUsers = (users || []).filter(u => u.role === 'desenvolvedor')
