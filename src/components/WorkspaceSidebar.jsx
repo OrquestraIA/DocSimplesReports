@@ -167,7 +167,7 @@ export default function WorkspaceSidebar({
   const getListCount = (list, workspaceId) => {
     if (list.type === 'tasks') {
       return tasks.filter(task => {
-        if (task.sourceType === 'test_document' && task.workspace && task.workspace !== workspaceId) {
+        if (task.workspace && task.workspace !== workspaceId) {
           return false
         }
         return task[list.statusField] === list.statusValue
