@@ -165,9 +165,12 @@ export default function CreateTaskModal({
         await onSave(editingTask.id, taskData)
       } else {
         // Se for nova tarefa, incluir campos de criação
-        const creatorRole = currentUser?.role?.toLowerCase()
-        taskData.workspace = creatorRole === 'operacao' ? 'qa'
-          : creatorRole === 'qa' ? 'devs'
+        // Destino baseado no workspace de origem:
+        // Operação cria → vai para triagem do QA
+        // QA cria → vai direto para Devs
+        // Devs cria → fica em Devs
+        taskData.workspace = workspace?.id === 'operacao' ? 'qa'
+          : workspace?.id === 'qa' ? 'devs'
           : workspace?.id || 'general'
         taskData.relatedRequirementId = relatedRequirement?.firebaseId || null
         taskData.relatedRequirementCode = relatedRequirement?.id || null
