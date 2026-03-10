@@ -922,8 +922,13 @@ export default function WorkspaceBoard({
   const getItemsForList = (list) => {
     if (list.type === 'tasks') {
       return tasks.filter(task => {
+        // Tarefas de documentos de teste respeitam o workspace definido —
+        // só aparecem no espaço ao qual pertencem (ex: triagem fica só no QA)
+        if (task.sourceType === 'test_document' && task.workspace && task.workspace !== selectedWorkspace) {
+          return false
+        }
         const matchesStatus = task[list.statusField] === list.statusValue
-        const matchesSearch = !searchTerm || 
+        const matchesSearch = !searchTerm ||
           task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.description?.toLowerCase().includes(searchTerm.toLowerCase())
         return matchesStatus && matchesSearch

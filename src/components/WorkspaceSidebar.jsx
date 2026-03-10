@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronDown, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
   ChevronUp,
-  Users, 
-  Code2, 
-  TestTube2, 
+  Users,
+  Code2,
+  TestTube2,
   Briefcase,
   LayoutGrid,
   List,
@@ -18,7 +18,8 @@ import {
   AlertCircle,
   RotateCcw,
   Pause,
-  Play
+  Play,
+  Filter
 } from 'lucide-react'
 
 // Configuração dos espaços de trabalho
@@ -63,6 +64,7 @@ const WORKSPACES = [
     color: 'green',
     description: 'Testes e qualidade',
     lists: [
+      { id: 'tarefas_triagem_qa', name: 'Triagem', type: 'tasks', statusField: 'status', statusValue: 'pending', icon: Filter, color: 'orange' },
       { id: 'docs_pendentes', name: 'Docs Pendentes', type: 'testDocuments', statusField: 'status', statusValue: 'pendente', icon: Clock, color: 'yellow' },
       { id: 'docs_em_reteste', name: 'Docs Em Reteste', type: 'testDocuments', statusField: 'status', statusValues: ['em_reteste', 'em-reteste'], icon: RotateCcw, color: 'orange' },
       { id: 'para_teste_qa', name: 'Para Teste', type: 'requirements', statusField: 'statusQADev', statusValue: 'Para_Teste_QA', icon: Clock, color: 'cyan' },
@@ -165,8 +167,10 @@ export default function WorkspaceSidebar({
   const getListCount = (list, workspaceId) => {
     if (list.type === 'tasks') {
       return tasks.filter(task => {
-        const matchesStatus = task[list.statusField] === list.statusValue
-        return matchesStatus
+        if (task.sourceType === 'test_document' && task.workspace && task.workspace !== workspaceId) {
+          return false
+        }
+        return task[list.statusField] === list.statusValue
       }).length
     } else if (list.type === 'testDocuments') {
       if (list.statusValues) {
