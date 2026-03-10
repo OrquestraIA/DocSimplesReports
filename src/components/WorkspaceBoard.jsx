@@ -1012,8 +1012,8 @@ export default function WorkspaceBoard({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Botão Nova Tarefa - disponível em todos os espaços */}
-            {onCreateTask && (
+            {/* Botão Nova Tarefa - apenas para Operação e QA */}
+            {onCreateTask && selectedWorkspace !== 'devs' && (
               <button
                 onClick={() => setIsCreateTaskModalOpen(true)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg ${colors.bg} text-white hover:opacity-90 transition-opacity`}
