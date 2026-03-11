@@ -571,6 +571,37 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     }
   }, [requirements])
 
+  // Média de aprovações por dia da semana
+  const mediaAprovacoesPorDiaSemana = useMemo(() => {
+    const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+    const reqsComData = requirements.filter(r => r.dataAprovacaoHomolog && r.statusHomolog === 'Aprovado')
+    if (reqsComData.length === 0) return { dados: [], totalSemanas: 0 }
+
+    // Encontrar a data mais antiga de aprovação
+    const datas = reqsComData.map(r => new Date(r.dataAprovacaoHomolog))
+    const dataInicio = new Date(Math.min(...datas))
+    const hoje = new Date()
+
+    // Calcular número de semanas completas desde a primeira aprovação
+    const diffMs = hoje - dataInicio
+    const totalSemanas = Math.max(1, Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000)))
+
+    // Contar aprovações por dia da semana
+    const contagemPorDia = Array(7).fill(0)
+    reqsComData.forEach(r => {
+      const dia = new Date(r.dataAprovacaoHomolog).getDay()
+      contagemPorDia[dia]++
+    })
+
+    const dados = DIAS.map((nome, idx) => ({
+      dia: nome,
+      media: parseFloat((contagemPorDia[idx] / totalSemanas).toFixed(2)),
+      total: contagemPorDia[idx]
+    }))
+
+    return { dados, totalSemanas }
+  }, [requirements])
+
   // Formatar data da semana para exibição
   const formatarSemana = (dataStr) => {
     const data = new Date(dataStr)
@@ -1093,6 +1124,50 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
               </div>
               <p className="text-xs text-emerald-600 mt-2 text-center">
                 Últimas {aprovacoesPorSemana.semanas.length} semanas com aprovações registradas
+              </p>
+            </div>
+          )}
+
+          {/* Média de Aprovações por Dia da Semana */}
+          {mediaAprovacoesPorDiaSemana.dados.length > 0 && (
+            <div className="card border-2 border-violet-200 bg-violet-50/30">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-violet-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Média de Aprovações por Dia da Semana
+                </h3>
+                <div className="bg-violet-100 px-3 py-1 rounded-lg text-sm">
+                  <span className="text-violet-600">Base:</span>
+                  <span className="font-bold text-violet-700 ml-1">{mediaAprovacoesPorDiaSemana.totalSemanas} semanas</span>
+                </div>
+              </div>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={mediaAprovacoesPorDiaSemana.dados}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const d = payload[0].payload
+                          return (
+                            <div className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 shadow-lg">
+                              <p className="text-gray-200 font-medium mb-1">{d.dia}</p>
+                              <p className="text-violet-400 font-bold">{d.media} aprovações/semana</p>
+                              <p className="text-gray-400 text-xs mt-1">{d.total} aprovações no total</p>
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                    <Bar dataKey="media" name="Média/semana" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-violet-600 mt-2 text-center">
+                Média calculada desde a primeira aprovação registrada
               </p>
             </div>
           )}
