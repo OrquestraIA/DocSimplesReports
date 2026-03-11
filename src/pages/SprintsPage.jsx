@@ -2190,13 +2190,13 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
                     setLocalDocumentStatus(newStatus)
                   }
                 }}
-                onUpdateRequirementStatus={async (newStatusHomolog) => {
-                  // Encontrar o documento de teste e atualizar o statusHomolog do requisito associado
+                onUpdateRequirementStatus={async ({ field, value }) => {
+                  // Encontrar o documento de teste e atualizar o campo correto do requisito associado
                   const testDoc = testDocuments.find(d => d.id === task.sourceId)
                   if (testDoc?.requirement && onUpdateRequirement && requirements.length > 0) {
                     const relatedReq = requirements.find(r => r.id === testDoc.requirement)
                     if (relatedReq?.firebaseId) {
-                      await onUpdateRequirement(relatedReq.firebaseId, { statusHomolog: newStatusHomolog })
+                      await onUpdateRequirement(relatedReq.firebaseId, { [field]: value })
                     }
                   }
                 }}

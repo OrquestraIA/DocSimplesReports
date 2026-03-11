@@ -239,11 +239,14 @@ export default function CommentsSection({
       if (type === 'solicitar_reteste' && onUpdateStatus) {
         await onUpdateStatus('em_reteste')
         if (onUpdateRequirementStatus) {
-          await onUpdateRequirementStatus('Para_Reteste_Homolog')
+          await onUpdateRequirementStatus({ field: 'statusQADev', value: 'Para_Reteste_QA' })
         }
       }
       if (type === 'aprovado_qa' && onUpdateStatus) {
         await onUpdateStatus('em_homologacao')
+        if (onUpdateRequirementStatus) {
+          await onUpdateRequirementStatus({ field: 'statusHomolog', value: 'Para_Teste_Homolog' })
+        }
       }
       if (type === 'reprovado_qa' && onUpdateStatus) {
         await onUpdateStatus('para_correcao')
