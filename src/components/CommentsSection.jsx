@@ -245,7 +245,7 @@ export default function CommentsSection({
       if (type === 'aprovado_qa' && onUpdateStatus) {
         await onUpdateStatus('em_homologacao')
         if (onUpdateRequirementStatus) {
-          await onUpdateRequirementStatus({ field: 'statusHomolog', value: 'Para_Teste_Homolog' })
+          await onUpdateRequirementStatus({ field: 'statusQADev', value: 'Aprovado' })
         }
       }
       if (type === 'reprovado_qa' && onUpdateStatus) {
@@ -253,6 +253,9 @@ export default function CommentsSection({
       }
       if (type === 'aprovado_reteste' && onUpdateStatus) {
         await onUpdateStatus('aprovado')
+        if (onUpdateRequirementStatus) {
+          await onUpdateRequirementStatus({ field: 'statusHomolog', value: 'Aprovado' })
+        }
       }
       if (type === 'reprovado_reteste' && onUpdateStatus) {
         await onUpdateStatus('reprovado')

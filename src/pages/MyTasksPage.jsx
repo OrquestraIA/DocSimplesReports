@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   CheckCircle, Clock, AlertTriangle, Bug, Lightbulb, FileText,
   Filter, Search, Eye, Play, ChevronDown, ExternalLink, User,
@@ -46,7 +47,7 @@ export default function MyTasksPage({
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
-  const [viewingTask, setViewingTask] = useState(null)
+  const navigate = useNavigate()
   const [viewingMedia, setViewingMedia] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -125,10 +126,16 @@ export default function MyTasksPage({
     done: myTasks.filter(t => t.status === 'done').length
   }), [myTasks])
 
+  const handleNavigateToTask = (task) => {
+    navigate('/espacos?taskId=' + task.id)
+  }
+
   const handleUpdateStatus = async (taskId, newStatus) => {
     setLoading(true)
     try {
-      await onUpdateTask(taskId, { status: newStatus })
+      const updates = { status: newStatus }
+      if (newStatus === 'in_review') updates.workspace = 'qa'
+      await onUpdateTask(taskId, updates)
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
     } finally {
@@ -234,7 +241,7 @@ export default function MyTasksPage({
               tasks={tasksByStatus.pending}
               sprints={sprints}
               statusStyle={TASK_STATUS.pending}
-              onView={setViewingTask}
+              onView={handleNavigateToTask}
               onUpdateStatus={handleUpdateStatus}
             />
           )}
@@ -246,7 +253,7 @@ export default function MyTasksPage({
               tasks={tasksByStatus.in_progress}
               sprints={sprints}
               statusStyle={TASK_STATUS.in_progress}
-              onView={setViewingTask}
+              onView={handleNavigateToTask}
               onUpdateStatus={handleUpdateStatus}
             />
           )}
@@ -258,7 +265,7 @@ export default function MyTasksPage({
               tasks={tasksByStatus.in_review}
               sprints={sprints}
               statusStyle={TASK_STATUS.in_review}
-              onView={setViewingTask}
+              onView={handleNavigateToTask}
               onUpdateStatus={handleUpdateStatus}
             />
           )}
@@ -270,7 +277,7 @@ export default function MyTasksPage({
               tasks={tasksByStatus.done}
               sprints={sprints}
               statusStyle={TASK_STATUS.done}
-              onView={setViewingTask}
+              onView={handleNavigateToTask}
               onUpdateStatus={handleUpdateStatus}
               collapsed
             />
@@ -278,24 +285,6 @@ export default function MyTasksPage({
         </div>
       )}
 
-      {/* Task View Modal */}
-      {viewingTask && (
-        <TaskViewModal
-          task={viewingTask}
-          sprints={sprints}
-          users={users}
-          currentUser={currentUser}
-          testDocuments={testDocuments}
-          onClose={() => setViewingTask(null)}
-          onUpdateStatus={handleUpdateStatus}
-          onUpdateTask={onUpdateTask}
-          onViewMedia={(media, index) => setViewingMedia({ media, index })}
-          onAddNotification={onAddNotification}
-          onUpdateDocumentStatus={onUpdateDocumentStatus}
-          onAddComment={onAddTaskComment}
-          onToggleReaction={onToggleTaskReaction}
-        />
-      )}
 
       {/* Media Viewer */}
       {viewingMedia && (

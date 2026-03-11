@@ -214,12 +214,18 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
         if (selectedDoc.requirement && onUpdateRequirement && requirements.length > 0) {
           const relatedReq = requirements.find(r => r.id === selectedDoc.requirement)
           if (relatedReq?.firebaseId) {
-            await onUpdateRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
+            await onUpdateRequirement(relatedReq.firebaseId, { statusQADev: 'Para_Reteste_QA' })
           }
         }
       }
       if (type === 'aprovado_qa') {
         await onUpdate(selectedDoc.id, { status: 'em_homologacao' })
+        if (selectedDoc.requirement && onUpdateRequirement && requirements.length > 0) {
+          const relatedReq = requirements.find(r => r.id === selectedDoc.requirement)
+          if (relatedReq?.firebaseId) {
+            await onUpdateRequirement(relatedReq.firebaseId, { statusQADev: 'Aprovado' })
+          }
+        }
       }
       if (type === 'reprovado_qa') {
         await onUpdate(selectedDoc.id, { status: 'para_correcao' })

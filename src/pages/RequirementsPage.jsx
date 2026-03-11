@@ -131,7 +131,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null
 }
 
-export default function RequirementsPage({ requirements = [], onImport, onClear, onUpdateRequirement, testDocuments = [] }) {
+export default function RequirementsPage({ requirements = [], onImport, onClear, onUpdateRequirement, testDocuments = [], tasks = [], onUpdateTask }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterModule, setFilterModule] = useState('all')
   const [filterStatusDev, setFilterStatusDev] = useState('all')
@@ -333,7 +333,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     setUpdatingId(req.firebaseId)
     try {
       const updateData = { [field]: newValue }
-      
+
       // Se o campo for statusHomolog e o novo valor for Aprovado, salvar a data de aprovação
       if (field === 'statusHomolog' && newValue === 'Aprovado' && !req.dataAprovacaoHomolog) {
         updateData.dataAprovacaoHomolog = new Date().toISOString()
@@ -342,8 +342,15 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       if (field === 'statusHomolog' && newValue !== 'Aprovado' && req.dataAprovacaoHomolog) {
         updateData.dataAprovacaoHomolog = null
       }
-      
+
       await onUpdateRequirement(req.firebaseId, updateData)
+
+      // Quando Operação aprova homolog via tabela → concluir tarefas vinculadas
+      if (field === 'statusHomolog' && newValue === 'Aprovado' && onUpdateTask && tasks.length > 0) {
+        const relatedDocs = testDocuments.filter(d => d.requirement === req.id)
+        const relatedTasks = tasks.filter(t => relatedDocs.some(d => d.id === t.sourceId) && t.status !== 'done')
+        await Promise.all(relatedTasks.map(t => onUpdateTask(t.id, { status: 'done' })))
+      }
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
       alert('Erro ao atualizar status. Tente novamente.')

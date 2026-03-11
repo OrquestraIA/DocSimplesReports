@@ -492,14 +492,6 @@ function App() {
         console.error('[App] Erro Firebase importedRequirements:', err)
       })
 
-      // Migração: Atualizar statusHomolog dos requisitos cujos documentos estão em reteste
-      migrateRetestStatusToRequirements()
-        .then(result => {
-          if (result.updatedRequirements > 0) {
-            console.log(`[Migração] ${result.updatedRequirements} requisitos atualizados para "Para_Reteste_Homolog" (${result.docsInRetest} docs em reteste)`)
-          }
-        })
-        .catch(err => console.error('[Migração] Erro:', err))
 
       // Casos de Teste
       const unsubscribeTestCases = subscribeToTestCases((cases) => {
@@ -728,12 +720,14 @@ function App() {
             <Route 
               path="/requisitos" 
               element={
-                <RequirementsPage 
+                <RequirementsPage
                   requirements={importedRequirements}
                   onImport={importRequirements}
                   onClear={clearImportedRequirements}
                   onUpdateRequirement={updateImportedRequirement}
                   testDocuments={testDocuments}
+                  tasks={tasks}
+                  onUpdateTask={updateTask}
                 />
               } 
             />

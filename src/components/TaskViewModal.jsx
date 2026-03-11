@@ -662,8 +662,13 @@ export default function TaskViewModal({
                   if (testDoc?.requirement && onUpdateRequirement && requirements.length > 0) {
                     const relatedReq = requirements.find(r => r.id === testDoc.requirement)
                     if (relatedReq?.firebaseId) {
+                      const terminalStatuses = ['Aprovado', 'Bloqueado']
+                      if (field === 'statusHomolog' && terminalStatuses.includes(relatedReq.statusHomolog)) return
                       await onUpdateRequirement(relatedReq.firebaseId, { [field]: value })
                     }
+                  }
+                  if (field === 'statusHomolog' && value === 'Aprovado' && onUpdateTask) {
+                    await onUpdateTask(task.id, { status: 'done' })
                   }
                 }}
                 onCommentAdded={(comment) => {

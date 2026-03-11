@@ -350,7 +350,10 @@ export const migrateRetestStatusToRequirements = async () => {
   for (const testDoc of docsInRetest) {
     if (testDoc.requirement) {
       const relatedReq = requirements.find(r => r.id === testDoc.requirement)
-      if (relatedReq?.firebaseId && relatedReq.statusHomolog !== 'Para_Reteste_Homolog') {
+      if (relatedReq?.firebaseId &&
+          relatedReq.statusHomolog !== 'Para_Reteste_Homolog' &&
+          relatedReq.statusHomolog !== 'Aprovado' &&
+          relatedReq.statusHomolog !== 'Bloqueado') {
         await updateImportedRequirement(relatedReq.firebaseId, { statusHomolog: 'Para_Reteste_Homolog' })
         updatedCount++
       }
