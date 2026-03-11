@@ -229,6 +229,12 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
       }
       if (type === 'reprovado_qa') {
         await onUpdate(selectedDoc.id, { status: 'para_correcao' })
+        if (selectedDoc.requirement && onUpdateRequirement && requirements.length > 0) {
+          const relatedReq = requirements.find(r => r.id === selectedDoc.requirement)
+          if (relatedReq?.firebaseId) {
+            await onUpdateRequirement(relatedReq.firebaseId, { statusQADev: 'Para_Correcao' })
+          }
+        }
       }
       if (type === 'aprovado_reteste') {
         await onUpdate(selectedDoc.id, { status: 'aprovado' })

@@ -250,6 +250,9 @@ export default function CommentsSection({
       }
       if (type === 'reprovado_qa' && onUpdateStatus) {
         await onUpdateStatus('para_correcao')
+        if (onUpdateRequirementStatus) {
+          await onUpdateRequirementStatus({ field: 'statusQADev', value: 'Para_Correcao' })
+        }
       }
       if (type === 'aprovado_reteste' && onUpdateStatus) {
         await onUpdateStatus('aprovado')

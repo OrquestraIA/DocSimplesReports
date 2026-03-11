@@ -83,12 +83,15 @@ const STATUS_OPTIONS = {
   statusQADev: [
     { value: '', label: 'Não definido' },
     { value: 'Pendente', label: 'Pendente' },
+    { value: 'Para_Correcao', label: 'Para Correção' },
+    { value: 'Em_Correcao', label: 'Em Correção' },
     { value: 'Para_Teste_QA', label: 'Para Teste' },
     { value: 'Em Teste', label: 'Em Teste' },
     { value: 'Para_Reteste_QA', label: 'Para Reteste' },
     { value: 'Aprovado', label: 'Aprovado' },
     { value: 'Reprovado', label: 'Reprovado' },
-    { value: 'Aguardando_Dev', label: 'Aguardando Dev' },
+    { value: 'Aguardando_Deploy', label: 'Aguardando Deploy' },
+    { value: 'Dúvida', label: 'Dúvida' },
   ],
   status: [
     { value: 'pending', label: 'Pendente' },

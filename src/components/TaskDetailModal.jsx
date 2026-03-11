@@ -33,6 +33,13 @@ import MediaViewer from './MediaViewer'
 
 const WORKFLOW_ACTIONS = {
   devs: {
+    em_correcao: {
+      label: 'Iniciar Correção',
+      icon: RotateCcw,
+      color: 'orange',
+      nextStatus: { statusQADev: 'Em_Correcao' },
+      notification: null
+    },
     corrigido: {
       label: 'Marcar como Corrigido',
       icon: CheckCircle2,
@@ -63,7 +70,7 @@ const WORKFLOW_ACTIONS = {
       icon: AlertCircle,
       color: 'red',
       nextSpace: 'devs',
-      nextStatus: { statusQADev: 'Reprovado', statusDev: 'NAO_IMPLEMENTADO' },
+      nextStatus: { statusQADev: 'Para_Correcao', statusDev: 'NAO_IMPLEMENTADO' },
       notification: 'QA reprovou - devolvido para Dev'
     },
     em_teste: {
@@ -417,7 +424,11 @@ export default function TaskDetailModal({
       'Para_Teste_Homolog': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
       'Para_Reteste_QA': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
       'Para_Reteste_Homolog': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      'Para_Correcao': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      'Em_Correcao': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
       'Pendente': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+      'Aguardando_Deploy': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+      'Dúvida': 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
       'Bloqueado': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
     }
 

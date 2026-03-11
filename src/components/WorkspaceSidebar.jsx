@@ -19,7 +19,8 @@ import {
   RotateCcw,
   Pause,
   Play,
-  Filter
+  Filter,
+  HelpCircle
 } from 'lucide-react'
 
 // Configuração dos espaços de trabalho
@@ -55,6 +56,8 @@ const WORKSPACES = [
       { id: 'nao_implementado', name: 'Requisitos - Para Desenvolver', type: 'requirements', statusField: 'statusDev', statusValue: 'NAO_IMPLEMENTADO', icon: Circle, color: 'gray' },
       { id: 'parcial', name: 'Requisitos - Em Desenvolvimento', type: 'requirements', statusField: 'statusDev', statusValue: 'PARCIAL', icon: Play, color: 'orange' },
       { id: 'implementado', name: 'Requisitos - Implementado', type: 'requirements', statusField: 'statusDev', statusValue: 'IMPLEMENTADO', icon: CheckCircle2, color: 'green' },
+      { id: 'para_correcao', name: 'Para Correção', type: 'requirements', statusField: 'statusQADev', statusValue: 'Para_Correcao', icon: AlertCircle, color: 'red' },
+      { id: 'em_correcao', name: 'Em Correção', type: 'requirements', statusField: 'statusQADev', statusValue: 'Em_Correcao', icon: RotateCcw, color: 'orange' },
     ]
   },
   {
@@ -72,6 +75,7 @@ const WORKSPACES = [
       { id: 'para_reteste_qa', name: 'Para Reteste', type: 'requirements', statusField: 'statusQADev', statusValue: 'Para_Reteste_QA', icon: RotateCcw, color: 'purple' },
       { id: 'aprovado_qa', name: 'Aprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
       { id: 'reprovado_qa', name: 'Reprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
+      { id: 'duvida_qa', name: 'Dúvida', type: 'requirements', statusField: 'statusQADev', statusValue: 'Dúvida', icon: HelpCircle, color: 'pink' },
     ]
   }
 ]
@@ -132,6 +136,13 @@ const colorClasses = {
     text: 'text-yellow-600 dark:text-yellow-400',
     border: 'border-yellow-200 dark:border-yellow-800',
     hover: 'hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+  },
+  pink: {
+    bg: 'bg-pink-500',
+    bgLight: 'bg-pink-100 dark:bg-pink-900/30',
+    text: 'text-pink-600 dark:text-pink-400',
+    border: 'border-pink-200 dark:border-pink-800',
+    hover: 'hover:bg-pink-50 dark:hover:bg-pink-900/20'
   },
   gray: {
     bg: 'bg-gray-500',

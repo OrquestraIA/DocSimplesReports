@@ -17,7 +17,12 @@ const STATUS_COLORS = {
   'Pendente': '#eab308',
   'Em Teste': '#3b82f6',
   'Em-reteste-homolog': '#f97316',
-  'Aguardando_Dev': '#6b7280'
+  'Para_Correcao': '#ef4444',
+  'Em_Correcao': '#f97316',
+  'Para_Teste_QA': '#06b6d4',
+  'Para_Reteste_QA': '#a855f7',
+  'Aguardando_Deploy': '#6366f1',
+  'Dúvida': '#ec4899'
 }
 
 const STATUS_DEV_COLORS = {
@@ -47,13 +52,15 @@ const STATUS_DEV_OPTIONS = [
 
 const STATUS_QA_OPTIONS = [
   { value: 'Pendente', label: 'Pendente' },
+  { value: 'Para_Correcao', label: 'Para Correção' },
+  { value: 'Em_Correcao', label: 'Em Correção' },
   { value: 'Para_Teste_QA', label: 'Para Teste QA' },
   { value: 'Em Teste', label: 'Em Teste' },
   { value: 'Aprovado', label: 'Aprovado' },
   { value: 'Reprovado', label: 'Reprovado' },
   { value: 'Para_Reteste_QA', label: 'Para Reteste QA' },
-  { value: 'Aguardando_Dev', label: 'Aguardando Dev' },
   { value: 'Aguardando_Deploy', label: 'Aguardando Deploy' },
+  { value: 'Dúvida', label: 'Dúvida' },
   { value: '', label: '-' }
 ]
 
@@ -681,7 +688,12 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       'Pendente': 'bg-yellow-100 text-yellow-700',
       'Em Teste': 'bg-blue-100 text-blue-700',
       'Em-reteste-homolog': 'bg-orange-100 text-orange-700',
-      'Aguardando_Dev': 'bg-gray-100 text-gray-700'
+      'Para_Correcao': 'bg-red-100 text-red-700',
+      'Em_Correcao': 'bg-orange-100 text-orange-700',
+      'Para_Teste_QA': 'bg-cyan-100 text-cyan-700',
+      'Para_Reteste_QA': 'bg-purple-100 text-purple-700',
+      'Aguardando_Deploy': 'bg-indigo-100 text-indigo-700',
+      'Dúvida': 'bg-pink-100 text-pink-700'
     }
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-700'}`}>
@@ -1148,12 +1160,9 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                 className="input-field md:w-32"
               >
                 <option value="all">QA Dev</option>
-                <option value="Para_Teste_QA">Para Teste QA</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Reprovado">Reprovado</option>
-                <option value="Pendente">Pendente</option>
-                <option value="Em Teste">Em Teste</option>
-                <option value="Aguardando_Dev">Aguardando</option>
+                {STATUS_QA_OPTIONS.filter(o => o.value !== '').map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
               <select
                 value={filterStatusQAHomolog}
@@ -1161,12 +1170,9 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                 className="input-field md:w-36"
               >
                 <option value="all">QA Homolog</option>
-                <option value="Para_Teste_QA">Para Teste QA</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Reprovado">Reprovado</option>
-                <option value="Pendente">Pendente</option>
-                <option value="Em Teste">Em Teste</option>
-                <option value="Aguardando_Dev">Aguardando</option>
+                {STATUS_QA_OPTIONS.filter(o => o.value !== '').map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
               {/* Botão Limpar Filtros */}
               {(searchTerm || filterModule !== 'all' || filterObrigatorio !== 'all' || filterStatusHomolog !== 'all' || filterStatusDev !== 'all' || filterStatusQADev !== 'all' || filterStatusQAHomolog !== 'all') && (
@@ -1254,11 +1260,14 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                           className={`text-xs px-1 py-0.5 rounded border font-medium ${
                             req.statusQADev === 'Aprovado' ? 'bg-green-100 text-green-700 border-green-300' :
                             req.statusQADev === 'Reprovado' ? 'bg-red-100 text-red-700 border-red-300' :
+                            req.statusQADev === 'Para_Correcao' ? 'bg-red-100 text-red-700 border-red-300' :
+                            req.statusQADev === 'Em_Correcao' ? 'bg-orange-100 text-orange-700 border-orange-300' :
                             req.statusQADev === 'Em Teste' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                             req.statusQADev === 'Para_Teste_QA' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusQADev === 'Pendente' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
                             req.statusQADev === 'Para_Reteste_QA' ? 'bg-purple-100 text-purple-700 border-purple-300' :
-                            req.statusQADev === 'Aguardando_Dev' ? 'bg-gray-100 text-gray-700 border-gray-300' :
+                            req.statusQADev === 'Aguardando_Deploy' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' :
+                            req.statusQADev === 'Dúvida' ? 'bg-pink-100 text-pink-700 border-pink-300' :
                             'bg-gray-50 text-gray-500 border-gray-200'
                           } ${!req.firebaseId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
@@ -1280,7 +1289,8 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                             req.statusQAHomolog === 'Para_Teste_QA' ? 'bg-cyan-100 text-cyan-700 border-cyan-300' :
                             req.statusQAHomolog === 'Pendente' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
                             req.statusQAHomolog === 'Para_Reteste_QA' ? 'bg-purple-100 text-purple-700 border-purple-300' :
-                            req.statusQAHomolog === 'Aguardando_Dev' ? 'bg-gray-100 text-gray-700 border-gray-300' :
+                            req.statusQAHomolog === 'Aguardando_Deploy' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' :
+                            req.statusQAHomolog === 'Dúvida' ? 'bg-pink-100 text-pink-700 border-pink-300' :
                             'bg-gray-50 text-gray-500 border-gray-200'
                           } ${!req.firebaseId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
