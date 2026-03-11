@@ -562,7 +562,6 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       .sort((a, b) => new Date(b.semana) - new Date(a.semana))
       .slice(0, 8) // Últimas 8 semanas
       .reverse()
-
     const totalSemanas = semanas.length
     const totalAprovacoes = semanas.reduce((sum, s) => sum + s.quantidade, 0)
     const mediaAprovacoesSemana = totalSemanas > 0 ? (totalAprovacoes / totalSemanas).toFixed(1) : 0
@@ -619,12 +618,12 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     return { dados, totalSemanas, totalAprovacoes, mediaGeral, dataInicioFormatada }
   }, [requirements])
 
-  // Formatar data da semana para exibição
+  // Formatar data da semana para exibição (seg a sex)
   const formatarSemana = (dataStr) => {
     const data = new Date(dataStr)
     const fimSemana = new Date(data)
-    fimSemana.setDate(data.getDate() + 6)
-    
+    fimSemana.setDate(data.getDate() + 4) // seg + 4 = sex
+
     const formatarDia = (d) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`
     return `${formatarDia(data)} - ${formatarDia(fimSemana)}`
   }
@@ -1153,9 +1152,9 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
                   <TrendingUp className="w-5 h-5" />
                   Média de Aprovações por Dia da Semana
                 </h3>
-                <div className="bg-violet-100 px-3 py-1 rounded-lg text-sm">
-                  <span className="text-violet-600">Base:</span>
-                  <span className="font-bold text-violet-700 ml-1">{mediaAprovacoesPorDiaSemana.totalSemanas} semanas</span>
+                <div className="bg-violet-100 dark:bg-violet-900/40 px-3 py-1 rounded-lg text-sm">
+                  <span className="text-violet-600 dark:text-violet-300">Base:</span>
+                  <span className="font-bold text-violet-700 dark:text-violet-200 ml-1">{mediaAprovacoesPorDiaSemana.totalSemanas} semanas</span>
                 </div>
               </div>
               <div className="h-48">
