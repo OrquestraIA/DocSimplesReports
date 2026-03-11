@@ -8,7 +8,7 @@ import {
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine
 } from 'recharts'
 
 const STATUS_COLORS = {
@@ -612,7 +612,11 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       total: contagemPorDia[idx]
     }))
 
-    return { dados, totalSemanas }
+    const totalAprovacoes = reqsComData.length
+    const mediaGeral = parseFloat((totalAprovacoes / (totalSemanas * 5)).toFixed(2))
+    const dataInicioFormatada = dataInicio.toLocaleDateString('pt-BR')
+
+    return { dados, totalSemanas, totalAprovacoes, mediaGeral, dataInicioFormatada }
   }, [requirements])
 
   // Formatar data da semana para exibição
@@ -1181,6 +1185,18 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
               </div>
               <p className="text-xs text-violet-600 mt-2 text-center">
                 Média calculada desde a primeira aprovação registrada
+              </p>
+            </div>
+          )}
+
+          {/* Média Diária Geral */}
+          {mediaAprovacoesPorDiaSemana.mediaGeral > 0 && (
+            <div className="card border-2 border-teal-200 bg-teal-50/30 flex flex-col items-center justify-center py-6 gap-2">
+              <p className="text-sm text-teal-600 font-medium">Média geral de aprovações por dia útil</p>
+              <p className="text-5xl font-bold text-teal-700">{mediaAprovacoesPorDiaSemana.mediaGeral}</p>
+              <p className="text-xs text-teal-500">
+                {mediaAprovacoesPorDiaSemana.totalAprovacoes} aprovações ÷ ({mediaAprovacoesPorDiaSemana.totalSemanas} semanas × 5 dias)
+                &nbsp;· desde {mediaAprovacoesPorDiaSemana.dataInicioFormatada}
               </p>
             </div>
           )}
