@@ -525,26 +525,29 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     return Object.values(byModule).sort((a, b) => b.total - a.total).slice(0, 10)
   }, [requirements])
 
-  // Estatísticas de aprovações por semana
+  // Estatísticas de aprovações por semana (apenas dias úteis: seg-sex)
   const aprovacoesPorSemana = useMemo(() => {
-    const reqsComData = requirements.filter(r => r.dataAprovacaoHomolog && r.statusHomolog === 'Aprovado')
-    
+    const reqsComData = requirements.filter(r => {
+      if (!r.dataAprovacaoHomolog || r.statusHomolog !== 'Aprovado') return false
+      const dia = new Date(r.dataAprovacaoHomolog).getDay()
+      return dia >= 1 && dia <= 5 // apenas seg-sex
+    })
+
     if (reqsComData.length === 0) return { semanas: [], mediaAprovacoesSemana: 0, totalComData: 0 }
-    
-    // Agrupar por semana (segunda a domingo)
+
+    // Agrupar por semana (segunda a sexta)
     const porSemana = reqsComData.reduce((acc, req) => {
       const data = new Date(req.dataAprovacaoHomolog)
-      // Pegar início da semana (segunda-feira)
       const diaSemana = data.getDay()
-      const diff = diaSemana === 0 ? -6 : 1 - diaSemana // Ajustar para segunda
+      const diff = 1 - diaSemana // Ajustar para segunda
       const inicioSemana = new Date(data)
       inicioSemana.setDate(data.getDate() + diff)
       inicioSemana.setHours(0, 0, 0, 0)
-      
+
       const chave = inicioSemana.toISOString().split('T')[0]
       if (!acc[chave]) {
-        acc[chave] = { 
-          semana: chave, 
+        acc[chave] = {
+          semana: chave,
           inicio: inicioSemana,
           quantidade: 0,
           requisitos: []
@@ -554,27 +557,37 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       acc[chave].requisitos.push(req.id)
       return acc
     }, {})
-    
+
     const semanas = Object.values(porSemana)
       .sort((a, b) => new Date(b.semana) - new Date(a.semana))
       .slice(0, 8) // Últimas 8 semanas
       .reverse()
-    
+
     const totalSemanas = semanas.length
     const totalAprovacoes = semanas.reduce((sum, s) => sum + s.quantidade, 0)
     const mediaAprovacoesSemana = totalSemanas > 0 ? (totalAprovacoes / totalSemanas).toFixed(1) : 0
-    
-    return { 
-      semanas, 
-      mediaAprovacoesSemana, 
-      totalComData: reqsComData.length 
+
+    return {
+      semanas,
+      mediaAprovacoesSemana,
+      totalComData: reqsComData.length
     }
   }, [requirements])
 
-  // Média de aprovações por dia da semana
+  // Média de aprovações por dia da semana (apenas dias úteis: seg-sex)
   const mediaAprovacoesPorDiaSemana = useMemo(() => {
-    const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-    const reqsComData = requirements.filter(r => r.dataAprovacaoHomolog && r.statusHomolog === 'Aprovado')
+    const DIAS_UTEIS = [
+      { nome: 'Seg', idx: 1 },
+      { nome: 'Ter', idx: 2 },
+      { nome: 'Qua', idx: 3 },
+      { nome: 'Qui', idx: 4 },
+      { nome: 'Sex', idx: 5 }
+    ]
+    const reqsComData = requirements.filter(r => {
+      if (!r.dataAprovacaoHomolog || r.statusHomolog !== 'Aprovado') return false
+      const dia = new Date(r.dataAprovacaoHomolog).getDay()
+      return dia >= 1 && dia <= 5
+    })
     if (reqsComData.length === 0) return { dados: [], totalSemanas: 0 }
 
     // Encontrar a data mais antiga de aprovação
@@ -582,7 +595,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
     const dataInicio = new Date(Math.min(...datas))
     const hoje = new Date()
 
-    // Calcular número de semanas completas desde a primeira aprovação
+    // Calcular número de semanas desde a primeira aprovação
     const diffMs = hoje - dataInicio
     const totalSemanas = Math.max(1, Math.ceil(diffMs / (7 * 24 * 60 * 60 * 1000)))
 
@@ -593,7 +606,7 @@ export default function RequirementsPage({ requirements = [], onImport, onClear,
       contagemPorDia[dia]++
     })
 
-    const dados = DIAS.map((nome, idx) => ({
+    const dados = DIAS_UTEIS.map(({ nome, idx }) => ({
       dia: nome,
       media: parseFloat((contagemPorDia[idx] / totalSemanas).toFixed(2)),
       total: contagemPorDia[idx]
