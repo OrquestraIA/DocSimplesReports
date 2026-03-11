@@ -329,7 +329,13 @@ export default function TaskDetailModal({
     setExecutingAction(actionKey)
     try {
       const updateData = { ...action.nextStatus }
-      
+
+      // Guard: nunca sobrescrever statusHomolog se já for terminal (Aprovado, Bloqueado)
+      const terminalStatuses = ['Aprovado', 'Bloqueado']
+      if (updateData.statusHomolog && terminalStatuses.includes(requirement.statusHomolog)) {
+        delete updateData.statusHomolog
+      }
+
       // Se o status mudar para Aprovado, salvar a data de aprovação
       if (updateData.statusHomolog === 'Aprovado' && !requirement.dataAprovacaoHomolog) {
         updateData.dataAprovacaoHomolog = new Date().toISOString()
