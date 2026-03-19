@@ -1,8 +1,59 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.7.0'
+export const APP_VERSION = '2.8.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.8.0',
+    date: '2026-03-19',
+    title: 'Triagem QA, Novos Status e Gráficos de Aprovação',
+    changes: [
+      {
+        type: 'feature',
+        description: '🔀 Mover Tarefa — admin, QA e operação podem realocar qualquer tarefa entre workspaces e listas diretamente pelo modal da tarefa'
+      },
+      {
+        type: 'feature',
+        description: '↩️ Devolver para Operação com evidências — ao devolver uma tarefa da triagem QA, o motivo e vídeos são salvos no histórico do documento de teste e visíveis para a Operação'
+      },
+      {
+        type: 'feature',
+        description: '🏷️ Novos status QA Dev: Para Correção, Em Correção, Aguardando Deploy e Dúvida — com colunas no espaço Devs e QA, cores e filtros'
+      },
+      {
+        type: 'feature',
+        description: '📊 Gráfico de média de aprovações por dia da semana (seg–sex) e card de média diária geral desde a primeira aprovação registrada'
+      },
+      {
+        type: 'feature',
+        description: '✏️ Seletor de status inline nos Documentos de Teste — admin e QA podem alterar o status de um documento diretamente na lista, sem abrir o documento'
+      },
+      {
+        type: 'feature',
+        description: '✅ Lista "Tarefas Concluídas" no espaço da Operação — visibilidade completa das tarefas já encerradas'
+      },
+      {
+        type: 'improvement',
+        description: '🔒 Conclusão de tarefas restrita à Operação — somente operação e admin podem marcar tarefas como concluídas'
+      },
+      {
+        type: 'improvement',
+        description: '💬 Comentários e vídeos visíveis nos Espaços de Trabalho — o histórico de interações do documento de teste agora aparece corretamente ao abrir tarefas em qualquer workspace'
+      },
+      {
+        type: 'bugfix',
+        description: '🛡️ Requisitos Aprovados e Bloqueados não revertem mais — guard de status terminal impede que ações de QA sobrescrevam statusHomolog já finalizado'
+      },
+      {
+        type: 'bugfix',
+        description: '🔧 Fluxo de status corrigido: statusQADev e statusHomolog agora são atualizados pelo responsável correto em cada etapa do fluxo'
+      },
+      {
+        type: 'bugfix',
+        description: '📋 Filtro de status dos Documentos de Teste completo — adicionados Em Homologação, Para Correção e Melhoria'
+      }
+    ]
+  },
   {
     version: '2.7.0',
     date: '2026-03-06',

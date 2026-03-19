@@ -365,6 +365,17 @@ export default function TutorialPage() {
           tip: 'O gráfico de Obrigatórios em vermelho mostra o progresso dos requisitos críticos.'
         },
         {
+          title: 'Gráfico de Aprovações por Semana (Dias Úteis)',
+          description: 'Exibe a média de aprovações por semana considerando apenas dias úteis (segunda a sexta). Cada barra representa uma semana e a linha pontilhada mostra a média do período.',
+          tip: 'O gráfico é dinâmico e atualiza automaticamente conforme novos requisitos são aprovados.'
+        },
+        {
+          title: 'Aprovações por Dia da Semana + Média Diária Geral',
+          description: 'Segundo gráfico mostra a média histórica de aprovações para cada dia da semana (Seg–Sex), identificando os dias mais produtivos. O card teal ao lado exibe a média diária geral: total de aprovações ÷ (semanas × 5 dias úteis).',
+          important: true,
+          tip: 'Contabiliza desde a semana em que a primeira aprovação foi registrada, ignorando fins de semana.'
+        },
+        {
           title: 'Usando os Filtros',
           description: 'Use os filtros para encontrar requisitos específicos: Obrigatório (Sim/Não), Status Homolog, Status Dev, QA Dev, QA Homolog e Módulo.',
           tip: 'Combine múltiplos filtros para refinar sua busca.'
@@ -696,8 +707,19 @@ export default function TutorialPage() {
         },
         {
           title: 'Espaço QA',
-          description: 'Visualize requisitos por status de QA Dev: Para Teste, Em Teste, Para Reteste, Aprovado, Aguardando Dev.',
-          tip: 'QA acompanha aqui os testes de desenvolvimento.'
+          description: 'Visualize tarefas na Triagem, requisitos por status QA Dev: Para Teste, Em Teste, Para Reteste, Para Correção, Em Correção, Aprovado, Aguardando Deploy e Dúvida.',
+          tip: 'A coluna "Triagem" mostra tarefas abertas pela Operação aguardando distribuição pelo QA.'
+        },
+        {
+          title: 'Triagem QA — Distribuir ou Devolver',
+          description: 'Ao abrir uma tarefa na Triagem, o QA pode: (1) "Distribuir para Dev" — atribuir ao desenvolvedor responsável; (2) "Devolver para Operação" — informar motivo e anexar evidências caso a tarefa não seja pertinente.',
+          important: true,
+          tip: 'O motivo e os vídeos/imagens da devolução ficam salvos no histórico do documento de teste e ficam visíveis para a Operação.'
+        },
+        {
+          title: 'Mover Tarefa para Outra Lista',
+          description: 'No rodapé de qualquer tarefa, admin, QA e operação veem o link "Mover tarefa para outra lista". Basta selecionar o destino (ex: QA — Triagem, Devs — Pendente, Operação — Em Revisão) e confirmar.',
+          tip: 'Use para corrigir uma tarefa que foi encaminhada para o workspace errado.'
         },
         {
           title: 'Abrindo Novas Tarefas',
@@ -741,8 +763,8 @@ export default function TutorialPage() {
           tip: 'A função define quais botões e ações aparecem para você em cada tarefa e documento.'
         },
         {
-          title: 'Fluxo em 3 Etapas: Dev → QA → Operação',
-          description: 'Para tarefas e documentos de teste: (1) Dev corrige e clica "Enviar para QA". (2) QA testa e clica "Aprovar e Enviar para Operação" ou "Reprovar". (3) Operação valida e clica "Aprovar" — encerrando a tarefa.',
+          title: 'Fluxo em 4 Etapas: Operação → QA Triagem → Dev → QA → Operação',
+          description: 'Todas as tarefas passam pelo QA antes de chegar aos Devs: (1) Operação abre a tarefa — ela vai para a Triagem QA. (2) QA triagem distribui para o Dev responsável ou devolve para a Operação com justificativa. (3) Dev corrige e clica "Enviar para QA". (4) QA valida e clica "Aprovar e Enviar para Operação" ou "Reprovar". (5) Operação homologa e clica "Aprovar" — encerrando a tarefa.',
           important: true,
           tip: 'Nenhuma etapa pode ser pulada: o botão da próxima etapa só aparece para o role correto.'
         },
