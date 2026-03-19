@@ -1063,18 +1063,42 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
                     <h3 className="font-semibold text-gray-900">{doc.title}</h3>
                     <p className="text-sm text-gray-600">{doc.feature} {doc.module && `• ${doc.module}`}</p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className={`badge ${
-                        doc.status === 'aprovado' ? 'badge-success' :
-                        doc.status === 'reprovado' ? 'badge-error' :
-                        doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
-                        doc.status === 'em_homologacao' ? 'bg-teal-100 text-teal-700' :
-                        doc.status === 'para_correcao' ? 'bg-orange-100 text-orange-700' :
-                        doc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
-                      }`}>
-                        {doc.status === 'em_reteste' ? 'Em Reteste' :
-                         doc.status === 'em_homologacao' ? 'Em Homologação' :
-                         doc.status === 'para_correcao' ? 'Para Correção' : doc.status}
-                      </span>
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'qa') ? (
+                        <select
+                          value={doc.status}
+                          onChange={async (e) => { await onUpdate(doc.id, { status: e.target.value }) }}
+                          onClick={e => e.stopPropagation()}
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium border-0 cursor-pointer ${
+                            doc.status === 'aprovado' ? 'bg-green-100 text-green-700' :
+                            doc.status === 'reprovado' ? 'bg-red-100 text-red-700' :
+                            doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
+                            doc.status === 'em_homologacao' ? 'bg-teal-100 text-teal-700' :
+                            doc.status === 'para_correcao' ? 'bg-orange-100 text-orange-700' :
+                            doc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+                          }`}
+                        >
+                          <option value="pendente">Pendente</option>
+                          <option value="em_reteste">Em Reteste</option>
+                          <option value="em_homologacao">Em Homologação</option>
+                          <option value="aprovado">Aprovado</option>
+                          <option value="reprovado">Reprovado</option>
+                          <option value="para_correcao">Para Correção</option>
+                          <option value="melhoria">Melhoria</option>
+                        </select>
+                      ) : (
+                        <span className={`badge ${
+                          doc.status === 'aprovado' ? 'badge-success' :
+                          doc.status === 'reprovado' ? 'badge-error' :
+                          doc.status === 'em_reteste' ? 'bg-orange-100 text-orange-700' :
+                          doc.status === 'em_homologacao' ? 'bg-teal-100 text-teal-700' :
+                          doc.status === 'para_correcao' ? 'bg-orange-100 text-orange-700' :
+                          doc.status === 'melhoria' ? 'bg-blue-100 text-blue-700' : 'badge-warning'
+                        }`}>
+                          {doc.status === 'em_reteste' ? 'Em Reteste' :
+                           doc.status === 'em_homologacao' ? 'Em Homologação' :
+                           doc.status === 'para_correcao' ? 'Para Correção' : doc.status}
+                        </span>
+                      )}
                       <span className="badge badge-info">{doc.testType}</span>
                       <span className="text-xs text-gray-500">
                         {new Date(doc.createdAt).toLocaleDateString('pt-BR')}
