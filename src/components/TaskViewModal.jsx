@@ -57,6 +57,8 @@ export default function TaskViewModal({
   const [devolveReason, setDevolveReason] = useState('')
   const [devolveScreenshots, setDevolveScreenshots] = useState([])
   const [uploadingDevolve, setUploadingDevolve] = useState(false)
+  const [showMover, setShowMover] = useState(false)
+  const [moveDestino, setMoveDestino] = useState('')
   const [uploading, setUploading] = useState(false)
   const [localSourceComments, setLocalSourceComments] = useState(task.sourceData?.comments || [])
   const [localDocumentStatus, setLocalDocumentStatus] = useState(task.sourceData?.status || 'pendente')
@@ -458,6 +460,40 @@ export default function TaskViewModal({
     task.workspace === 'qa' &&
     task.status === 'pending'
   const devUsers = (users || []).filter(u => u.role === 'desenvolvedor')
+  const isAdmin = role === 'admin'
+  const canMover = isAdmin || isQA || isOp
+
+  const DESTINOS_MOVER = [
+    { label: 'QA — Triagem',          workspace: 'qa',       status: 'pending',     reviewStage: null },
+    { label: 'QA — Em Revisão',        workspace: 'qa',       status: 'in_review',   reviewStage: 'qa' },
+    { label: 'Devs — Pendente',        workspace: 'devs',     status: 'pending',     reviewStage: null },
+    { label: 'Devs — Em Andamento',    workspace: 'devs',     status: 'in_progress', reviewStage: null },
+    { label: 'Devs — Em Revisão',      workspace: 'devs',     status: 'in_review',   reviewStage: null },
+    { label: 'Operação — Em Revisão',  workspace: 'operacao', status: 'in_review',   reviewStage: 'operacao' },
+    { label: 'Concluída',              workspace: task.workspace, status: 'done',    reviewStage: null },
+  ]
+
+  const handleMoverTarefa = async () => {
+    if (!moveDestino || !onUpdateTask) return
+    const destino = DESTINOS_MOVER.find(d => d.label === moveDestino)
+    if (!destino) return
+    setSubmitting(true)
+    try {
+      await onUpdateTask(task.id, {
+        workspace: destino.workspace,
+        status: destino.status,
+        reviewStage: destino.reviewStage
+      })
+      toast.success(`Tarefa movida para: ${destino.label}`)
+      setShowMover(false)
+      setMoveDestino('')
+      onClose()
+    } catch (err) {
+      toast.error('Erro ao mover tarefa.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
@@ -1022,6 +1058,47 @@ export default function TaskViewModal({
                   <button onClick={handleDevolverOperacao} disabled={!devolveReason.trim() || submitting || uploadingDevolve} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm">{submitting ? 'Enviando...' : 'Confirmar Devolução'}</button>
                   <button onClick={() => { setQaAction(null); setDevolveReason(''); setDevolveScreenshots([]) }} className="px-4 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 text-sm">Cancelar</button>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mover tarefa — disponível para admin, qa e operação */}
+        {canMover && (
+          <div className="px-6 py-3 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/30">
+            {!showMover ? (
+              <button
+                onClick={() => setShowMover(true)}
+                className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <ArrowLeft className="w-3 h-3 rotate-[-90deg]" /> Mover tarefa para outra lista
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">Mover para:</span>
+                <select
+                  value={moveDestino}
+                  onChange={e => setMoveDestino(e.target.value)}
+                  className="px-2 py-1 text-xs border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Selecione o destino...</option>
+                  {DESTINOS_MOVER.map(d => (
+                    <option key={d.label} value={d.label}>{d.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleMoverTarefa}
+                  disabled={!moveDestino || submitting}
+                  className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {submitting ? 'Movendo...' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={() => { setShowMover(false); setMoveDestino('') }}
+                  className="px-3 py-1 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg text-xs hover:bg-gray-300"
+                >
+                  Cancelar
+                </button>
               </div>
             )}
           </div>
