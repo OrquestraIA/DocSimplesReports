@@ -879,7 +879,28 @@ export default function WorkspaceBoard({
   const [viewingMedia, setViewingMedia] = useState(null)
 
   const workspace = WORKSPACES.find(w => w.id === selectedWorkspace)
-  
+
+  // Enriquecer tasks com sourceData atualizado dos testDocuments (igual ao SprintsPage)
+  const enrichedTasks = useMemo(() => {
+    return tasks.map(task => {
+      if (task.sourceType === 'test_document' && task.sourceId) {
+        const testDoc = testDocuments.find(d => d.id === task.sourceId)
+        if (testDoc) {
+          return {
+            ...task,
+            sourceData: {
+              ...task.sourceData,
+              comments: testDoc.comments || [],
+              status: testDoc.status,
+              screenshots: testDoc.screenshots || []
+            }
+          }
+        }
+      }
+      return task
+    })
+  }, [tasks, testDocuments])
+
   // Buscar o item atualizado da lista (para refletir mudanças em tempo real)
   const selectedRequirement = useMemo(() => {
     if (!selectedItem || selectedItemType !== 'requirement') return null
@@ -888,12 +909,12 @@ export default function WorkspaceBoard({
 
   // Auto-abrir tarefa quando vindo de notificação via URL ?taskId=
   useEffect(() => {
-    if (!autoOpenTaskId || tasks.length === 0) return
-    const task = tasks.find(t => t.id === autoOpenTaskId)
+    if (!autoOpenTaskId || enrichedTasks.length === 0) return
+    const task = enrichedTasks.find(t => t.id === autoOpenTaskId)
     if (task) {
       setViewingTask(task)
     }
-  }, [autoOpenTaskId, tasks])
+  }, [autoOpenTaskId, enrichedTasks])
 
   const handleOpenDetail = (item, type = 'requirement') => {
     setSelectedItem(item)
@@ -901,8 +922,9 @@ export default function WorkspaceBoard({
     if (type === 'requirement') {
       setIsModalOpen(true)
     } else if (type === 'task') {
-      // Para tarefas, abrir modal de visualização
-      setViewingTask(item)
+      // Para tarefas, abrir modal com sourceData enriquecido
+      const enriched = enrichedTasks.find(t => t.id === item.id) || item
+      setViewingTask(enriched)
     } else if (type === 'testDocument') {
       // Para documentos de teste, abrir na página de documentos
       window.open(`#/documentos?id=${item.id}`, '_blank')
@@ -1099,7 +1121,7 @@ export default function WorkspaceBoard({
           <div className="flex-1 overflow-hidden">
             <ListView
               requirements={filteredRequirements}
-              tasks={tasks}
+              tasks={enrichedTasks}
               testDocuments={testDocuments}
               workspace={workspace}
               selectedList={selectedList || workspace.lists[0]?.id}
