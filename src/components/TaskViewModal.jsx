@@ -320,7 +320,7 @@ export default function TaskViewModal({
     setSubmitting(true)
     try {
       const author = currentUser?.name || currentUser?.email
-      // Salvar no documento de teste (com screenshots/vídeo) se a tarefa tiver sourceId
+      // Salvar no documento de teste (com screenshots/vídeo) e atualizar status para em_reteste
       if (task.sourceId) {
         await addCommentToTestDocument(task.sourceId, {
           text: devolveReason.trim(),
@@ -328,6 +328,10 @@ export default function TaskViewModal({
           author,
           screenshots: devolveScreenshots
         })
+        if (onUpdateDocumentStatus) {
+          await onUpdateDocumentStatus(task.sourceId, 'em_reteste')
+          setLocalDocumentStatus('em_reteste')
+        }
         setLocalSourceComments(prev => [...prev, {
           text: devolveReason.trim(),
           type: 'devolvido_operacao',
