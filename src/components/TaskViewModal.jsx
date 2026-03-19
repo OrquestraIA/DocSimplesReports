@@ -470,7 +470,8 @@ export default function TaskViewModal({
     { label: 'Devs — Em Andamento',    workspace: 'devs',     status: 'in_progress', reviewStage: null },
     { label: 'Devs — Em Revisão',      workspace: 'devs',     status: 'in_review',   reviewStage: null },
     { label: 'Operação — Em Revisão',  workspace: 'operacao', status: 'in_review',   reviewStage: 'operacao' },
-    { label: 'Concluída',              workspace: task.workspace, status: 'done',    reviewStage: null },
+    // Concluída: apenas admin ou operação
+    ...(isAdmin || isOp ? [{ label: 'Concluída', workspace: task.workspace, status: 'done', reviewStage: null }] : []),
   ]
 
   const handleMoverTarefa = async () => {

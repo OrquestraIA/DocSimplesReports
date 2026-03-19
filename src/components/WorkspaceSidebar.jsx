@@ -33,6 +33,7 @@ const WORKSPACES = [
     description: 'Homologação e validação',
     lists: [
       { id: 'tarefas_pendentes', name: 'Tarefas Pendentes', type: 'tasks', statusField: 'status', statusValue: 'pending', icon: Clock, color: 'yellow' },
+      { id: 'tarefas_op_concluidas', name: 'Tarefas Concluídas', type: 'tasks', statusField: 'status', statusValue: 'done', icon: CheckCircle2, color: 'green' },
       { id: 'para_teste_homolog', name: 'Para Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Para_Teste_Homolog', icon: Clock, color: 'cyan' },
       { id: 'em_teste_homolog', name: 'Em Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Em Teste', icon: Play, color: 'blue' },
       { id: 'para_reteste_homolog', name: 'Para Reteste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Para_Reteste_Homolog', icon: RotateCcw, color: 'purple' },
