@@ -1012,6 +1012,9 @@ export default function DocumentViewerPage({ documents, onUpdate, onDelete, user
               <option value="aprovado">Aprovado</option>
               <option value="reprovado">Reprovado</option>
               <option value="em_reteste">Em Reteste</option>
+              <option value="em_homologacao">Em Homologação</option>
+              <option value="para_correcao">Para Correção</option>
+              <option value="melhoria">Melhoria</option>
               <option value="bloqueado">Bloqueado</option>
             </select>
             <select
