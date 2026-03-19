@@ -9,6 +9,7 @@ import CommentsSection from './CommentsSection'
 import UploadLoading from './UploadLoading'
 import ReactionPicker, { ReactionDisplay } from './ReactionPicker'
 import { renderTextWithMentions } from './MentionInput'
+import { addCommentToTestDocument, uploadScreenshot } from '../firebase'
 
 const TASK_TYPES = {
   'bug': { bg: 'bg-red-100', text: 'text-red-700', label: 'Bug', icon: Bug },
@@ -54,6 +55,8 @@ export default function TaskViewModal({
   const [qaAction, setQaAction] = useState(null) // 'distribuir' | 'devolver' | null
   const [selectedDev, setSelectedDev] = useState('')
   const [devolveReason, setDevolveReason] = useState('')
+  const [devolveScreenshots, setDevolveScreenshots] = useState([])
+  const [uploadingDevolve, setUploadingDevolve] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [localSourceComments, setLocalSourceComments] = useState(task.sourceData?.comments || [])
   const [localDocumentStatus, setLocalDocumentStatus] = useState(task.sourceData?.status || 'pendente')
@@ -294,21 +297,55 @@ export default function TaskViewModal({
     }
   }
 
+  const handleDevolveUpload = async (e) => {
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'))
+    if (!files.length) return
+    setUploadingDevolve(true)
+    try {
+      const tempId = `devolve_${Date.now()}`
+      const uploaded = await Promise.all(files.map(f => uploadScreenshot(f, tempId)))
+      const withType = uploaded.map((f, i) => ({ ...f, type: files[i].type.startsWith('video/') ? 'video' : 'image' }))
+      setDevolveScreenshots(prev => [...prev, ...withType])
+    } catch (err) {
+      toast.error('Erro ao fazer upload do arquivo.')
+    } finally {
+      setUploadingDevolve(false)
+    }
+  }
+
   const handleDevolverOperacao = async () => {
     if (!devolveReason.trim() || !onUpdateTask) return
     setSubmitting(true)
     try {
-      await onUpdateTask(task.id, { workspace: 'operacao', reviewStage: 'nao_pertinente', status: 'pending' })
+      const author = currentUser?.name || currentUser?.email
+      // Salvar no documento de teste (com screenshots/vídeo) se a tarefa tiver sourceId
+      if (task.sourceId) {
+        await addCommentToTestDocument(task.sourceId, {
+          text: devolveReason.trim(),
+          type: 'devolvido_operacao',
+          author,
+          screenshots: devolveScreenshots
+        })
+        setLocalSourceComments(prev => [...prev, {
+          text: devolveReason.trim(),
+          type: 'devolvido_operacao',
+          author,
+          screenshots: devolveScreenshots,
+          createdAt: new Date().toISOString()
+        }])
+      }
+      // Salvar também no task.comments
       if (onAddComment) {
         await onAddComment(task.id, {
-          text: `QA devolveu para Operação (não pertinente): ${devolveReason.trim()}`,
+          text: `QA devolveu para Operação: ${devolveReason.trim()}`,
           type: 'devolvido_operacao',
-          author: currentUser?.name || currentUser?.email,
+          author,
           authorId: currentUser?.id || currentUser?.uid,
           authorEmail: currentUser?.email || null,
           createdAt: new Date().toISOString()
         })
       }
+      await onUpdateTask(task.id, { workspace: 'operacao', reviewStage: 'nao_pertinente', status: 'pending' })
       toast.success('Tarefa devolvida para Operação.')
       onClose()
     } catch (error) {
@@ -966,10 +1003,24 @@ export default function TaskViewModal({
             {qaAction === 'devolver' && (
               <div className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Motivo da devolução (obrigatório):</span>
-                <textarea value={devolveReason} onChange={e => setDevolveReason(e.target.value)} placeholder="Descreva por que esta tarefa não é pertinente..." className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white resize-none" rows={2} />
+                <textarea value={devolveReason} onChange={e => setDevolveReason(e.target.value)} placeholder="Descreva o motivo da devolução..." className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-sm text-gray-900 dark:text-white resize-none" rows={3} />
+                {/* Upload de evidências */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="cursor-pointer flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs hover:bg-gray-200 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600">
+                    <Upload className="w-3 h-3" />
+                    {uploadingDevolve ? 'Enviando...' : 'Anexar imagem/vídeo'}
+                    <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleDevolveUpload} disabled={uploadingDevolve} />
+                  </label>
+                  {devolveScreenshots.map((s, i) => (
+                    <div key={i} className="relative flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/30 rounded text-xs text-orange-700 dark:text-orange-300">
+                      {s.type === 'video' ? '🎥' : '🖼️'} {s.name || `arquivo ${i + 1}`}
+                      <button onClick={() => setDevolveScreenshots(prev => prev.filter((_, idx) => idx !== i))} className="ml-1 text-orange-500 hover:text-orange-700">×</button>
+                    </div>
+                  ))}
+                </div>
                 <div className="flex gap-2">
-                  <button onClick={handleDevolverOperacao} disabled={!devolveReason.trim() || submitting} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm">{submitting ? 'Enviando...' : 'Confirmar Devolução'}</button>
-                  <button onClick={() => setQaAction(null)} className="px-4 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 text-sm">Cancelar</button>
+                  <button onClick={handleDevolverOperacao} disabled={!devolveReason.trim() || submitting || uploadingDevolve} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm">{submitting ? 'Enviando...' : 'Confirmar Devolução'}</button>
+                  <button onClick={() => { setQaAction(null); setDevolveReason(''); setDevolveScreenshots([]) }} className="px-4 py-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 text-sm">Cancelar</button>
                 </div>
               </div>
             )}
