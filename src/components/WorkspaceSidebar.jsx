@@ -43,6 +43,13 @@ const WORKSPACES = [
       { id: 'aprovado_homolog', name: 'Aprovados', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
       { id: 'reprovado_homolog', name: 'Reprovados', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
       { id: 'bloqueado_homolog', name: 'Bloqueados', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Bloqueado', icon: Pause, color: 'gray' },
+      { id: 'jornada_para_teste', name: 'Jornada - Para Teste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Para_Teste_Homolog', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'cyan' },
+      { id: 'jornada_em_teste', name: 'Jornada - Em Teste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Em Teste', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'blue' },
+      { id: 'jornada_para_reteste', name: 'Jornada - Para Reteste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Para_Reteste_Homolog', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'purple' },
+      { id: 'jornada_em_reteste', name: 'Jornada - Em Reteste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Em-reteste-homolog', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'orange' },
+      { id: 'jornada_aprovado', name: 'Jornada - Aprovados', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Aprovado', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'green' },
+      { id: 'jornada_reprovado', name: 'Jornada - Reprovados', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Reprovado', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'red' },
+      { id: 'jornada_bloqueado', name: 'Jornada - Bloqueados', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Bloqueado', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'gray' },
     ]
   },
   {
@@ -79,22 +86,8 @@ const WORKSPACES = [
       { id: 'aprovado_qa', name: 'Aprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
       { id: 'reprovado_qa', name: 'Reprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
       { id: 'duvida_qa', name: 'Dúvida', type: 'requirements', statusField: 'statusQADev', statusValue: 'Dúvida', icon: HelpCircle, color: 'pink' },
-    ]
-  },
-  {
-    id: 'jornada',
-    name: 'Testes de Jornada',
-    icon: Map,
-    color: 'purple',
-    description: 'Testes de jornada do usuário',
-    lists: [
-      { id: 'jornada_para_teste', name: 'Para Teste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Para_Teste_Homolog', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Clock, color: 'cyan' },
-      { id: 'jornada_em_teste', name: 'Em Teste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Em Teste', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Play, color: 'blue' },
-      { id: 'jornada_para_reteste', name: 'Para Reteste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Para_Reteste_Homolog', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: RotateCcw, color: 'purple' },
-      { id: 'jornada_em_reteste', name: 'Em Reteste', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Em-reteste-homolog', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: RotateCcw, color: 'orange' },
-      { id: 'jornada_aprovado', name: 'Aprovados', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Aprovado', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: CheckCircle2, color: 'green' },
-      { id: 'jornada_reprovado', name: 'Reprovados', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Reprovado', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: AlertCircle, color: 'red' },
-      { id: 'jornada_bloqueado', name: 'Bloqueados', type: 'testDocuments', statusField: 'statusHomolog', statusValue: 'Bloqueado', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Pause, color: 'gray' },
+      { id: 'jornada_triagem_qa', name: 'Jornada - Triagem', type: 'testDocuments', statusField: 'status', statusValue: 'pendente', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'purple' },
+      { id: 'jornada_em_reteste_qa', name: 'Jornada - Em Reteste', type: 'testDocuments', statusField: 'status', statusValues: ['em_reteste', 'em-reteste'], additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'orange' },
     ]
   }
 ]

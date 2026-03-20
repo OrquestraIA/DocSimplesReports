@@ -657,10 +657,14 @@ function ListView({ requirements, tasks, testDocuments, workspace, selectedList,
     if (list.type === 'tasks') {
       return tasks.filter(task => task[list.statusField] === list.statusValue)
     } else if (list.type === 'testDocuments') {
-      if (list.statusValues) {
-        return testDocuments.filter(doc => list.statusValues.includes(doc[list.statusField]))
-      }
-      return testDocuments.filter(doc => doc[list.statusField] === list.statusValue)
+      return testDocuments.filter(doc => {
+        const matchesStatus = list.statusValues
+          ? list.statusValues.includes(doc[list.statusField])
+          : doc[list.statusField] === list.statusValue
+        const matchesAdditional = !list.additionalFilter ||
+          doc[list.additionalFilter.field] === list.additionalFilter.value
+        return matchesStatus && matchesAdditional
+      })
     } else {
       return requirements.filter(req => req[list.statusField] === list.statusValue)
     }
