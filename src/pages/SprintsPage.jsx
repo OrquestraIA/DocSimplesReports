@@ -1887,8 +1887,10 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
     setSubmitting(true)
     try {
       const updates = { status: newStatus }
-      if (reviewStage) updates.reviewStage = reviewStage
-      else updates.reviewStage = null
+      if (reviewStage) {
+        updates.reviewStage = reviewStage
+        if (reviewStage === 'qa') updates.workspace = 'qa'
+      } else updates.reviewStage = null
       await onUpdateTask(task.id, updates)
 
       if (onAddNotification) {
@@ -1961,6 +1963,30 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
+  const showRetestOpActions = isStandaloneTask && isOp &&
+    task.reviewStage === 'aguardando_reteste_op'
+
+  const handleReprovarReteste = async () => {
+    if (!onUpdateTask) return
+    setSubmitting(true)
+    try {
+      await onUpdateTask(task.id, { status: 'pending', workspace: 'qa', reviewStage: null })
+      if (onAddNotification) {
+        const author = currentUser?.name || currentUser?.email || 'Usuário'
+        await onAddNotification({
+          type: 'reprovado_reteste',
+          message: `Operação reprovou reteste e devolveu para triagem do QA: "${task.title}"`,
+          author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+        })
+      }
+      toast.success('Reteste reprovado — tarefa devolvida ao QA.')
+      onClose()
+    } catch (error) {
+      toast.error('Erro ao reprovar reteste. Tente novamente.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -2514,11 +2540,29 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
                   Aprovar
                 </button>
                 <button
-                  onClick={() => handleUpdateStatus('in_progress')}
+                  onClick={() => handleUpdateStatus('in_review', 'qa')}
                   disabled={submitting}
                   className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
                 >
-                  Reprovar
+                  Reprovar (devolver ao QA)
+                </button>
+              </>
+            )}
+            {showRetestOpActions && (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus('done')}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                >
+                  ✓ Aprovar Reteste → Concluir
+                </button>
+                <button
+                  onClick={handleReprovarReteste}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                >
+                  Reprovar Reteste
                 </button>
               </>
             )}

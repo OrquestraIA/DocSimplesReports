@@ -394,6 +394,11 @@ function TaskRow({ task, sprints, onView, onUpdateStatus }) {
                 ⚠️ Para Correção
               </span>
             )}
+            {task.reviewStage === 'aguardando_reteste_op' && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                🔄 Aguardando Reteste
+              </span>
+            )}
             <select
               value={task.status}
               onChange={(e) => onUpdateStatus(task.id, e.target.value)}
@@ -743,15 +748,24 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
     if (!devolveReason.trim() || !onUpdateTask) return
     setSending(true)
     try {
-      await onUpdateTask(task.id, { workspace: 'operacao', reviewStage: 'nao_pertinente', status: 'pending' })
+      await onUpdateTask(task.id, { workspace: 'operacao', reviewStage: 'aguardando_reteste_op', status: 'in_review' })
       if (onAddComment) {
         await onAddComment(task.id, {
-          text: `QA devolveu para Operação (não pertinente): ${devolveReason.trim()}`,
+          text: `QA devolveu para Operação para reteste: ${devolveReason.trim()}`,
           type: 'devolvido_operacao',
           author: currentUser?.name || currentUser?.email,
           authorId: currentUser?.id || currentUser?.uid,
           authorEmail: currentUser?.email || null,
           createdAt: new Date().toISOString()
+        })
+      }
+      if (onAddNotification) {
+        await onAddNotification({
+          type: 'nova_tarefa',
+          message: `QA devolveu para reteste da Operação: "${task.title}"`,
+          author: currentUser?.name || currentUser?.email,
+          authorEmail: currentUser?.email || null,
+          targetRole: 'operacao'
         })
       }
       onClose()
@@ -769,15 +783,27 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
     try {
       const updates = { status: newStatus }
       updates.reviewStage = reviewStage || null
+      // Atualizar workspace automaticamente conforme destino
+      if (newStatus === 'in_review' && reviewStage === 'qa') updates.workspace = 'qa'
+      else if (newStatus === 'in_review' && reviewStage === 'operacao') updates.workspace = 'operacao'
       await onUpdateTask(task.id, updates)
       if (onAddNotification) {
         const author = currentUser?.name || currentUser?.email || 'Usuário'
         if (newStatus === 'in_review' && reviewStage === 'qa') {
-          await onAddNotification({
-            type: 'nova_tarefa',
-            message: `${author} enviou para revisão do QA: "${task.title}"`,
-            author, authorEmail: currentUser?.email || null, targetRole: 'qa'
-          })
+          // Diferenciar: Op reprovando reteste vs Dev enviando para QA
+          if (task.reviewStage === 'operacao') {
+            await onAddNotification({
+              type: 'reprovado_reteste',
+              message: `Operação reprovou e devolveu para o QA: "${task.title}"`,
+              author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+            })
+          } else {
+            await onAddNotification({
+              type: 'nova_tarefa',
+              message: `${author} enviou para revisão do QA: "${task.title}"`,
+              author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+            })
+          }
         } else if (newStatus === 'in_review' && reviewStage === 'operacao') {
           await onAddNotification({
             type: 'aprovado_reteste',
@@ -789,17 +815,7 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
           if (assigneeUser) {
             await onAddNotification({
               type: 'aprovado_reteste',
-              message: `Tarefa aprovada por ${author}: "${task.title}"`,
-              author, authorEmail: currentUser?.email || null,
-              targetUserId: assigneeUser.id, targetEmail: assigneeUser.email
-            })
-          }
-        } else if (newStatus === 'in_progress') {
-          const assigneeUser = users.find(u => u.id === task.assignee)
-          if (assigneeUser) {
-            await onAddNotification({
-              type: 'reprovado_reteste',
-              message: `Tarefa reprovada por ${author}: "${task.title}"`,
+              message: `Reteste aprovado por ${author}: "${task.title}"`,
               author, authorEmail: currentUser?.email || null,
               targetUserId: assigneeUser.id, targetEmail: assigneeUser.email
             })
@@ -810,6 +826,29 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
       alert('Erro ao atualizar status. Tente novamente.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleReprovarReteste = async () => {
+    if (!onUpdateTask) return
+    setSending(true)
+    try {
+      // Reprovar reteste devolve para triagem do QA
+      await onUpdateTask(task.id, { status: 'pending', workspace: 'qa', reviewStage: null })
+      if (onAddNotification) {
+        const author = currentUser?.name || currentUser?.email || 'Usuário'
+        await onAddNotification({
+          type: 'reprovado_reteste',
+          message: `Operação reprovou reteste e devolveu para triagem do QA: "${task.title}"`,
+          author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+        })
+      }
+      onClose()
+    } catch (error) {
+      console.error('Erro ao reprovar reteste:', error)
+      alert('Erro ao reprovar reteste. Tente novamente.')
     } finally {
       setSending(false)
     }
@@ -827,6 +866,8 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
+  const showRetestOpActions = isStandaloneTask && isOp &&
+    task.status === 'in_review' && task.reviewStage === 'aguardando_reteste_op'
   const showQATriageActions = isQA &&
     task.workspace === 'qa' &&
     task.status === 'pending'
@@ -1380,11 +1421,29 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
                   Aprovar
                 </button>
                 <button
-                  onClick={() => handleUpdateStatus('in_progress')}
+                  onClick={() => handleUpdateStatus('in_review', 'qa')}
                   disabled={sending}
                   className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-sm"
                 >
-                  Reprovar
+                  Reprovar (devolver ao QA)
+                </button>
+              </>
+            )}
+            {showRetestOpActions && (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus('done')}
+                  disabled={sending}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+                >
+                  ✓ Aprovar Reteste → Concluir
+                </button>
+                <button
+                  onClick={handleReprovarReteste}
+                  disabled={sending}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-sm"
+                >
+                  Reprovar Reteste
                 </button>
               </>
             )}

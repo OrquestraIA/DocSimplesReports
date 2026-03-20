@@ -340,19 +340,29 @@ export default function TaskViewModal({
           createdAt: new Date().toISOString()
         }])
       }
-      // Salvar também no task.comments
+      // Salvar no task.comments (com mídia)
       if (onAddComment) {
         await onAddComment(task.id, {
-          text: `QA devolveu para Operação: ${devolveReason.trim()}`,
+          text: `QA devolveu para Operação para reteste: ${devolveReason.trim()}`,
           type: 'devolvido_operacao',
           author,
           authorId: currentUser?.id || currentUser?.uid,
           authorEmail: currentUser?.email || null,
+          media: devolveScreenshots,
           createdAt: new Date().toISOString()
         })
       }
-      await onUpdateTask(task.id, { workspace: 'operacao', reviewStage: 'nao_pertinente', status: 'pending' })
-      toast.success('Tarefa devolvida para Operação.')
+      await onUpdateTask(task.id, { workspace: 'operacao', reviewStage: 'aguardando_reteste_op', status: 'pending' })
+      if (onAddNotification) {
+        await onAddNotification({
+          type: 'nova_tarefa',
+          message: `QA devolveu para reteste da Operação: "${task.title}"`,
+          author,
+          authorEmail: currentUser?.email || null,
+          targetRole: 'operacao'
+        })
+      }
+      toast.success('Tarefa devolvida para Operação para reteste.')
       onClose()
     } catch (error) {
       console.error('Erro ao devolver tarefa:', error)
@@ -384,64 +394,79 @@ export default function TaskViewModal({
     setSubmitting(true)
     try {
       const updates = { status: newStatus }
-      if (reviewStage) updates.reviewStage = reviewStage
-      else updates.reviewStage = null
+      updates.reviewStage = reviewStage || null
+      // Atualizar workspace automaticamente conforme destino
+      if (newStatus === 'in_review' && reviewStage === 'qa') updates.workspace = 'qa'
+      else if (newStatus === 'in_review' && reviewStage === 'operacao') updates.workspace = 'operacao'
       await onUpdateTask(task.id, updates)
 
       if (onAddNotification) {
         const author = currentUser?.name || currentUser?.email || 'Usuário'
         if (newStatus === 'in_review' && reviewStage === 'qa') {
-          await onAddNotification({
-            type: 'nova_tarefa',
-            message: `${author} enviou para revisão do QA: "${task.title}"`,
-            author,
-            authorEmail: currentUser?.email || null,
-            targetRole: 'qa'
-          })
+          if (task.reviewStage === 'operacao') {
+            await onAddNotification({
+              type: 'reprovado_reteste',
+              message: `Operação reprovou e devolveu para o QA: "${task.title}"`,
+              author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+            })
+          } else {
+            await onAddNotification({
+              type: 'nova_tarefa',
+              message: `${author} enviou para revisão do QA: "${task.title}"`,
+              author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+            })
+          }
         } else if (newStatus === 'in_review' && reviewStage === 'operacao') {
           await onAddNotification({
             type: 'aprovado_reteste',
             message: `QA aprovou e enviou para Operação: "${task.title}"`,
-            author,
-            authorEmail: currentUser?.email || null,
-            targetRole: 'operacao'
+            author, authorEmail: currentUser?.email || null, targetRole: 'operacao'
           })
         } else if (newStatus === 'done') {
           const assigneeUser = users.find(u => u.id === task.assignee)
           if (assigneeUser) {
             await onAddNotification({
               type: 'aprovado_reteste',
-              message: `Tarefa aprovada por ${author}: "${task.title}"`,
-              author,
-              authorEmail: currentUser?.email || null,
-              targetUserId: assigneeUser.id,
-              targetEmail: assigneeUser.email
-            })
-          }
-        } else if (newStatus === 'in_progress') {
-          const assigneeUser = users.find(u => u.id === task.assignee)
-          if (assigneeUser) {
-            await onAddNotification({
-              type: 'reprovado_reteste',
-              message: `Tarefa reprovada por ${author}: "${task.title}"`,
-              author,
-              authorEmail: currentUser?.email || null,
-              targetUserId: assigneeUser.id,
-              targetEmail: assigneeUser.email
+              message: `Reteste aprovado por ${author}: "${task.title}"`,
+              author, authorEmail: currentUser?.email || null,
+              targetUserId: assigneeUser.id, targetEmail: assigneeUser.email
             })
           }
         }
       }
       toast.success(
-        reviewStage === 'qa' ? 'Enviado para o QA!' :
+        reviewStage === 'qa' ? 'Devolvido para o QA!' :
         reviewStage === 'operacao' ? 'Aprovado pelo QA — enviado para Operação!' :
-        newStatus === 'done' ? 'Tarefa aprovada e encerrada!' :
-        'Tarefa reprovada — devolvida ao desenvolvedor!'
+        newStatus === 'done' ? 'Reteste aprovado — tarefa concluída!' :
+        'Status atualizado!'
       )
       onClose()
     } catch (error) {
       console.error('Erro ao atualizar status:', error)
       toast.error('Erro ao atualizar status. Tente novamente.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleReprovarReteste = async () => {
+    if (!onUpdateTask) return
+    setSubmitting(true)
+    try {
+      await onUpdateTask(task.id, { status: 'pending', workspace: 'qa', reviewStage: null, assignee: task.assignee })
+      if (onAddNotification) {
+        const author = currentUser?.name || currentUser?.email || 'Usuário'
+        await onAddNotification({
+          type: 'reprovado_reteste',
+          message: `Operação reprovou reteste e devolveu para triagem do QA: "${task.title}"`,
+          author, authorEmail: currentUser?.email || null, targetRole: 'qa'
+        })
+      }
+      toast.success('Reteste reprovado — tarefa devolvida ao QA.')
+      onClose()
+    } catch (error) {
+      console.error('Erro ao reprovar reteste:', error)
+      toast.error('Erro ao reprovar reteste. Tente novamente.')
     } finally {
       setSubmitting(false)
     }
@@ -459,10 +484,26 @@ export default function TaskViewModal({
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
+  const showRetestOpActions = isStandaloneTask && isOp &&
+    task.reviewStage === 'aguardando_reteste_op'
   // Triagem QA: qualquer tarefa no workspace QA aguardando distribuição
   const showQATriageActions = isQA &&
     task.workspace === 'qa' &&
     task.status === 'pending'
+
+  // DEBUG TEMPORÁRIO — remover após diagnóstico
+  console.log('[TaskViewModal] DEBUG', {
+    role,
+    isOp,
+    isStandaloneTask,
+    status: task.status,
+    reviewStage: task.reviewStage,
+    workspace: task.workspace,
+    showRetestOpActions,
+    showOpActions,
+    showQAActions,
+    showQATriageActions
+  })
   const devUsers = (users || []).filter(u => u.role === 'desenvolvedor')
   const isAdmin = role === 'admin'
   const canMover = isAdmin || isQA || isOp
@@ -528,6 +569,11 @@ export default function TaskViewModal({
                   {task.reviewStage === 'para_correcao' && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                       ⚠️ Para Correção
+                    </span>
+                  )}
+                  {task.reviewStage === 'aguardando_reteste_op' && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                      🔄 Aguardando Reteste
                     </span>
                   )}
                   {sourceData.jiraKey && (
@@ -797,7 +843,31 @@ export default function TaskViewModal({
                       <div className="text-sm text-gray-700 dark:text-gray-300">
                         {renderTextWithMentions(comment.text, users)}
                       </div>
-                      
+
+                      {/* Mídia do comentário (vídeos/imagens anexados) */}
+                      {comment.media?.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {comment.media.map((m, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => onViewMedia(comment.media.map(x => ({ url: x.url, type: x.type || 'image', name: x.name })), idx)}
+                              className="relative cursor-pointer"
+                            >
+                              {m.type === 'video' ? (
+                                <div className="relative w-20 h-16">
+                                  <video src={m.url} className="w-20 h-16 object-cover rounded-lg border border-gray-200 dark:border-slate-600" />
+                                  <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center">
+                                    <Play className="w-5 h-5 text-white" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <img src={m.url} alt={m.name || `mídia ${idx + 1}`} className="w-20 h-16 object-cover rounded-lg border border-gray-200 dark:border-slate-600 hover:opacity-80" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Reações */}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {comment.reactions?.length > 0 && (
@@ -1154,11 +1224,29 @@ export default function TaskViewModal({
                   Aprovar
                 </button>
                 <button
-                  onClick={() => handleUpdateStatus('in_progress')}
+                  onClick={() => handleUpdateStatus('in_review', 'qa')}
                   disabled={submitting}
                   className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
                 >
-                  Reprovar
+                  Reprovar (devolver ao QA)
+                </button>
+              </>
+            )}
+            {showRetestOpActions && (
+              <>
+                <button
+                  onClick={() => handleUpdateStatus('done')}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
+                >
+                  ✓ Aprovar Reteste → Concluir
+                </button>
+                <button
+                  onClick={handleReprovarReteste}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                >
+                  Reprovar Reteste
                 </button>
               </>
             )}
