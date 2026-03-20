@@ -723,14 +723,25 @@ export default function TutorialPage() {
         },
         {
           title: 'Abrindo Novas Tarefas',
-          description: 'Nos espaços Operação e QA, clique em "Nova Tarefa" para criar bugs, melhorias ou regras de negócio.',
+          description: 'Nos espaços Operação e QA, clique em "Nova Tarefa" para criar bugs, melhorias, regras de negócio ou testes de jornada.',
           important: true,
           tip: 'Anexe prints e vídeos como evidência diretamente na tarefa.'
         },
         {
           title: 'Tipos de Tarefa',
-          description: 'Escolha entre: Bug (erro encontrado), Melhoria (sugestão) ou Regra de Negócio (ajuste em requisito).',
+          description: 'Escolha entre: Bug (erro encontrado), Melhoria (sugestão), Regra de Negócio (ajuste em requisito) ou Teste de Jornada (validação de fluxo completo do usuário).',
           tip: 'Para bugs, informe os passos para reproduzir e resultado esperado vs atual.'
+        },
+        {
+          title: 'Teste de Jornada — Como Usar',
+          description: 'Selecione o tipo "Teste de Jornada" ao abrir uma tarefa na Operação. Um campo extra aparecerá para informar a URL da tela testada. A tarefa vai direto para a coluna "Jornada - Triagem" no espaço QA.',
+          important: true,
+          tip: 'Tarefas de jornada têm colunas próprias em todos os espaços e não se misturam com as tarefas comuns na Triagem.'
+        },
+        {
+          title: 'Fluxo da Jornada — QA devolve para Operação',
+          description: 'Se o QA devolver uma tarefa de jornada para reteste, ela aparece na coluna "Jornada - Aguardando Reteste" do espaço Operação — separada das demais tarefas em reteste.',
+          tip: 'Use a coluna Jornada - Em Reteste no QA para acompanhar jornadas que voltaram para validação.'
         },
         {
           title: 'Visualização Kanban vs Lista',

@@ -960,10 +960,12 @@ export default function WorkspaceBoard({
           : task[list.statusField] === list.statusValue
         const notExcluded = !list.excludeField || !list.excludeValues ||
           !list.excludeValues.includes(task[list.excludeField])
+        const matchesAdditional = !list.additionalFilter ||
+          task[list.additionalFilter.field] === list.additionalFilter.value
         const matchesSearch = !searchTerm ||
           task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.description?.toLowerCase().includes(searchTerm.toLowerCase())
-        return matchesStatus && notExcluded && matchesSearch
+        return matchesStatus && notExcluded && matchesAdditional && matchesSearch
       })
     } else if (list.type === 'testDocuments') {
       return testDocuments.filter(doc => {

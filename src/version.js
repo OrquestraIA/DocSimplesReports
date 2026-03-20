@@ -1,8 +1,31 @@
 // Sistema de Versionamento do TestWise
 
-export const APP_VERSION = '2.8.0'
+export const APP_VERSION = '2.9.0'
 
 export const CHANGELOG = [
+  {
+    version: '2.9.0',
+    date: '2026-03-20',
+    title: 'Teste de Jornada nos Espaços de Trabalho',
+    changes: [
+      {
+        type: 'feature',
+        description: '🗺️ Novo tipo de tarefa "Teste de Jornada" — disponível ao abrir tarefas no espaço da Operação, com campo específico para informar a URL da tela testada'
+      },
+      {
+        type: 'feature',
+        description: '📋 Colunas dedicadas para Jornada no espaço QA — "Jornada - Triagem" e "Jornada - Em Reteste" isolam tarefas de jornada das demais'
+      },
+      {
+        type: 'feature',
+        description: '🔁 Coluna "Jornada - Aguardando Reteste" no espaço Operação — tarefas de jornada devolvidas pelo QA aparecem separadas das tarefas comuns'
+      },
+      {
+        type: 'bugfix',
+        description: '🔢 Contadores da sidebar corrigidos — colunas com filtro adicional (ex: Jornada) agora exibem apenas a contagem dos itens corretos'
+      }
+    ]
+  },
   {
     version: '2.8.0',
     date: '2026-03-19',

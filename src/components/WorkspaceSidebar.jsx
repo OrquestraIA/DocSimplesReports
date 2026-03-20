@@ -34,7 +34,8 @@ const WORKSPACES = [
     description: 'Homologação e validação',
     lists: [
       { id: 'tarefas_pendentes', name: 'Tarefas Pendentes', type: 'tasks', statusField: 'status', statusValue: 'pending', excludeField: 'reviewStage', excludeValues: ['aguardando_reteste_op', 'nao_pertinente'], icon: Clock, color: 'yellow' },
-      { id: 'tarefas_para_reteste', name: 'Tarefas - Aguardando Reteste', type: 'tasks', statusField: 'reviewStage', statusValues: ['aguardando_reteste_op', 'nao_pertinente'], icon: RotateCcw, color: 'orange' },
+      { id: 'tarefas_para_reteste', name: 'Tarefas - Aguardando Reteste', type: 'tasks', statusField: 'reviewStage', statusValues: ['aguardando_reteste_op', 'nao_pertinente'], excludeField: 'type', excludeValues: ['journey_test'], icon: RotateCcw, color: 'orange' },
+      { id: 'jornada_para_reteste_op', name: 'Jornada - Aguardando Reteste', type: 'tasks', statusField: 'reviewStage', statusValues: ['aguardando_reteste_op'], additionalFilter: { field: 'type', value: 'journey_test' }, icon: Map, color: 'purple' },
       { id: 'tarefas_op_concluidas', name: 'Tarefas Concluídas', type: 'tasks', statusField: 'status', statusValue: 'done', icon: CheckCircle2, color: 'green' },
       { id: 'para_teste_homolog', name: 'Para Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Para_Teste_Homolog', icon: Clock, color: 'cyan' },
       { id: 'em_teste_homolog', name: 'Em Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Em Teste', icon: Play, color: 'blue' },
@@ -77,7 +78,7 @@ const WORKSPACES = [
     color: 'green',
     description: 'Testes e qualidade',
     lists: [
-      { id: 'tarefas_triagem_qa', name: 'Triagem', type: 'tasks', statusField: 'status', statusValue: 'pending', icon: Filter, color: 'orange' },
+      { id: 'tarefas_triagem_qa', name: 'Triagem', type: 'tasks', statusField: 'status', statusValue: 'pending', excludeField: 'type', excludeValues: ['journey_test'], icon: Filter, color: 'orange' },
       { id: 'docs_pendentes', name: 'Docs Pendentes', type: 'testDocuments', statusField: 'status', statusValue: 'pendente', icon: Clock, color: 'yellow' },
       { id: 'docs_em_reteste', name: 'Docs Em Reteste', type: 'testDocuments', statusField: 'status', statusValues: ['em_reteste', 'em-reteste'], icon: RotateCcw, color: 'orange' },
       { id: 'para_teste_qa', name: 'Para Teste', type: 'requirements', statusField: 'statusQADev', statusValue: 'Para_Teste_QA', icon: Clock, color: 'cyan' },
@@ -86,8 +87,8 @@ const WORKSPACES = [
       { id: 'aprovado_qa', name: 'Aprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Aprovado', icon: CheckCircle2, color: 'green' },
       { id: 'reprovado_qa', name: 'Reprovados', type: 'requirements', statusField: 'statusQADev', statusValue: 'Reprovado', icon: AlertCircle, color: 'red' },
       { id: 'duvida_qa', name: 'Dúvida', type: 'requirements', statusField: 'statusQADev', statusValue: 'Dúvida', icon: HelpCircle, color: 'pink' },
-      { id: 'jornada_triagem_qa', name: 'Jornada - Triagem', type: 'testDocuments', statusField: 'status', statusValue: 'pendente', additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'purple' },
-      { id: 'jornada_em_reteste_qa', name: 'Jornada - Em Reteste', type: 'testDocuments', statusField: 'status', statusValues: ['em_reteste', 'em-reteste'], additionalFilter: { field: 'documentTipo', value: 'jornada' }, icon: Map, color: 'orange' },
+      { id: 'jornada_triagem_qa', name: 'Jornada - Triagem', type: 'tasks', statusField: 'status', statusValue: 'pending', additionalFilter: { field: 'type', value: 'journey_test' }, icon: Map, color: 'purple' },
+      { id: 'jornada_em_reteste_qa', name: 'Jornada - Em Reteste', type: 'tasks', statusField: 'reviewStage', statusValues: ['aguardando_reteste_op'], additionalFilter: { field: 'type', value: 'journey_test' }, icon: Map, color: 'orange' },
     ]
   }
 ]
@@ -190,16 +191,25 @@ export default function WorkspaceSidebar({
   const getListCount = (list, workspaceId) => {
     if (list.type === 'tasks') {
       return tasks.filter(task => {
-        if (task.workspace && task.workspace !== workspaceId) {
-          return false
-        }
-        return task[list.statusField] === list.statusValue
+        if (task.workspace && task.workspace !== workspaceId) return false
+        const matchesStatus = list.statusValues
+          ? list.statusValues.includes(task[list.statusField])
+          : task[list.statusField] === list.statusValue
+        const notExcluded = !list.excludeField || !list.excludeValues ||
+          !list.excludeValues.includes(task[list.excludeField])
+        const matchesAdditional = !list.additionalFilter ||
+          task[list.additionalFilter.field] === list.additionalFilter.value
+        return matchesStatus && notExcluded && matchesAdditional
       }).length
     } else if (list.type === 'testDocuments') {
-      if (list.statusValues) {
-        return testDocuments.filter(doc => list.statusValues.includes(doc[list.statusField])).length
-      }
-      return testDocuments.filter(doc => doc[list.statusField] === list.statusValue).length
+      return testDocuments.filter(doc => {
+        const matchesStatus = list.statusValues
+          ? list.statusValues.includes(doc[list.statusField])
+          : doc[list.statusField] === list.statusValue
+        const matchesAdditional = !list.additionalFilter ||
+          doc[list.additionalFilter.field] === list.additionalFilter.value
+        return matchesStatus && matchesAdditional
+      }).length
     } else {
       // requirements (default)
       return requirements.filter(req => req[list.statusField] === list.statusValue).length

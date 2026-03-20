@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  X, 
-  Save, 
-  Upload, 
-  Image, 
+import {
+  X,
+  Save,
+  Upload,
+  Image,
   Video,
-  Trash2, 
-  Loader2, 
-  Bug, 
-  Lightbulb, 
+  Trash2,
+  Loader2,
+  Bug,
+  Lightbulb,
   FileText,
   AlertTriangle,
   User,
-  Flag
+  Flag,
+  Route,
+  Link
 } from 'lucide-react'
 import { uploadScreenshot } from '../firebase'
 import UploadLoading from './UploadLoading'
@@ -22,6 +24,7 @@ const TASK_TYPES = [
   { value: 'bug', label: 'Bug', icon: Bug, color: 'red', description: 'Erro encontrado durante os testes' },
   { value: 'improvement', label: 'Melhoria', icon: Lightbulb, color: 'cyan', description: 'Sugestão de melhoria' },
   { value: 'business_rule', label: 'Regra de Negócio', icon: FileText, color: 'purple', description: 'Ajuste em regra de negócio' },
+  { value: 'journey_test', label: 'Teste de Jornada', icon: Route, color: 'green', description: 'Validação de fluxo completo do usuário' },
 ]
 
 const PRIORITY_OPTIONS = [
@@ -50,6 +53,7 @@ export default function CreateTaskModal({
     steps: '',
     expectedResult: '',
     actualResult: '',
+    testedUrl: '',
   })
   const [media, setMedia] = useState([])
   const [attachments, setAttachments] = useState([])
@@ -71,6 +75,7 @@ export default function CreateTaskModal({
         steps: editingTask.steps || '',
         expectedResult: editingTask.expectedResult || '',
         actualResult: editingTask.actualResult || '',
+        testedUrl: editingTask.testedUrl || '',
       })
       setMedia(editingTask.screenshots || [])
       // Buscar attachments no campo direto ou em sourceData.evidences (fallback para tarefas antigas)
@@ -85,6 +90,7 @@ export default function CreateTaskModal({
         steps: '',
         expectedResult: '',
         actualResult: '',
+        testedUrl: '',
       })
       setMedia([])
       setAttachments([])
@@ -192,6 +198,7 @@ export default function CreateTaskModal({
         steps: '',
         expectedResult: '',
         actualResult: '',
+        testedUrl: '',
       })
       setMedia([])
       setAttachments([])
@@ -241,7 +248,7 @@ export default function CreateTaskModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Tipo de Tarefa *
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {TASK_TYPES.map(type => {
                 const Icon = type.icon
                 const isSelected = formData.type === type.value
@@ -336,6 +343,24 @@ export default function CreateTaskModal({
               className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
+
+          {/* URL da Tela Testada (somente para Teste de Jornada) */}
+          {formData.type === 'journey_test' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Link className="w-4 h-4 inline mr-1" />
+                URL da Tela Testada
+              </label>
+              <input
+                type="url"
+                name="testedUrl"
+                value={formData.testedUrl}
+                onChange={handleChange}
+                placeholder="https://..."
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+          )}
 
           {/* Passos para Reproduzir (para todos os tipos de tarefa) */}
           <div>
