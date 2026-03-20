@@ -485,7 +485,7 @@ export default function TaskViewModal({
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
   const showRetestOpActions = isStandaloneTask && isOp &&
-    task.reviewStage === 'aguardando_reteste_op'
+    (task.reviewStage === 'aguardando_reteste_op' || task.reviewStage === 'nao_pertinente')
   // Triagem QA: qualquer tarefa no workspace QA aguardando distribuição
   const showQATriageActions = isQA &&
     task.workspace === 'qa' &&

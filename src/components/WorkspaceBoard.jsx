@@ -951,7 +951,9 @@ export default function WorkspaceBoard({
         if (task.workspace && task.workspace !== selectedWorkspace) {
           return false
         }
-        const matchesStatus = task[list.statusField] === list.statusValue
+        const matchesStatus = list.statusValues
+          ? list.statusValues.includes(task[list.statusField])
+          : task[list.statusField] === list.statusValue
         const matchesSearch = !searchTerm ||
           task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.description?.toLowerCase().includes(searchTerm.toLowerCase())
