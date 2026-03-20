@@ -69,6 +69,7 @@ export default function SprintsPage({
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
+  const [filterDocTipo, setFilterDocTipo] = useState('')
   const [showSprintModal, setShowSprintModal] = useState(false)
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [editingSprint, setEditingSprint] = useState(null)
@@ -141,9 +142,12 @@ export default function SprintsPage({
     if (filterType) filtered = filtered.filter(t => t.type === filterType)
     if (filterStatus) filtered = filtered.filter(t => t.status === filterStatus)
     if (filterPriority) filtered = filtered.filter(t => t.priority === filterPriority)
-    
+    if (filterDocTipo) filtered = filtered.filter(t =>
+      t.documentTipo === filterDocTipo || t.sourceData?.documentTipo === filterDocTipo
+    )
+
     return filtered
-  }, [enrichedTasks, backlogTasks, activeTab, selectedSprint, searchTerm, filterType, filterStatus, filterPriority])
+  }, [enrichedTasks, backlogTasks, activeTab, selectedSprint, searchTerm, filterType, filterStatus, filterPriority, filterDocTipo])
 
   // Estatísticas - mostrar apenas tarefas relevantes para a aba/sprint atual
   const stats = useMemo(() => {
@@ -287,9 +291,10 @@ export default function SprintsPage({
     setFilterType('')
     setFilterStatus('')
     setFilterPriority('')
+    setFilterDocTipo('')
   }
 
-  const hasFilters = searchTerm || filterType || filterStatus || filterPriority
+  const hasFilters = searchTerm || filterType || filterStatus || filterPriority || filterDocTipo
 
   return (
     <div className="space-y-6">
@@ -503,6 +508,15 @@ export default function SprintsPage({
                 {Object.entries(PRIORITY_COLORS).map(([key, val]) => (
                   <option key={key} value={key}>{val.label}</option>
                 ))}
+              </select>
+              <select
+                value={filterDocTipo}
+                onChange={(e) => setFilterDocTipo(e.target.value)}
+                className="input-field"
+              >
+                <option value="">Todos os Documentos</option>
+                <option value="requisito">Testes de Requisito</option>
+                <option value="jornada">Testes de Jornada</option>
               </select>
               {hasFilters && (
                 <button onClick={clearFilters} className="btn-secondary whitespace-nowrap">

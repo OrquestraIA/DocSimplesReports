@@ -963,14 +963,16 @@ export default function WorkspaceBoard({
       })
     } else if (list.type === 'testDocuments') {
       return testDocuments.filter(doc => {
-        const matchesStatus = list.statusValues 
+        const matchesStatus = list.statusValues
           ? list.statusValues.includes(doc[list.statusField])
           : doc[list.statusField] === list.statusValue
-        const matchesSearch = !searchTerm || 
+        const matchesAdditional = !list.additionalFilter ||
+          doc[list.additionalFilter.field] === list.additionalFilter.value
+        const matchesSearch = !searchTerm ||
           doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           doc.feature?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           doc.requirement?.toLowerCase().includes(searchTerm.toLowerCase())
-        return matchesStatus && matchesSearch
+        return matchesStatus && matchesAdditional && matchesSearch
       })
     } else {
       // requirements (default)

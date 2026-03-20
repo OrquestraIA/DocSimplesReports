@@ -34,6 +34,7 @@ export default function TestRegistrationPage({ onSave }) {
     status: 'pendente',
     tester: '',
     environment: '',
+    documentTipo: 'requisito', // 'requisito' | 'jornada'
     category: '', // 'regra_negocio', 'bug', 'melhoria'
     errorType: '',
     improvement: '',
@@ -424,6 +425,20 @@ export default function TestRegistrationPage({ onSave }) {
                 placeholder="Nome do testador"
                 required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Documento
+              </label>
+              <select
+                name="documentTipo"
+                value={formData.documentTipo}
+                onChange={handleChange}
+                className="input-field"
+              >
+                <option value="requisito">Teste de Requisito</option>
+                <option value="jornada">Teste de Jornada</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
