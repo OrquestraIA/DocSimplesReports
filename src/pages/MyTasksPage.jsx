@@ -866,7 +866,7 @@ function TaskViewModal({ task, sprints, users, currentUser, testDocuments = [], 
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
-  const showRetestOpActions = isStandaloneTask && isOp &&
+  const showRetestOpActions = isOp &&
     (task.reviewStage === 'aguardando_reteste_op' || task.reviewStage === 'nao_pertinente')
   const showQATriageActions = isQA &&
     task.workspace === 'qa' &&

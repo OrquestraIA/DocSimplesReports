@@ -1963,7 +1963,7 @@ function TaskViewModal({ task, users, onClose, onEdit, onViewMedia, onAddComment
     task.status === 'in_review' && task.reviewStage === 'qa'
   const showOpActions = isStandaloneTask && isOp &&
     task.status === 'in_review' && task.reviewStage === 'operacao'
-  const showRetestOpActions = isStandaloneTask && isOp &&
+  const showRetestOpActions = isOp &&
     (task.reviewStage === 'aguardando_reteste_op' || task.reviewStage === 'nao_pertinente')
 
   const handleReprovarReteste = async () => {
