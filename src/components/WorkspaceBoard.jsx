@@ -954,10 +954,12 @@ export default function WorkspaceBoard({
         const matchesStatus = list.statusValues
           ? list.statusValues.includes(task[list.statusField])
           : task[list.statusField] === list.statusValue
+        const notExcluded = !list.excludeField || !list.excludeValues ||
+          !list.excludeValues.includes(task[list.excludeField])
         const matchesSearch = !searchTerm ||
           task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           task.description?.toLowerCase().includes(searchTerm.toLowerCase())
-        return matchesStatus && matchesSearch
+        return matchesStatus && notExcluded && matchesSearch
       })
     } else if (list.type === 'testDocuments') {
       return testDocuments.filter(doc => {

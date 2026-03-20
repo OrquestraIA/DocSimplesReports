@@ -32,8 +32,8 @@ const WORKSPACES = [
     color: 'indigo',
     description: 'Homologação e validação',
     lists: [
-      { id: 'tarefas_pendentes', name: 'Tarefas Pendentes', type: 'tasks', statusField: 'status', statusValue: 'pending', icon: Clock, color: 'yellow' },
-      { id: 'tarefas_para_reteste', name: 'Tarefas Para Reteste', type: 'tasks', statusField: 'reviewStage', statusValues: ['aguardando_reteste_op', 'nao_pertinente'], icon: RotateCcw, color: 'orange' },
+      { id: 'tarefas_pendentes', name: 'Tarefas Pendentes', type: 'tasks', statusField: 'status', statusValue: 'pending', excludeField: 'reviewStage', excludeValues: ['aguardando_reteste_op', 'nao_pertinente'], icon: Clock, color: 'yellow' },
+      { id: 'tarefas_para_reteste', name: 'Tarefas - Aguardando Reteste', type: 'tasks', statusField: 'reviewStage', statusValues: ['aguardando_reteste_op', 'nao_pertinente'], icon: RotateCcw, color: 'orange' },
       { id: 'tarefas_op_concluidas', name: 'Tarefas Concluídas', type: 'tasks', statusField: 'status', statusValue: 'done', icon: CheckCircle2, color: 'green' },
       { id: 'para_teste_homolog', name: 'Para Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Para_Teste_Homolog', icon: Clock, color: 'cyan' },
       { id: 'em_teste_homolog', name: 'Em Teste', type: 'requirements', statusField: 'statusHomolog', statusValue: 'Em Teste', icon: Play, color: 'blue' },
